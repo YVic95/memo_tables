@@ -15,6 +15,10 @@ from models.language import Language
 from models.entity_embeddings import EntityEmbedding
 from models.expressions import Expression
 from models.topics import Topic
+from models.word_categories import WordCategory
+from models.base_words import BaseWord
+from models.grammar_rules import GrammarRule
+from models.sentences import Sentence
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
