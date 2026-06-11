@@ -1,4 +1,9 @@
-# models/language.py
+# creates a Language model. 
+# Fields: 
+# id (UUID), 
+# code (string), 
+# name (string)
+
 import uuid
 from sqlalchemy import Column, String
 from sqlalchemy.dialects.postgresql import UUID
