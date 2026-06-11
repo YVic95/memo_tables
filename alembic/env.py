@@ -9,8 +9,12 @@ import os
 from dotenv import load_dotenv
 from pgvector.sqlalchemy import Vector
 from database import Base
+
+# Alembic models
 from models.language import Language
 from models.entity_embeddings import EntityEmbedding
+from models.expressions import Expression
+from models.topics import Topic
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
