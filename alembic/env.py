@@ -28,6 +28,8 @@ from models.word_translations import WordTranslation
 from models.grammar_rule_translations import GrammarRuleTranslation
 from models.word_rule_assignments import WordRuleAssignment
 from models.grammar_rule_rows import GrammarRuleRow
+from models.grammar_rule_row_translations import GrammarRuleRowTranslation
+from models.word_forms import WordForm
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
