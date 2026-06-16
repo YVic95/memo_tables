@@ -24,6 +24,8 @@ from models.expression_topics import ExpressionTopic
 from models.sentence_translations import SentenceTranslation
 from models.topic_translations import TopicTranslation
 from models.base_word_topics import BaseWordTopic
+from models.word_translations import WordTranslation
+from models.grammar_rule_translations import GrammarRuleTranslation
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
