@@ -1,5 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from dotenv import load_dotenv
 import os
 
@@ -12,6 +14,9 @@ app = FastAPI(
     version="1.0",
     description="App for learning a language using memo tables"
 )
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
 
 app.include_router(auth_router)
 
@@ -33,6 +38,15 @@ from routers.auth import get_current_user
 def me(user: Annotated[dict, Depends(get_current_user)]):
     return user
 # test
+
+# Login page route
+@app.get("/login")
+async def login_page(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="login.html",
+        context={}
+    )
 
 @app.get("/")
 async def root():

@@ -12,3 +12,4 @@ wheels/
 useful_commands.py
 .env
 supabase/snippets/
+.DS_Store
