@@ -3,15 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmx-config" content='{"responseHandling":[
+        {"code":"204","swap":false},
+        {"code":"[23]..","swap":true},
+        {"code":"401","swap":true,"error":false},
+        {"code":"[45]..","swap":false,"error":true}
+    ]}'>
     <title>Login</title>
     <script src="/static/htmx.min.js"></script>
+    <script src="/static/htmx-json-enc.js"></script>
     <link rel="stylesheet" href="/static/css/login.css">
 </head>
 <body class="login-page-body">
     <div class="login-container">
         <h1 class="login-title">Login</h1>
         <div class="login-form">
-            <form>
+            <form hx-post="/auth/login" hx-ext="json-enc" hx-target="#login-error" hx-swap="innerHTML">
                 <div class="form-group">
                     <label for="email">Email</label>
                     <input type="email" id="email" name="email" placeholder="Enter your email" required>
@@ -21,6 +28,7 @@
                     <input type="password" id="password" name="password" placeholder="Enter your password" required>
                 </div>
                 <button type="submit">Login</button>
+                <div id="login-error" class="login-error"></div>
             </form>
         </div>
     </div>

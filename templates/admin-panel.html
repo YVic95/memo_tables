@@ -3,14 +3,14 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Login</title>
+        <title>Admin</title>
         <script src="/static/htmx.min.js"></script>
         <link rel="stylesheet" href="/static/css/login.css">
     </head>
     <body class="admin-panel-body">
         <div class="admin-panel-container">
             <header class="admin-header">
-                <h1 class="admin-panel">Welcome to the Admin Panel, {{user.user_name}}!</h1>
+                <h1 class="admin-panel">Welcome to the Admin Panel, {{ user.email.split('@')[0] }}!</h1>
             </header>
             <nav class="sidebar">
                     <ul>
