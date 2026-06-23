@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Login</title>
+        <script src="/static/htmx.min.js"></script>
+        <link rel="stylesheet" href="/static/css/login.css">
+    </head>
+    <body class="admin-panel-body">
+        <div class="admin-panel-container">
+            <header class="admin-header">
+                <h1 class="admin-panel">Welcome to the Admin Panel, {{user.user_name}}!</h1>
+            </header>
+            <nav class="sidebar">
+                    <ul>
+                        <li><a href="#">Fake li 1</a></li>
+                        <li><a href="#">Fake li 2</a></li>
+                        <li><a href="#">Fake li 3</a></li>
+                        <li><a href="#">Fake li 4</a></li>
+                    </ul>
+                </nav>
+            <main>
+                <section id="dashboard" aria-labelledby="dashboard-heading">
+                    <h1 id="dashboard-heading">Dashboard</h1>
+                    <div>
+                        Here will be the content
+                    </div>
+                </section>
+            </main>
+            <footer></footer>
+        </div>
+    </body>
+</html>
