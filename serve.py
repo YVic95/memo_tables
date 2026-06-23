@@ -48,6 +48,19 @@ async def login_page(request: Request):
         context={}
     )
 
+def get_admin_panel_user():
+    # TODO: replace with real auth/session lookup
+    return {"user_name": "admin_user"}
+
+# Main admin page
+@app.get("/admin-panel")
+async def admin_panel(request: Request, user: dict = Depends(get_admin_panel_user)):
+    return templates.TemplateResponse(
+        request=request,
+        name="admin-panel.html",
+        context={"user": user}
+    )
+
 @app.get("/")
 async def root():
     return {"message": "Welcome to the Memo Tables App!"}
