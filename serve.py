@@ -3,6 +3,10 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from dotenv import load_dotenv
+from routers.auth import require_admin
+from fastapi.responses import RedirectResponse
+from fastapi.exceptions import HTTPException as FastAPIHTTPException
+from fastapi.responses import JSONResponse
 import os
 
 load_dotenv()
@@ -48,17 +52,24 @@ async def login_page(request: Request):
         context={}
     )
 
-def get_admin_panel_user():
-    # TODO: replace with real auth/session lookup
-    return {"user_name": "admin_user"}
-
 # Main admin page
 @app.get("/admin-panel")
-async def admin_panel(request: Request, user: dict = Depends(get_admin_panel_user)):
+async def admin_panel(request: Request, user: Annotated[dict, Depends(require_admin)]):
     return templates.TemplateResponse(
         request=request,
         name="admin-panel.html",
         context={"user": user}
+    )
+
+# redirect to the login if cookie is expired
+@app.exception_handler(FastAPIHTTPException)
+async def redirect_unauthenticated(request: Request, exc: FastAPIHTTPException):
+    if exc.status_code in (401, 403) and not request.url.path.startswith("/auth"):
+        return RedirectResponse(url="/login")
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+        headers=exc.headers,
     )
 
 @app.get("/")
