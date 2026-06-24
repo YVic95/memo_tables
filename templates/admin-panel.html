@@ -8,25 +8,35 @@
         <link rel="stylesheet" href="/static/css/admin-panel.css">
         <link rel="stylesheet" href="/static/css/typography.css">
     </head>
+    <div id="loader" class="htmx-indicator">
+        Loading...
+    </div>
     <body class="admin-panel-body">
         <header class="admin-header">
             <h2 class="admin-panel">Welcome to the Admin Panel, {{ user.email.split('@')[0] }}!</h2>
         </header>
         <div class="admin-panel-container">
-            <nav class="sidebar">
-                    <ul>
-                        <li><h3><a href="#">Dashboard</a></h3></li>
-                        <li><h3><a href="#">Rules</a></h3></li>
-                        <li><h3><a href="#">Words</a></h3></li>
-                        <li><h3><a href="#">Exercises</a></h3></li>
-                    </ul>
-                </nav>
+            <nav class="sidebar"
+                hx-target="#main-content"
+                hx-swap="innerHTML"
+                hx-push-url="true"
+                hx-indicator="#loader"
+            >
+                <ul>
+                    {% for section in menu_sections %}
+                    <li>
+                        <h3>
+                            <a href="{{ section.url }}" hx-get="{{ section.url }}">{{ section.label }}</a>
+                        </h3>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </nav>
             <main>
-                <section id="dashboard" aria-labelledby="dashboard-heading">
-                    <h1 id="dashboard-heading">Dashboard</h1>
-                    <div>
-                        Here will be the content
-                    </div>
+                <section id="main-content" aria-labelledby="content-heading">
+                    {% block content %}
+                        {% include "menu-sections/_dashboard_content.html" %}
+                    {% endblock %}
                 </section>
             </main>
             <footer></footer>

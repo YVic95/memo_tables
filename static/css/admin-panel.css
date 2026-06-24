@@ -51,3 +51,12 @@ section h1 {
     color: white;
     text-decoration: none;
 }
+
+.htmx-indicator {
+    display: none;
+}
+
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+    display: block;
+}

@@ -52,13 +52,60 @@ async def login_page(request: Request):
         context={}
     )
 
-# Main admin page
-@app.get("/admin-panel")
-async def admin_panel(request: Request, user: Annotated[dict, Depends(require_admin)]):
+# Helper function for rendering the content of different pages from the admin
+def render_section(
+    request: Request,
+    full_template: str,
+    fragment_template: str,
+    context: dict,
+):
+    """
+    Render an admin-panel section.
+
+    - Direct navigation / refresh / bookmark -> full page (layout + content)
+    - htmx nav click (HX-Request header present) -> the content fragment
+      that gets swapped into #main-content
+    """
+    is_htmx = request.headers.get("HX-Request") == "true"
     return templates.TemplateResponse(
         request=request,
-        name="admin-panel.html",
-        context={"user": user}
+        name=fragment_template if is_htmx else full_template,
+        context=context,
+    )
+
+
+# Main admin page
+menu_sections = [
+    {"label": "Dashboard", "url": "/admin-panel"},
+    {"label": "Languages", "url": "/admin-panel/languages"},
+    # {"label": "Rules", "url": "/admin-panel/rules"},
+    # {"label": "Words", "url": "/admin-panel/words"},
+    # {"label": "Exercises", "url": "/admin-panel/exercises"},
+]
+
+@app.get("/admin-panel")
+async def admin_panel(request: Request, user: Annotated[dict, Depends(require_admin)]):
+    return render_section(
+        request,
+        full_template="admin-panel.html",
+        fragment_template="menu-sections/_dashboard_content.html",
+        context={
+            "user": user,
+            "menu_sections": menu_sections,
+        },
+    )
+
+@app.get("/admin-panel/languages")
+async def languages_section(request: Request, user: Annotated[dict, Depends(require_admin)]):
+    return render_section(
+        request,
+        full_template="admin-panel-languages.html",
+        fragment_template="menu-sections/_languages_content.html",
+        context={
+            "user": user,
+            "menu_sections": menu_sections,
+            # "languages": await get_languages(),  # data fetch from the "available_languages" DB table 
+        },
     )
 
 # redirect to the login if cookie is expired
