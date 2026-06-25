@@ -87,3 +87,19 @@ section h1 {
 @keyframes spin {
     to { transform: rotate(360deg); }
 }
+
+ button[type="submit"]#save-language-selection,
+ #create-language-pair {
+    padding: 10px;
+    background-color: #5e6843;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+button[type="submit"]#save-language-selection:hover,
+#create-language-pair:hover {
+    background-color: #4a5235;
+}

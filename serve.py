@@ -1,12 +1,17 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends, Form
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from dotenv import load_dotenv
-from routers.auth import require_admin
+from routers.auth import require_admin, get_current_user
 from fastapi.responses import RedirectResponse
 from fastapi.exceptions import HTTPException as FastAPIHTTPException
 from fastapi.responses import JSONResponse
+from sqlalchemy.orm import Session
+from database import get_db
+from crud.languages import get_languages, create_language
+from crud.language_pairs import get_language_pairs, create_language_pair
+from typing import Annotated
 import os
 
 load_dotenv()
@@ -34,10 +39,6 @@ async def terms_of_service():
     return FileResponse(os.path.join(os.path.dirname(__file__), "docs/terms_of_service.md"), media_type="text/plain")
 
 # test
-from typing import Annotated
-from fastapi import Depends
-from routers.auth import get_current_user
-
 @app.get("/me")
 def me(user: Annotated[dict, Depends(get_current_user)]):
     return user
@@ -86,7 +87,7 @@ menu_sections = [
 @app.get("/admin-panel")
 async def admin_panel(request: Request, user: Annotated[dict, Depends(require_admin)]):
     return render_section(
-        request,
+        request = request,
         full_template="admin-panel.html",
         fragment_template="menu-sections/_dashboard_content.html",
         context={
@@ -96,15 +97,94 @@ async def admin_panel(request: Request, user: Annotated[dict, Depends(require_ad
     )
 
 @app.get("/admin-panel/languages")
-async def languages_section(request: Request, user: Annotated[dict, Depends(require_admin)]):
+async def languages_section(
+    request: Request,
+    user: Annotated[dict, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+):
     return render_section(
-        request,
+        request = request,
         full_template="admin-panel-languages.html",
         fragment_template="menu-sections/_languages_content.html",
         context={
             "user": user,
             "menu_sections": menu_sections,
-            # "languages": await get_languages(),  # data fetch from the "available_languages" DB table 
+            "languages": get_languages(db),
+            "language_pairs": get_language_pairs(db),
+        },
+    )
+
+@app.post("/admin-panel/languages/create")
+async def add_language(
+    request: Request,
+    name: Annotated[str, Form()],
+    target: Annotated[str, Form()],
+    db: Annotated[Session, Depends(get_db)],
+):
+    try:
+        new_language = create_language(db, name)
+    except ValueError as e:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/_add_language_error.html",
+            context={
+                "error": str(e),
+            },
+            status_code=400,
+        )
+
+    languages = get_languages(db)
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/_language_options.html",
+        context={
+            "languages": languages,
+            "new_id": new_language["id"],
+            "target": target,
+        },
+    )
+
+@app.get("/admin-panel/languages/modal")
+async def add_language_modal(request: Request, target: str):
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/_add_language_modal.html",
+        context={
+            "target": target,
+        },
+    )
+
+@app.post("/admin-panel/language-pairs")
+async def save_language_pair(
+    request: Request,
+    native_language_id: Annotated[str, Form()],
+    study_language_id: Annotated[str, Form()],
+    db: Annotated[Session, Depends(get_db)],
+):
+    try:
+        create_language_pair(
+            db,
+            native_language_id,
+            study_language_id,
+        )
+
+    except ValueError as e:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/_language_pair_error.html",
+            context={
+                "error": str(e),
+            },
+            status_code=400,
+        )
+
+    pairs = get_language_pairs(db)
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/_language_pairs_list.html",
+        context={
+            "language_pairs": pairs,
         },
     )
 

@@ -1,0 +1,17 @@
+<p class="success-message">Language added successfully.</p>
+
+<select hx-swap-oob="innerHTML:#native-language-select" id="native-language-select-oob">
+    <option value=""></option>
+    {% for lang in languages %}
+    <option value="{{ lang.id }}" {% if target == 'native-language-select' and lang.id == new_id %}selected{% endif %}>{{ lang.name }}</option>
+    {% endfor %}
+    <option value="__add_new__">+ Add new language...</option>
+</select>
+
+<select hx-swap-oob="innerHTML:#study-language-select" id="study-language-select-oob">
+    <option value=""></option>
+    {% for lang in languages %}
+    <option value="{{ lang.id }}" {% if target == 'study-language-select' and lang.id == new_id %}selected{% endif %}>{{ lang.name }}</option>
+    {% endfor %}
+    <option value="__add_new__">+ Add new language...</option>
+</select>

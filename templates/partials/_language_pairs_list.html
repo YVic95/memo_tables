@@ -1,0 +1,12 @@
+<div id="language-pairs-list">
+    <h3>Your language pairs</h3>
+    {% if language_pairs %}
+    <ul>
+        {% for pair in language_pairs %}
+        <li>{{ pair.native_name }} → {{ pair.target_name }}</li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p>No language pairs created yet.</p>
+    {% endif %}
+</div>

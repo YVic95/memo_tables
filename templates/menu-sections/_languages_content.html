@@ -1,1 +1,48 @@
 <h1 id="content-heading">Languages</h1>
+<div class="select-language-block">
+    <h3>Here you can create different language pairs configurations</h3>
+    <button id="create-language-pair">Create language pair</button>
+
+    <form action="/admin-panel/language-pairs" method="post" class="language-form"
+          hx-post="/admin-panel/language-pairs" hx-target="#language-pairs-list" hx-swap="outerHTML">
+        <div class="native-language">
+            <label>Select your native language:</label>
+            <select id="native-language-select" name="native_language_id"
+                    hx-get="/admin-panel/languages/modal"
+                    hx-trigger="change[target.value === '__add_new__']"
+                    hx-vals='{"target": "native-language-select"}'
+                    hx-target="#add-language-modal-container"
+                    hx-swap="innerHTML">
+                <option value=""></option>
+                {% for lang in languages %}
+                <option value="{{ lang.id }}">{{ lang.name }}</option>
+                {% endfor %}
+                <option value="__add_new__">+ Add new language...</option>
+            </select>
+        </div>
+
+        <div class="studied-language">
+            <label>Select the studied language:</label>
+            <select id="study-language-select" name="study_language_id"
+                    hx-get="/admin-panel/languages/modal"
+                    hx-trigger="change[target.value === '__add_new__']"
+                    hx-vals='{"target": "study-language-select"}'
+                    hx-target="#add-language-modal-container"
+                    hx-swap="innerHTML">
+                <option value=""></option>
+                {% for lang in languages %}
+                <option value="{{ lang.id }}">{{ lang.name }}</option>
+                {% endfor %}
+                <option value="__add_new__">+ Add new language...</option>
+            </select>
+        </div>
+
+        <div>
+            <button id="save-language-selection" type="submit">Save</button>
+        </div>
+    </form>
+</div>
+
+<div id="add-language-modal-container"></div>
+
+{% include "partials/_language_pairs_list.html" %}
