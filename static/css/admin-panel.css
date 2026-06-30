@@ -113,3 +113,17 @@ button[type="submit"]#save-language-selection:hover,
 #language-pairs-list svg {
     color: white;
 }
+
+#language-pairs-list a {
+    color: #2c301f;
+    text-decoration: none;
+}
+
+#language-pairs-list ul li {
+    display: flex;
+    align-items: center;
+}
+
+#language-pairs-list ul li p {
+    margin-right: 10px;
+}

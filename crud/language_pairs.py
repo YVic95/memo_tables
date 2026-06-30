@@ -41,3 +41,12 @@ def create_language_pair(db: Session, native_id: str, target_id: str) -> dict:
     db.commit()
     db.refresh(pair)
     return {"pair_id": str(pair.pair_id)}
+
+def delete_language_pair_by_id(db: Session, pair_id: str) -> bool:
+    pair = db.query(LanguagePair).filter(LanguagePair.pair_id == pair_id).first()
+    if pair is None:
+        return False
+
+    db.delete(pair)
+    db.commit()
+    return True

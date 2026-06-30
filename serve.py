@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from database import get_db
 from crud.languages import get_languages, create_language
-from crud.language_pairs import get_language_pairs, create_language_pair
+from crud.language_pairs import get_language_pairs, create_language_pair, delete_language_pair_by_id
 from typing import Annotated
 import os
 
@@ -177,6 +177,25 @@ async def save_language_pair(
             },
             status_code=400,
         )
+
+    pairs = get_language_pairs(db)
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/_language_pairs_list.html",
+        context={
+            "language_pairs": pairs,
+        },
+    )
+
+# Delete language pair from the table
+@app.delete("/admin-panel/language-pairs/{pair_id}")
+async def delete_language_pair_route(
+    request: Request,
+    pair_id: str,
+    db: Annotated[Session, Depends(get_db)],
+):
+    delete_language_pair_by_id(db, pair_id)
 
     pairs = get_language_pairs(db)
 

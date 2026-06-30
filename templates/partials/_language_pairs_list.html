@@ -3,11 +3,16 @@
     {% if language_pairs %}
     <ul>
         {% for pair in language_pairs %}
-        <li>
+        <li id="pair-{{ pair.pair_id }}">
             <p>{{ pair.native_name }} → {{ pair.target_name }}</p>
-            <i class="fa-regular fa-trash-can"></i>
+            <a href="#"
+               hx-delete="/admin-panel/language-pairs/{{ pair.pair_id }}"
+               hx-target="#language-pairs-list"
+               hx-swap="outerHTML"
+               hx-confirm="Delete this language pair?">
+                <i class="fa-regular fa-trash-can"></i>
+            </a>
         </li>
-        
         {% endfor %}
     </ul>
     {% else %}
