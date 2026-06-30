@@ -14,7 +14,7 @@
         }"
     >
         <div class="native-language">
-            <label>Select your native language:</label>
+            <label for="native-language-select">Select your native language:</label>
             <select id="native-language-select" name="native_language_id"
                     hx-get="/admin-panel/languages/modal"
                     hx-trigger="change[target.value === '__add_new__']"
@@ -30,7 +30,7 @@
         </div>
 
         <div class="studied-language">
-            <label>Select the studied language:</label>
+            <label for="study-language-select">Select the studied language:</label>
             <select id="study-language-select" name="study_language_id"
                     hx-get="/admin-panel/languages/modal"
                     hx-trigger="change[target.value === '__add_new__']"

@@ -3,7 +3,11 @@
     {% if language_pairs %}
     <ul>
         {% for pair in language_pairs %}
-        <li>{{ pair.native_name }} → {{ pair.target_name }}</li>
+        <li>
+            <p>{{ pair.native_name }} → {{ pair.target_name }}</p>
+            <i class="fa-regular fa-trash-can"></i>
+        </li>
+        
         {% endfor %}
     </ul>
     {% else %}

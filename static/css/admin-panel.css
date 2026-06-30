@@ -41,7 +41,7 @@ section h1 {
     color: #2c301f;
 }
 
-.sidebar ul {
+.sidebar ul, #language-pairs-list ul {
     list-style: none;
     padding: 0;
     margin: 0;
@@ -108,4 +108,8 @@ button[type="submit"]#save-language-selection:hover,
 
 #create-language-pair:disabled {
     cursor: not-allowed;
+}
+
+#language-pairs-list svg {
+    color: white;
 }
