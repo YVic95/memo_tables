@@ -1,10 +1,18 @@
 <h1 id="content-heading">Languages</h1>
 <div class="select-language-block">
     <h3>Here you can create different language pairs configurations</h3>
-    <button id="create-language-pair">Create language pair</button>
+    <button id="create-language-pair"
+            hx-on:click="htmx.toggleClass('.language-form', 'hidden'); this.disabled = true"
+    >
+        Create language pair
+    </button>
 
-    <form action="/admin-panel/language-pairs" method="post" class="language-form"
-          hx-post="/admin-panel/language-pairs" hx-target="#language-pairs-list" hx-swap="outerHTML">
+    <form action="/admin-panel/language-pairs" method="post" class="language-form hidden"
+          hx-post="/admin-panel/language-pairs" hx-target="#language-pairs-list" hx-swap="outerHTML"
+          hx-on:htmx:after-request="if(event.detail.successful) {this.classList.add('hidden');
+          document.getElementById('create-language-pair').disabled = false;
+        }"
+    >
         <div class="native-language">
             <label>Select your native language:</label>
             <select id="native-language-select" name="native_language_id"
@@ -38,7 +46,9 @@
         </div>
 
         <div>
-            <button id="save-language-selection" type="submit">Save</button>
+            <button id="save-language-selection" type="submit">
+                Save
+            </button>
         </div>
     </form>
 </div>

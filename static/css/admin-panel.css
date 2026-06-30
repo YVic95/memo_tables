@@ -103,3 +103,9 @@ button[type="submit"]#save-language-selection:hover,
 #create-language-pair:hover {
     background-color: #4a5235;
 }
+
+.language-form.hidden { display: none; }
+
+#create-language-pair:disabled {
+    cursor: not-allowed;
+}
