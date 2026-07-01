@@ -8,6 +8,7 @@
         <link rel="stylesheet" href="/static/css/admin-panel.css">
         <link rel="stylesheet" href="/static/css/typography.css">
         <link rel="stylesheet" href="/static/css/fontawesome-free-7.3.0-web/css/all.min.css">
+        <script src="/static/js/highlight_active_menu_section.js" defer></script>
     </head>
     <div id="loader" class="htmx-indicator">
         <div class="spinner"></div>
@@ -27,7 +28,10 @@
                     {% for section in menu_sections %}
                     <li>
                         <h3>
-                            <a href="{{ section.url }}" hx-get="{{ section.url }}">{{ section.label }}</a>
+                            <a href="{{ section.url }}" hx-get="{{ section.url }}">
+                                <i class="fa-solid {{ section.logo }}"></i>
+                                {{ section.label }}
+                            </a>
                         </h3>
                     </li>
                     {% endfor %}

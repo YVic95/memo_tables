@@ -136,3 +136,14 @@ button[type="submit"]#save-language-selection:hover,
 .select-language-block h3 {
     margin-bottom: 0;
 }
+
+.sidebar li.active {
+    background-color: #5e6843;
+    border-radius: 6px;
+    padding: 0.1em;
+    margin: 0.5em 1em 0 0;
+}
+
+.sidebar li h3 {
+    margin-left: 0.5em;
+}

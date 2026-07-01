@@ -77,8 +77,8 @@ def render_section(
 
 # Main admin page
 menu_sections = [
-    {"label": "Dashboard", "url": "/admin-panel"},
-    {"label": "Languages", "url": "/admin-panel/languages"},
+    {"label": "Dashboard", "url": "/admin-panel", "logo": "fa-table-cells-large"},
+    {"label": "Languages", "url": "/admin-panel/languages", "logo": "fa-book-atlas"},
     # {"label": "Rules", "url": "/admin-panel/rules"},
     # {"label": "Words", "url": "/admin-panel/words"},
     # {"label": "Exercises", "url": "/admin-panel/exercises"},
