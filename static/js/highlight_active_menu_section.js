@@ -13,15 +13,3 @@ document.querySelectorAll('.sidebar li').forEach(li => {
         li.classList.add('active');
     });
 });
-
-// Show the language form when "Create language pair" button is clicked
-const createButton = document.getElementById('create-language-pair');
-if (createButton) {
-    createButton.addEventListener('click', function() {
-        const form = document.querySelector('.language-form');
-        if (form) {
-            form.classList.remove('hidden');
-            this.disabled = true;
-        }
-    });
-}

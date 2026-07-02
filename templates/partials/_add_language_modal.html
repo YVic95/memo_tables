@@ -1,21 +1,21 @@
-<div class="modal" id="add-language-modal">
-    <div class="modal-content">
-        <h3>Add new language</h3>
-        <form hx-post="/admin-panel/languages/create"
-              hx-target="#add-language-result"
-              hx-swap="innerHTML">
-            <input type="hidden" name="target" value="{{ target }}" />
-            <input type="text" name="name" placeholder="e.g. Spanish" required />
-            <button type="submit">Save</button>
-            <button type="button" onclick="cancelAddLanguage('{{ target }}')">Cancel</button>
-        </form>
-        <div id="add-language-result"></div>
+<div class="modal-overlay" id="add-language-modal-overlay">
+    <div class="modal" id="add-language-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add new language</h3>
+                <button class="close-button" id="close-modal-button" aria-label="Close">&times;</button>
+            </div>
+            <form hx-post="/admin-panel/languages/create"
+                  hx-target="#add-language-result"
+                  hx-swap="innerHTML">
+                <input type="hidden" name="target" value="{{ target }}" />
+                <input type="text" name="name" placeholder="e.g. Spanish" required />
+                <div class="modal-buttons">
+                    <button type="button" onclick="cancelAddLanguage('{{ target }}')">Cancel</button>
+                    <button type="submit">Save</button>
+                </div>
+                <div id="add-language-result"></div>
+            </form>
+        </div>
     </div>
 </div>
-
-<script>
-function cancelAddLanguage(targetId) {
-    document.getElementById(targetId).value = "";
-    document.getElementById("add-language-modal-container").innerHTML = "";
-}
-</script>

@@ -30,7 +30,9 @@
                         hx-trigger="change[target.value === '__add_new__']"
                         hx-vals='{"target": "native-language-select"}'
                         hx-target="#add-language-modal-container"
-                        hx-swap="innerHTML">
+                        hx-swap="innerHTML"
+                        hx-indicator="#loader"
+                >
                     <option value=""></option>
                     {% for lang in languages %}
                     <option value="{{ lang.id }}">
@@ -49,7 +51,9 @@
                         hx-trigger="change[target.value === '__add_new__']"
                         hx-vals='{"target": "study-language-select"}'
                         hx-target="#add-language-modal-container"
-                        hx-swap="innerHTML">
+                        hx-swap="innerHTML"
+                        hx-indicator="#loader"
+                >
                     <option value=""></option>
                     {% for lang in languages %}
                     <option value="{{ lang.id }}">
