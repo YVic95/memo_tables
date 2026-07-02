@@ -13,3 +13,21 @@ document.querySelectorAll('.sidebar li').forEach(li => {
         li.classList.add('active');
     });
 });
+
+// Show the language form when "Create language pair" button is clicked
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('dom loaded');
+    const createButton = document.getElementById('create-language-pair');
+    console.log(createButton)
+    if (createButton) {
+        createButton.addEventListener('click', function() {
+            console.log('click event')
+            const form = document.querySelector('.language-form');
+            if (form) {
+                console.log("form exists")
+                form.classList.remove('hidden');
+                this.disabled = true;
+            }
+        });
+    }
+});

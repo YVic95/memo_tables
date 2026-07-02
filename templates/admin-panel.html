@@ -15,7 +15,14 @@
     </div>
     <body class="admin-panel-body">
         <header class="admin-header">
-            <h2 class="admin-panel">Welcome to the Admin Panel, {{ user.email.split('@')[0] }}!</h2>
+            <div class="header-content">
+                <div class="logo-container">
+                    <div class="logo-icon">
+                        <i class="fa-solid fa-leaf"></i>
+                    </div>
+                    <h2 class="admin-panel">Welcome to the Admin Panel, {{ user.email.split('@')[0] }}!</h2>
+                </div>
+            </div>
         </header>
         <div class="admin-panel-container">
             <nav class="sidebar"
@@ -27,17 +34,15 @@
                 <ul>
                     {% for section in menu_sections %}
                     <li>
-                        <h3>
-                            <a href="{{ section.url }}" hx-get="{{ section.url }}">
-                                <i class="fa-solid {{ section.logo }}"></i>
-                                {{ section.label }}
-                            </a>
-                        </h3>
+                        <a href="{{ section.url }}" hx-get="{{ section.url }}">
+                            <i class="fa-solid {{ section.logo }}"></i>
+                            {{ section.label }}
+                        </a>
                     </li>
                     {% endfor %}
                 </ul>
             </nav>
-            <main>
+            <main class="main-content">
                 <section id="main-content" aria-labelledby="content-heading">
                     {% block content %}
                         {% include "menu-sections/_dashboard_content.html" %}

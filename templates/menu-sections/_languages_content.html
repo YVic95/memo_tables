@@ -1,58 +1,80 @@
 <h1 id="content-heading">Languages</h1>
-<div class="select-language-block">
-    <h3>Here you can create different language pairs configurations</h3>
-    <button id="create-language-pair"
-            hx-on:click="htmx.toggleClass('.language-form', 'hidden'); this.disabled = true"
-    >
+<p class="page-subtext">Here you can create different language pairs configurations</p>
+<div class="divider"></div>
+
+<!-- Card 1: Create language pair -->
+<div class="card">
+    <div class="card-header">
+        <div class="icon-badge">
+            <i class="fa-solid fa-plus"></i>
+        </div>
+        <h2 class="card-title">Create language pair</h2>
+    </div>
+    
+    <button id="create-language-pair" class="save-button">
+        <i class="fa-solid fa-plus"></i>
         Create language pair
     </button>
-
+    
     <form action="/admin-panel/language-pairs" method="post" class="language-form hidden"
           hx-post="/admin-panel/language-pairs" hx-target="#language-pairs-list" hx-swap="outerHTML"
           hx-on:htmx:after-request="if(event.detail.successful) {this.classList.add('hidden');
           document.getElementById('create-language-pair').disabled = false;
         }"
     >
-        <div class="native-language">
-            <label for="native-language-select">Select your native language:</label>
-            <select id="native-language-select" name="native_language_id"
-                    hx-get="/admin-panel/languages/modal"
-                    hx-trigger="change[target.value === '__add_new__']"
-                    hx-vals='{"target": "native-language-select"}'
-                    hx-target="#add-language-modal-container"
-                    hx-swap="innerHTML">
-                <option value=""></option>
-                {% for lang in languages %}
-                <option value="{{ lang.id }}">{{ lang.name }}</option>
-                {% endfor %}
-                <option value="__add_new__">+ Add new language...</option>
-            </select>
-        </div>
+        <div class="language-form-row">
+            <div class="form-group">
+                <label for="native-language-select">Select your native language</label>
+                <select id="native-language-select" name="native_language_id" class="form-select"
+                        hx-get="/admin-panel/languages/modal"
+                        hx-trigger="change[target.value === '__add_new__']"
+                        hx-vals='{"target": "native-language-select"}'
+                        hx-target="#add-language-modal-container"
+                        hx-swap="innerHTML">
+                    <option value=""></option>
+                    {% for lang in languages %}
+                    <option value="{{ lang.id }}">🇺🇸 {{ lang.name }}</option>
+                    {% endfor %}
+                    <option value="__add_new__">+ Add new language...</option>
+                </select>
+            </div>
 
-        <div class="studied-language">
-            <label for="study-language-select">Select the studied language:</label>
-            <select id="study-language-select" name="study_language_id"
-                    hx-get="/admin-panel/languages/modal"
-                    hx-trigger="change[target.value === '__add_new__']"
-                    hx-vals='{"target": "study-language-select"}'
-                    hx-target="#add-language-modal-container"
-                    hx-swap="innerHTML">
-                <option value=""></option>
-                {% for lang in languages %}
-                <option value="{{ lang.id }}">{{ lang.name }}</option>
-                {% endfor %}
-                <option value="__add_new__">+ Add new language...</option>
-            </select>
-        </div>
+            <div class="form-group">
+                <label for="study-language-select">Select the studied language</label>
+                <select id="study-language-select" name="study_language_id" class="form-select"
+                        hx-get="/admin-panel/languages/modal"
+                        hx-trigger="change[target.value === '__add_new__']"
+                        hx-vals='{"target": "study-language-select"}'
+                        hx-target="#add-language-modal-container"
+                        hx-swap="innerHTML">
+                    <option value=""></option>
+                    {% for lang in languages %}
+                    <option value="{{ lang.id }}">🇷🇴 {{ lang.name }}</option>
+                    {% endfor %}
+                    <option value="__add_new__">+ Add new language...</option>
+                </select>
+            </div>
 
-        <div>
-            <button id="save-language-selection" type="submit">
-                Save
-            </button>
+            <div>
+                <button id="save-language-selection" type="submit" class="save-button">
+                    <i class="fa-solid fa-floppy-disk"></i>
+                    Save
+                </button>
+            </div>
         </div>
     </form>
 </div>
 
 <div id="add-language-modal-container"></div>
 
-{% include "partials/_language_pairs_list.html" %}
+<!-- Card 2: Your language pairs -->
+<div class="card">
+    <div class="card-header">
+        <div class="icon-badge">
+            <i class="fa-solid fa-list"></i>
+        </div>
+        <h2 class="card-title">Your language pairs</h2>
+    </div>
+    
+    {% include "partials/_language_pairs_list.html" %}
+</div>

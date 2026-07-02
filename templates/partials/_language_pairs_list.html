@@ -1,20 +1,45 @@
 <div id="language-pairs-list">
-    <h3>Your language pairs</h3>
     {% if language_pairs %}
-    <ul>
-        {% for pair in language_pairs %}
-        <li id="pair-{{ pair.pair_id }}">
-            <p>{{ pair.native_name }} → {{ pair.target_name }}</p>
-            <a href="#"
-               hx-delete="/admin-panel/language-pairs/{{ pair.pair_id }}"
-               hx-target="#language-pairs-list"
-               hx-swap="outerHTML"
-               hx-confirm="Delete this language pair?">
-                <i class="fa-regular fa-trash-can"></i>
-            </a>
-        </li>
-        {% endfor %}
-    </ul>
+    <table class="language-pairs-table">
+        <thead>
+            <tr>
+                <th>Native language</th>
+                <th></th>
+                <th>Studied language</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for pair in language_pairs %}
+            <tr id="pair-{{ pair.pair_id }}">
+                <td>
+                    <div class="language-cell">
+                        <span>🇺🇸</span>
+                        <span>{{ pair.native_name }}</span>
+                    </div>
+                </td>
+                <td class="arrow-cell">
+                    <i class="fa-solid fa-arrow-right"></i>
+                </td>
+                <td>
+                    <div class="language-cell">
+                        <span>🇪🇸</span>
+                        <span>{{ pair.target_name }}</span>
+                    </div>
+                </td>
+                <td>
+                    <button class="delete-button"
+                            hx-delete="/admin-panel/language-pairs/{{ pair.pair_id }}"
+                            hx-target="#language-pairs-list"
+                            hx-swap="outerHTML"
+                            hx-confirm="Delete this language pair?">
+                        <i class="fa-regular fa-trash-can"></i>
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
     {% else %}
     <p>No language pairs created yet.</p>
     {% endif %}
