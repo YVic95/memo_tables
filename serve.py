@@ -12,6 +12,7 @@ from database import get_db
 from crud.languages import get_languages, create_language
 from crud.language_pairs import get_language_pairs, create_language_pair, delete_language_pair_by_id
 from typing import Annotated
+from country_flags import get_flag
 import os
 
 load_dotenv()
@@ -26,6 +27,7 @@ app = FastAPI(
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+templates.env.filters["flag"] = get_flag
 
 app.include_router(auth_router)
 

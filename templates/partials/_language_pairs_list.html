@@ -14,7 +14,7 @@
             <tr id="pair-{{ pair.pair_id }}">
                 <td>
                     <div class="language-cell">
-                        <span>🇺🇸</span>
+                        <span>{{ pair.native_code|flag }}</span>
                         <span>{{ pair.native_name }}</span>
                     </div>
                 </td>
@@ -23,7 +23,7 @@
                 </td>
                 <td>
                     <div class="language-cell">
-                        <span>🇪🇸</span>
+                        <span>{{ pair.target_code|flag }}</span>
                         <span>{{ pair.target_name }}</span>
                     </div>
                 </td>

@@ -33,7 +33,10 @@
                         hx-swap="innerHTML">
                     <option value=""></option>
                     {% for lang in languages %}
-                    <option value="{{ lang.id }}">🇺🇸 {{ lang.name }}</option>
+                    <option value="{{ lang.id }}">
+                        <span>{{lang.code|flag}}</span>
+                        <span>{{ lang.name }}</span>
+                    </option>
                     {% endfor %}
                     <option value="__add_new__">+ Add new language...</option>
                 </select>
@@ -49,7 +52,10 @@
                         hx-swap="innerHTML">
                     <option value=""></option>
                     {% for lang in languages %}
-                    <option value="{{ lang.id }}">🇷🇴 {{ lang.name }}</option>
+                    <option value="{{ lang.id }}">
+                        <span>{{lang.code|flag}}</span>
+                        <span>{{ lang.name }}</span>
+                    </option>
                     {% endfor %}
                     <option value="__add_new__">+ Add new language...</option>
                 </select>

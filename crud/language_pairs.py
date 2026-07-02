@@ -3,6 +3,12 @@ from models.language_pairs import LanguagePair
 from models.language import Language
 
 
+def get_language_code(db: Session, language_id: str) -> str:
+    """Get language code by language ID"""
+    language = db.query(Language).filter(Language.id == language_id).first()
+    return language.code if language else "Unknown"
+
+
 def get_language_pairs(db: Session) -> list[dict]:
     pairs = db.query(LanguagePair).all()
     result = []
@@ -12,7 +18,9 @@ def get_language_pairs(db: Session) -> list[dict]:
         result.append({
             "pair_id": str(p.pair_id),
             "native_name": native.name if native else "Unknown",
+            "native_code": get_language_code(db, p.native_language_id),
             "target_name": target.name if target else "Unknown",
+            "target_code": get_language_code(db, p.target_language_id),
         })
     return result
 
