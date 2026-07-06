@@ -1,1 +1,25 @@
-<h1>Create a rule</h1>
+<h1 id="content-heading">Grammar Rules</h1>
+<p class="page-subtext">Manage grammar rules, view chat history, and track changes</p>
+<div class="divider"></div>
+
+<!-- Tab Navigation -->
+<div class="tabs">
+    <div class="tab-buttons">
+        <button class="tab-button active" data-tab="chat">Chat</button>
+        <button class="tab-button" data-tab="history">History</button>
+        <button class="tab-button" data-tab="rules">Rules</button>
+    </div>
+    
+    <!-- Tab Content Containers -->
+    <div class="tab-content">
+        <div id="chat-tab" class="tab-pane active">
+            {% include "partials/_chat_content.html" %}
+        </div>
+        <div id="history-tab" class="tab-pane">
+            {% include "partials/_history_content.html" %}
+        </div>
+        <div id="rules-tab" class="tab-pane">
+            {% include "partials/_grammar_rules_content.html" %}
+        </div>
+    </div>
+</div>

@@ -533,3 +533,56 @@ button[type="submit"]#save-language-selection:hover,
 .modal-overlay.show {
     display: flex;
 }
+
+/* Rules tabs */
+.tabs {
+    margin-top: 20px;
+}
+
+.tab-buttons {
+    display: flex;
+    border-bottom: 1px solid #ddd;
+    margin-bottom: 20px;
+}
+
+.tab-button {
+    background-color: #D8DEC5; /* light olive/sage */
+    border: 1px solid #7A8B6F; /* medium sage green */
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+    padding: 12px 24px;
+    font-size: 16px;
+    font-weight: bold;
+    color: #2A2A2A; /* dark charcoal */
+    cursor: pointer;
+    margin-right: 5px;
+    transition: all 0.3s ease;
+}
+
+.tab-button:hover {
+    background-color: #7A8B6F; /* medium sage green */
+    color: white;
+}
+
+.tab-button.active {
+    background-color: white;
+    color: #2A2A2A;
+    border-bottom: 1px solid white;
+    margin-bottom: -1px;
+    z-index: 1;
+}
+
+.tab-content {
+    background-color: white;
+    border-radius: 0 16px 16px 16px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.tab-pane {
+    display: none;
+}
+
+.tab-pane.active {
+    display: block;
+}

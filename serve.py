@@ -218,7 +218,7 @@ async def rules_section(
 ):
     return render_section(
         request = request,
-        full_template="admin-panel.html",
+        full_template="admin-panel-rules.html",
         fragment_template="menu-sections/_rules_content.html",
         context={
             "user": user,
