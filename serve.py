@@ -81,7 +81,7 @@ def render_section(
 menu_sections = [
     {"label": "Dashboard", "url": "/admin-panel", "logo": "fa-table-cells-large"},
     {"label": "Languages", "url": "/admin-panel/languages", "logo": "fa-book-atlas"},
-    # {"label": "Rules", "url": "/admin-panel/rules"},
+    {"label": "Rule Creation", "url": "/admin-panel/rules", "logo": "fa-gear"},
     # {"label": "Words", "url": "/admin-panel/words"},
     # {"label": "Exercises", "url": "/admin-panel/exercises"},
 ]
@@ -206,6 +206,23 @@ async def delete_language_pair_route(
         name="partials/_language_pairs_list.html",
         context={
             "language_pairs": pairs,
+        },
+    )
+
+# Page for rule creation
+@app.get("/admin-panel/rules")
+async def rules_section(
+    request: Request,
+    user: Annotated[dict, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    return render_section(
+        request = request,
+        full_template="admin-panel.html",
+        fragment_template="menu-sections/_rules_content.html",
+        context={
+            "user": user,
+            "menu_sections": menu_sections,
         },
     )
 
