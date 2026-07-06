@@ -44,7 +44,7 @@ document.addEventListener('click', function(e) {
 
 document.addEventListener('keydown', function(e) {
     const modalOverlay = document.getElementById('add-language-modal-overlay');
-    if (e.key === 'Escape' && modalOverlay && modalOverlay.classList.contains('show')) {
+    if (e.key === 'Escape' && modalOverlay?.classList.contains('show')) {
         closeAddLanguageModal();
     }
 });
