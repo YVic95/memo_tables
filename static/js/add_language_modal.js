@@ -20,7 +20,7 @@ function closeAddLanguageModal() {
 // Override htmx's default behavior to show the modal after it's loaded
 document.body.addEventListener('htmx:afterSettle', function(evt) {
     const modalContainer = document.getElementById('add-language-modal-container');
-    if (modalContainer && modalContainer.innerHTML.includes('add-language-modal-overlay')) {
+    if (modalContainer?.innerHTML?.includes('add-language-modal-overlay')) {
         showModal();
     }
 });
