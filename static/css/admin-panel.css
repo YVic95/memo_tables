@@ -534,6 +534,24 @@ button[type="submit"]#save-language-selection:hover,
     display: flex;
 }
 
+/* Chat controls */
+.chat-controls {
+    margin-bottom: 24px;
+}
+
+.button-group {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.button-group .save-button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 /* Rules tabs */
 .tabs {
     margin-top: 20px;

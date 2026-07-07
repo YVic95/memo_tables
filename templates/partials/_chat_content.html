@@ -5,6 +5,31 @@
         </div>
         <h2 class="card-title">Chat</h2>
     </div>
-    <p>Chat functionality will be implemented here.</p>
-    <p>This section will contain the chat interface for users to communicate about grammar rules.</p>
+    
+    <!-- Language Pair Selection -->
+    <div class="chat-controls">
+        <div class="button-group">
+            <button id="add-language-pair" class="save-button">
+                <i class="fa-solid fa-plus"></i>
+                Add Language Pair
+            </button>
+            <button id="propose-missing-rules" class="save-button" disabled>
+                <i class="fa-solid fa-lightbulb"></i>
+                Propose Missing Rules
+            </button>
+        </div>
+        
+        <!-- Language Pair Dropdown -->
+        <div id="language-pair-dropdown" class="language-form hidden">
+            <div class="form-group">
+                <label for="language-pair-select">Select Language Pair</label>
+                <select id="language-pair-select" class="form-select">
+                    <option value="">Select a language pair...</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    
+    <div class="chat-interface">
+    </div>
 </div>

@@ -1,4 +1,5 @@
-from fastapi import FastAPI, Request, Depends, Form
+from fastapi import FastAPI, Request, Depends, Form, Response
+from fastapi.responses import JSONResponse
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -225,6 +226,12 @@ async def rules_section(
             "menu_sections": menu_sections,
         },
     )
+
+# API endpoint to get language pairs for frontend
+@app.get("/api/language-pairs")
+async def get_language_pairs_api(db: Annotated[Session, Depends(get_db)]):
+    pairs = get_language_pairs(db)
+    return JSONResponse(content={"language_pairs": pairs})
 
 # redirect to the login if cookie is expired
 @app.exception_handler(FastAPIHTTPException)
