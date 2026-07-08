@@ -21,6 +21,7 @@ load_dotenv()
 from routers.auth import router as auth_router
 from routers.languages import router as languages_router
 from routers.admin_dashboard import router as admin_dashboard_router
+from routers.language_pairs import router as language_pairs_router
 
 app = FastAPI(
     title="Memo Tables App",
@@ -35,11 +36,11 @@ templates.env.filters["flag"] = get_flag
 app.include_router(auth_router)
 app.include_router(languages_router)
 app.include_router(admin_dashboard_router)
+app.include_router(language_pairs_router)
 
 @app.get("/privacy")
 async def privacy_policy():
     return FileResponse(os.path.join(os.path.dirname(__file__), "docs/privacy_policy.md"), media_type="text/plain")
-
 
 @app.get("/terms")
 async def terms_of_service():
@@ -84,59 +85,6 @@ menu_sections = [
     # {"label": "Exercises", "url": "/admin-panel/exercises"},
 ]
 
-@app.post("/admin-panel/language-pairs")
-async def save_language_pair(
-    request: Request,
-    native_language_id: Annotated[str, Form()],
-    study_language_id: Annotated[str, Form()],
-    db: Annotated[Session, Depends(get_db)],
-):
-    try:
-        create_language_pair(
-            db,
-            native_language_id,
-            study_language_id,
-        )
-
-    except ValueError as e:
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/_language_pair_error.html",
-            context={
-                "error": str(e),
-            },
-            status_code=400,
-        )
-
-    pairs = get_language_pairs(db)
-
-    return templates.TemplateResponse(
-        request=request,
-        name="partials/_language_pairs_list.html",
-        context={
-            "language_pairs": pairs,
-        },
-    )
-
-# Delete language pair from the table
-@app.delete("/admin-panel/language-pairs/{pair_id}")
-async def delete_language_pair_route(
-    request: Request,
-    pair_id: str,
-    db: Annotated[Session, Depends(get_db)],
-):
-    delete_language_pair_by_id(db, pair_id)
-
-    pairs = get_language_pairs(db)
-
-    return templates.TemplateResponse(
-        request=request,
-        name="partials/_language_pairs_list.html",
-        context={
-            "language_pairs": pairs,
-        },
-    )
-
 # Page for rule creation
 @app.get("/admin-panel/rules")
 async def rules_section(
@@ -154,12 +102,6 @@ async def rules_section(
         },
     )
 
-# API endpoint to get language pairs for frontend
-@app.get("/api/language-pairs")
-async def get_language_pairs_api(db: Annotated[Session, Depends(get_db)]):
-    pairs = get_language_pairs(db)
-    return JSONResponse(content={"language_pairs": pairs})
-
 # redirect to the login if cookie is expired
 @app.exception_handler(FastAPIHTTPException)
 async def redirect_unauthenticated(request: Request, exc: FastAPIHTTPException):
@@ -170,10 +112,6 @@ async def redirect_unauthenticated(request: Request, exc: FastAPIHTTPException):
         content={"detail": exc.detail},
         headers=exc.headers,
     )
-
-@app.get("/")
-async def root():
-    return {"message": "Welcome to the Memo Tables App!"}
 
 if __name__ == "__main__":
     import uvicorn
