@@ -351,7 +351,7 @@ button[type="submit"]#save-language-selection:hover,
 
 .language-form.hidden { display: none; }
 
-#create-language-pair:disabled {
+#create-language-pair:disabled, button:disabled {
     cursor: not-allowed;
 }
 
@@ -396,6 +396,7 @@ button[type="submit"]#save-language-selection:hover,
 .form-group {
     flex: 1;
     min-width: 200px;
+    margin-bottom: 16px;
 }
 
 /* Modal Styles */
@@ -542,14 +543,11 @@ button[type="submit"]#save-language-selection:hover,
 .button-group {
     display: flex;
     gap: 12px;
-    flex-wrap: wrap;
-    margin-bottom: 16px;
+    flex-wrap: wrap; 
 }
 
-.button-group .save-button {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+#add-language-pair {
+    margin-bottom: 16px;
 }
 
 /* Rules tabs */
@@ -604,3 +602,68 @@ button[type="submit"]#save-language-selection:hover,
 .tab-pane.active {
     display: block;
 }
+
+/* rule generation chat styles starts */
+.chat-interface {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.user-input-holder {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 12px;
+}
+
+.user-input-holder form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    justify-content: space-between;
+}
+
+#chat-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    resize: none;
+    max-height: 120px;
+    font: inherit;
+    padding: 6px 0;
+}
+
+.button-group .save-button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.send-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 50%;
+    background: #4A5D3A;
+    color: #fff;
+    cursor: pointer;
+}
+
+.send-button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+/* rule generation chat styles ends */

@@ -13,10 +13,6 @@
                 <i class="fa-solid fa-plus"></i>
                 Add Language Pair
             </button>
-            <button id="propose-missing-rules" class="save-button" disabled>
-                <i class="fa-solid fa-lightbulb"></i>
-                Propose Missing Rules
-            </button>
         </div>
         
         <!-- Language Pair Dropdown -->
@@ -31,5 +27,25 @@
     </div>
     
     <div class="chat-interface">
+        <div class="chat-messages" id="chat-messages">
+            <!-- messages get appended here -->
+        </div>
+
+        <div class="user-input-holder">
+            <form action="" id="create-rule-chatbot">
+                <div class="button-group">
+                    <button type="button" id="propose-missing-rules" class="save-button" disabled>
+                        <i class="fa-solid fa-lightbulb"></i>
+                        Propose Missing Rules
+                    </button>
+                </div>
+
+                {# <textarea id="chat-input" rows="1" disabled></textarea> #}
+
+                <button type="submit" id="send-message" class="send-button">
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </form>
+        </div>
     </div>
 </div>

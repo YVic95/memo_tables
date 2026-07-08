@@ -19,6 +19,9 @@ function initializeChatTab(container) {
     // Load saved language pair from localStorage
     const savedLanguagePair = localStorage.getItem('selectedLanguagePair');
     if (savedLanguagePair) {
+        languagePairDropdown.classList.remove('hidden');
+        addLanguagePairButton.innerHTML = '<i class="fa-solid fa-lock"></i> Add Language Pair';
+        addLanguagePairButton.disabled = true;
         loadLanguagePairs().then(() => {
             languagePairSelect.value = savedLanguagePair;
             enableProposeMissingRulesButton();
