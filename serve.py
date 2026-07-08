@@ -23,6 +23,7 @@ from routers.languages import router as languages_router
 from routers.admin_dashboard import router as admin_dashboard_router
 from routers.language_pairs import router as language_pairs_router
 from routers.grammar_rules import router as grammar_rules_router
+from routers.legal_pages import router as legal_pages_router
 
 app = FastAPI(
     title="Memo Tables App",
@@ -39,14 +40,7 @@ app.include_router(languages_router)
 app.include_router(admin_dashboard_router)
 app.include_router(language_pairs_router)
 app.include_router(grammar_rules_router)
-
-@app.get("/privacy")
-async def privacy_policy():
-    return FileResponse(os.path.join(os.path.dirname(__file__), "docs/privacy_policy.md"), media_type="text/plain")
-
-@app.get("/terms")
-async def terms_of_service():
-    return FileResponse(os.path.join(os.path.dirname(__file__), "docs/terms_of_service.md"), media_type="text/plain")
+app.include_router(legal_pages_router)
 
 # Login page route
 @app.get("/login")
