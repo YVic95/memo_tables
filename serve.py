@@ -19,6 +19,7 @@ import os
 load_dotenv()
 
 from routers.auth import router as auth_router
+from routers.languages import router as languages_router
 
 app = FastAPI(
     title="Memo Tables App",
@@ -31,6 +32,7 @@ templates = Jinja2Templates(directory="templates")
 templates.env.filters["flag"] = get_flag
 
 app.include_router(auth_router)
+app.include_router(languages_router)
 
 @app.get("/privacy")
 async def privacy_policy():
@@ -40,12 +42,6 @@ async def privacy_policy():
 @app.get("/terms")
 async def terms_of_service():
     return FileResponse(os.path.join(os.path.dirname(__file__), "docs/terms_of_service.md"), media_type="text/plain")
-
-# test
-@app.get("/me")
-def me(user: Annotated[dict, Depends(get_current_user)]):
-    return user
-# test
 
 # Login page route
 @app.get("/login")
@@ -77,7 +73,6 @@ def render_section(
         context=context,
     )
 
-
 # Main admin page
 menu_sections = [
     {"label": "Dashboard", "url": "/admin-panel", "logo": "fa-table-cells-large"},
@@ -96,64 +91,6 @@ async def admin_panel(request: Request, user: Annotated[dict, Depends(require_ad
         context={
             "user": user,
             "menu_sections": menu_sections,
-        },
-    )
-
-@app.get("/admin-panel/languages")
-async def languages_section(
-    request: Request,
-    user: Annotated[dict, Depends(require_admin)],
-    db: Annotated[Session, Depends(get_db)],
-):
-    return render_section(
-        request = request,
-        full_template="admin-panel-languages.html",
-        fragment_template="menu-sections/_languages_content.html",
-        context={
-            "user": user,
-            "menu_sections": menu_sections,
-            "languages": get_languages(db),
-            "language_pairs": get_language_pairs(db),
-        },
-    )
-
-@app.post("/admin-panel/languages/create")
-async def add_language(
-    request: Request,
-    name: Annotated[str, Form()],
-    target: Annotated[str, Form()],
-    db: Annotated[Session, Depends(get_db)],
-):
-    try:
-        new_language = create_language(db, name)
-    except ValueError as e:
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/_add_language_error.html",
-            context={
-                "error": str(e),
-            },
-            status_code=400,
-        )
-
-    languages = get_languages(db)
-    return templates.TemplateResponse(
-        request=request,
-        name="partials/_language_options.html",
-        context={
-            "languages": languages,
-            "new_id": new_language["id"],
-            "target": target,
-        },
-    )
-
-@app.get("/admin-panel/languages/modal")
-async def add_language_modal(request: Request, target: str):
-    return templates.TemplateResponse(
-        request=request,
-        name="partials/_add_language_modal.html",
-        context={
-            "target": target,
         },
     )
 

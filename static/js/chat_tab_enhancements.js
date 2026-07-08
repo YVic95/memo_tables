@@ -20,7 +20,7 @@ function initializeChatTab(container) {
     const savedLanguagePair = localStorage.getItem('selectedLanguagePair');
     if (savedLanguagePair) {
         languagePairDropdown.classList.remove('hidden');
-        addLanguagePairButton.innerHTML = '<i class="fa-solid fa-lock"></i> Add Language Pair';
+        addLanguagePairButton.innerHTML = '<i class="fa-solid fa-lock"></i> Select Language Pair';
         addLanguagePairButton.disabled = true;
         loadLanguagePairs().then(() => {
             languagePairSelect.value = savedLanguagePair;
@@ -33,7 +33,7 @@ function initializeChatTab(container) {
         if (languagePairDropdown.classList.contains('hidden')) {
             // Show dropdown and change button icon to restricted
             languagePairDropdown.classList.remove('hidden');
-            addLanguagePairButton.innerHTML = '<i class="fa-solid fa-lock"></i> Add Language Pair';
+            addLanguagePairButton.innerHTML = '<i class="fa-solid fa-lock"></i> Select Language Pair';
             addLanguagePairButton.disabled = true;
             
             // Load language pairs
@@ -41,7 +41,7 @@ function initializeChatTab(container) {
         } else {
             // Hide dropdown and restore button
             languagePairDropdown.classList.add('hidden');
-            addLanguagePairButton.innerHTML = '<i class="fa-solid fa-plus"></i> Add Language Pair';
+            addLanguagePairButton.innerHTML = '<i class="fa-solid fa-plus"></i> Select Language Pair';
             addLanguagePairButton.disabled = false;
         }
     });
@@ -80,7 +80,7 @@ function loadLanguagePairs() {
                 languagePairSelect.remove(1);
             }
             
-            // Add language pairs to dropdown
+            // Select Language Pairs to dropdown
             data.language_pairs.forEach(pair => {
                 const option = document.createElement('option');
                 option.value = pair.pair_id;
