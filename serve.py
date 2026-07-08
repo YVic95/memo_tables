@@ -20,6 +20,7 @@ load_dotenv()
 
 from routers.auth import router as auth_router
 from routers.languages import router as languages_router
+from routers.admin_dashboard import router as admin_dashboard_router
 
 app = FastAPI(
     title="Memo Tables App",
@@ -33,6 +34,7 @@ templates.env.filters["flag"] = get_flag
 
 app.include_router(auth_router)
 app.include_router(languages_router)
+app.include_router(admin_dashboard_router)
 
 @app.get("/privacy")
 async def privacy_policy():
@@ -81,18 +83,6 @@ menu_sections = [
     # {"label": "Words", "url": "/admin-panel/words"},
     # {"label": "Exercises", "url": "/admin-panel/exercises"},
 ]
-
-@app.get("/admin-panel")
-async def admin_panel(request: Request, user: Annotated[dict, Depends(require_admin)]):
-    return render_section(
-        request = request,
-        full_template="admin-panel.html",
-        fragment_template="menu-sections/_dashboard_content.html",
-        context={
-            "user": user,
-            "menu_sections": menu_sections,
-        },
-    )
 
 @app.post("/admin-panel/language-pairs")
 async def save_language_pair(
