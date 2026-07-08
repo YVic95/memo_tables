@@ -22,6 +22,7 @@ from routers.auth import router as auth_router
 from routers.languages import router as languages_router
 from routers.admin_dashboard import router as admin_dashboard_router
 from routers.language_pairs import router as language_pairs_router
+from routers.grammar_rules import router as grammar_rules_router
 
 app = FastAPI(
     title="Memo Tables App",
@@ -37,6 +38,7 @@ app.include_router(auth_router)
 app.include_router(languages_router)
 app.include_router(admin_dashboard_router)
 app.include_router(language_pairs_router)
+app.include_router(grammar_rules_router)
 
 @app.get("/privacy")
 async def privacy_policy():
@@ -84,23 +86,6 @@ menu_sections = [
     # {"label": "Words", "url": "/admin-panel/words"},
     # {"label": "Exercises", "url": "/admin-panel/exercises"},
 ]
-
-# Page for rule creation
-@app.get("/admin-panel/rules")
-async def rules_section(
-    request: Request,
-    user: Annotated[dict, Depends(require_admin)],
-    db: Annotated[Session, Depends(get_db)],
-):
-    return render_section(
-        request = request,
-        full_template="admin-panel-rules.html",
-        fragment_template="menu-sections/_rules_content.html",
-        context={
-            "user": user,
-            "menu_sections": menu_sections,
-        },
-    )
 
 # redirect to the login if cookie is expired
 @app.exception_handler(FastAPIHTTPException)
