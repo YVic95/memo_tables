@@ -12,6 +12,7 @@ from routers.language_pairs import router as language_pairs_router
 from routers.grammar_rules import router as grammar_rules_router
 from routers.legal_pages import router as legal_pages_router
 from routers.user_login import router as user_login_router
+from routers.create_rule_agent import router as create_rule_agent_router
 
 load_dotenv()
 
@@ -30,6 +31,7 @@ app.include_router(language_pairs_router)
 app.include_router(grammar_rules_router)
 app.include_router(legal_pages_router)
 app.include_router(user_login_router)
+app.include_router(create_rule_agent_router)
 
 # redirect to the login if cookie is expired
 @app.exception_handler(FastAPIHTTPException)

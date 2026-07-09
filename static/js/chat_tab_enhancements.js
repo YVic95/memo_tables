@@ -1,4 +1,3 @@
-// Chat tab enhancements functionality
 document.addEventListener('htmx:load', function(event) {
     const container = event.target;
     
@@ -58,17 +57,24 @@ function initializeChatTab(container) {
         }
     });
     
-    // Handle propose missing rules button (placeholder for future implementation)
-    proposeMissingRulesButton.addEventListener('click', function() {
-        const selectedPair = languagePairSelect.value;
-        if (selectedPair) {
-            // This will be implemented later
-            alert('Propose Missing Rules functionality will be implemented in a future update. Selected pair: ' + selectedPair);
-        }
+    // Handle propose missing rules button
+    proposeMissingRulesButton.addEventListener('click', async () => {
+        if (!languagePairSelect.value) return;
+
+        proposeMissingRulesButton.disabled = true;
+        try {
+            const reply = await callAgent({ 
+                type: 'propose_missing_rules'
+            });
+            appendMessage('Assistant', reply.text);
+        } catch (err) {
+            console.error('Failed to propose missing rules:', err);
+            appendMessage('Assistant', 'Something went wrong. Please try again.');
+        }      
     });
 }
 
-function loadLanguagePairs() {
+async function loadLanguagePairs() {
     return fetch('/api/language-pairs')
         .then(response => response.json())
         .then(data => {
@@ -111,4 +117,26 @@ function disableProposeMissingRulesButton() {
     if (proposeButton) {
         proposeButton.disabled = true;
     }
+}
+
+// calls the create-rule-agent
+async function callAgent(payload) {
+    const selectedPair = document.getElementById('language-pair-select')?.value;
+
+    const result = await fetch('/api/create-rule-agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...payload, language_pair_id: selectedPair }),
+    });
+
+    if (!result.ok) throw new Error('Agent request failed');
+    return result.json();
+}
+
+// messages of the current chat session
+function appendMessage(role, text) {
+    const el = document.createElement('div');
+    el.className = `message message-${role}`;
+    el.textContent = text;
+    document.getElementById('chat-messages').appendChild(el);
 }
