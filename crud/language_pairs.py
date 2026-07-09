@@ -8,7 +8,6 @@ def get_language_code(db: Session, language_id: str) -> str:
     language = db.query(Language).filter(Language.id == language_id).first()
     return language.code if language else "Unknown"
 
-
 def get_language_pairs(db: Session) -> list[dict]:
     pairs = db.query(LanguagePair).all()
     result = []
@@ -24,7 +23,6 @@ def get_language_pairs(db: Session) -> list[dict]:
         })
     return result
 
-
 def pair_exists(db: Session, native_id: str, target_id: str) -> bool:
     return (
         db.query(LanguagePair.pair_id)
@@ -35,7 +33,6 @@ def pair_exists(db: Session, native_id: str, target_id: str) -> bool:
         .first()
         is not None
     )
-
 
 def create_language_pair(db: Session, native_id: str, target_id: str) -> dict:
     if native_id == target_id:
@@ -58,3 +55,19 @@ def delete_language_pair_by_id(db: Session, pair_id: str) -> bool:
     db.delete(pair)
     db.commit()
     return True
+
+def get_language_pair_by_id(db: Session, pair_id: str) -> dict | None:
+    pair = db.query(LanguagePair).filter(LanguagePair.pair_id == pair_id).first()
+    native = db.query(Language).filter(Language.id == pair.native_language_id).first()
+    target = db.query(Language).filter(Language.id == pair.target_language_id).first()
+
+    if pair is None:
+        return None
+    
+    return {
+        "pair_id": str(pair.pair_id),
+        "native_name": native.name if native else "Unknown",
+        "native_code": get_language_code(db, pair.native_language_id),
+        "target_name": target.name if target else "Unknown",
+        "target_code": get_language_code(db, pair.target_language_id),
+    }
