@@ -66,10 +66,10 @@ function initializeChatTab(container) {
             const reply = await callAgent({ 
                 type: 'propose_missing_rules'
             });
-            appendMessage('Assistant', reply.text);
+            appendRuleMessage('assistant', reply.rules);
         } catch (err) {
             console.error('Failed to propose missing rules:', err);
-            appendMessage('Assistant', 'Something went wrong. Please try again.');
+            appendRuleMessage('assistant', 'Something went wrong. Please try again.');
         }      
     });
 }
@@ -134,9 +134,33 @@ async function callAgent(payload) {
 }
 
 // messages of the current chat session
-function appendMessage(role, text) {
-    const el = document.createElement('div');
-    el.className = `message message-${role}`;
-    el.textContent = text;
-    document.getElementById('chat-messages').appendChild(el);
+function appendRuleMessage(role, rules) {
+    const container = document.createElement('div');
+    container.className = `message message-${role}`;
+
+    const sender = document.createElement('div');
+    sender.className = 'message-sender';
+    sender.textContent = role === 'assistant' ? 'Assistant: ' : 'You: ';
+
+    const list = document.createElement('ul');
+    list.className = 'proposed-rules-list';
+
+    rules.forEach(rule => {
+        const item = document.createElement('li');
+        item.className = 'proposed-rule';
+
+        const title = document.createElement('strong');
+        title.textContent = rule.title;
+
+        const explanation = document.createElement('p');
+        explanation.textContent = rule.explanation;
+
+        item.appendChild(title);
+        item.appendChild(explanation);
+        list.appendChild(item);
+    });
+
+    container.appendChild(sender);
+    container.appendChild(list);
+    document.getElementById('chat-messages').appendChild(container);
 }
