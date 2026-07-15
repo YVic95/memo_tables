@@ -1,0 +1,10 @@
+{
+  "graphs": {
+    "rule-agent": "./graphs/rule_agent.py:graph"
+  },
+  "env": ".env",
+  "source": {
+    "kind": "uv",
+    "root": "."
+  }
+}
