@@ -670,7 +670,7 @@ button[type="submit"]#save-language-selection:hover,
 .proposed-rules-list {
     list-style: none;
     padding: 0;
-    margin: 0;
+    margin: 10px 0px;
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -680,6 +680,8 @@ button[type="submit"]#save-language-selection:hover,
     border: 1px solid #ddd;
     border-radius: 8px;
     padding: 10px 12px;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
 }
 
 .proposed-rule strong {
@@ -690,5 +692,21 @@ button[type="submit"]#save-language-selection:hover,
 .proposed-rule p {
     margin: 0;
     color: #444;
+}
+
+.proposed-rule-selected {
+    background-color: #7A8B6F;
+}
+
+.proposed-rule-dismissed {
+    opacity: 0;
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    overflow: hidden;
+    pointer-events: none;
+    transition: opacity 0.25s ease, max-height 0.35s ease, margin 0.35s ease, padding 0.35s ease;
 }
 /* rule generation chat styles ends */

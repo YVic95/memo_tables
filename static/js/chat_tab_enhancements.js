@@ -157,10 +157,40 @@ function appendRuleMessage(role, rules) {
 
         item.appendChild(title);
         item.appendChild(explanation);
+
+        // Make li clickable/selectable
+        item.addEventListener('click', () => {
+            if (list.querySelector('.proposed-rule-selected')) {
+                return; // A rule has already been selected
+            }
+
+            item.classList.add('proposed-rule-selected');
+
+            // Fade out and remove all unselected cards in this list
+            list.querySelectorAll('.proposed-rule').forEach(otherItem => {
+                if (otherItem === item) return;
+
+                otherItem.classList.add('proposed-rule-dismissed');
+
+                // Remove from DOM after the animation finishes
+                otherItem.addEventListener('transitionend', () => {
+                    otherItem.remove();
+                }, { once: true });
+            });
+        });
         list.appendChild(item);
     });
 
     container.appendChild(sender);
     container.appendChild(list);
+
+    // Hint for the user, shown only when there are rules to click on
+    if (role === 'assistant' && rules.length > 0) {
+        const hint = document.createElement('p');
+        hint.className = 'proposed-rules-hint';
+        hint.textContent = 'Click on the rule card you\'d like to learn more about to see details.';
+        container.appendChild(hint);
+    }
+
     document.getElementById('chat-messages').appendChild(container);
 }
