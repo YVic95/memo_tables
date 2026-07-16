@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from database import get_db
 from crud.language_pairs import get_language_pair_by_id
-from graphs.rule_agent import graph
+from graphs.rule_agent import graph as propose_rules_graph
 
 router = APIRouter(tags=["create-rule-agent"])
 
@@ -21,18 +21,18 @@ async def call_agent(
     if pair is None:
         raise HTTPException(status_code=404, detail="Language pair not found")
 
-    if body.type != "propose_missing_rules":
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported request type: {body.type}",
-        )
-
-    result = graph.invoke(
-        {
+    # if body.type != "propose_missing_rules":
+        
+    
+    if body.type == "propose_missing_rules":
+        result = propose_rules_graph.invoke({
             "native_language": pair["native_name"],
             "target_language": pair["target_name"],
             "proposed_rules": [],
-        }
-    )
-
-    return {"rules": result["proposed_rules"]}
+        })
+        return {"rules": result["proposed_rules"]}
+    else:
+        raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported request type: {body.type}",
+            )

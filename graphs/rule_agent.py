@@ -1,23 +1,15 @@
 import os
 from typing import TypedDict
-
 from dotenv import load_dotenv
 from langchain_core.prompts import PromptTemplate
-from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph, START, END
 from pydantic import BaseModel, Field
+from graphs.llm import llm
 
 load_dotenv()
-os.environ["OPENROUTER_API_KEY"] = os.getenv("OPENROUTER_API_KEY")
 os.environ["LANGSMITH_API_KEY"] = os.getenv("LANGSMITH_API_KEY")
 os.environ["LANGSMITH_TRACING"] = "true"
 os.environ["LANGSMITH_PROJECT"] = os.getenv("LANGCHAIN_PROJECT_NAME")
-
-llm = ChatOpenAI(
-    model="openai/gpt-4o-mini",
-    base_url="https://openrouter.ai/api/v1",
-    api_key=os.environ["OPENROUTER_API_KEY"],
-)
 
 propose_rules_prompt = PromptTemplate.from_template(
     """
