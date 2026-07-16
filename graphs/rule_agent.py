@@ -1,12 +1,11 @@
 import os
-from typing import TypedDict
 from dotenv import load_dotenv
 from langchain_core.prompts import PromptTemplate
 from langgraph.graph import StateGraph, START, END
-from pydantic import BaseModel, Field
 from graphs.llm import llm
 from graphs.prompts import propose_rules_prompt
 from graphs.models import ProposedRules
+from graphs.states import RuleCreationAgentState
 
 load_dotenv()
 os.environ["LANGSMITH_API_KEY"] = os.getenv("LANGSMITH_API_KEY")
@@ -14,12 +13,6 @@ os.environ["LANGSMITH_TRACING"] = "true"
 os.environ["LANGSMITH_PROJECT"] = os.getenv("LANGCHAIN_PROJECT_NAME")
 
 rule_proposer_llm = llm.with_structured_output(ProposedRules)
-
-class RuleCreationAgentState(TypedDict):
-    native_language: str
-    target_language: str
-    proposed_rules: list[dict]
-
 
 def propose_rules_node(state: RuleCreationAgentState) -> RuleCreationAgentState:
     prompt = propose_rules_prompt.format(
@@ -33,7 +26,6 @@ def propose_rules_node(state: RuleCreationAgentState) -> RuleCreationAgentState:
         **state,
         "proposed_rules": [rule.model_dump() for rule in result.rules],
     }
-
 
 graph_builder = StateGraph(RuleCreationAgentState)
 
