@@ -12,3 +12,10 @@ class Rule(BaseModel):
 
 class ProposedRules(BaseModel):
     rules: list[Rule] = Field(description="Exactly 5 proposed rules")
+
+class CategoryChoice(BaseModel):
+    word_category_id: str = Field(description="The id of the single best-fitting category")
+
+class RuleTranslation(BaseModel):
+    name: str = Field(description="Translated name")
+    description: str = Field(description="Translated description")
