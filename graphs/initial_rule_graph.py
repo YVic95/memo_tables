@@ -18,17 +18,17 @@ os.environ["LANGSMITH_PROJECT"] = os.getenv("LANGCHAIN_PROJECT_NAME")
 
 builder = StateGraph(InitialRuleState)
 
-builder.add_node = ("categorize", category_node)
-builder.add_node = ("persist_rule", persist_rule_node)
-builder.add_node = ("translate_rule", translate_rule_node)
-builder.add_node = ("persist_translation", persist_translation_node)
-builder.add_node = ("generate_content", content_node)
+builder.add_node("categorize", category_node)
+builder.add_node("persist_rule", persist_rule_node)
+builder.add_node("translate_rule", translate_rule_node)
+builder.add_node("persist_translation", persist_translation_node)
+builder.add_node("generate_content", content_node)
 
 builder.add_edge(START, "categorize")
 builder.add_edge("categorize", "persist_rule")
 builder.add_edge("persist_rule", "translate_rule")
 builder.add_edge("translate_rule", "persist_translation")
 builder.add_edge("persist_translation", "generate_content")
-builder.add_edge("persist_translation", END)
+builder.add_edge("generate_content", END)
 
 graph = builder.compile()

@@ -1,6 +1,6 @@
 {
   "graphs": {
-    "create-rule-agent": "./graphs/create_rule_agent.py:graph",
+    "create-rule-agent": "./graphs/suggest_rules_graph.py:graph",
     "initial-rule-agent": "./graphs/initial_rule_graph.py:graph"
   },
   "env": ".env",
