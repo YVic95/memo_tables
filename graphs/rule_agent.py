@@ -6,28 +6,14 @@ from langgraph.graph import StateGraph, START, END
 from pydantic import BaseModel, Field
 from graphs.llm import llm
 from graphs.prompts import propose_rules_prompt
+from graphs.models import ProposedRules
 
 load_dotenv()
 os.environ["LANGSMITH_API_KEY"] = os.getenv("LANGSMITH_API_KEY")
 os.environ["LANGSMITH_TRACING"] = "true"
 os.environ["LANGSMITH_PROJECT"] = os.getenv("LANGCHAIN_PROJECT_NAME")
 
-class Rule(BaseModel):
-    title: str = Field(description="Short name of the grammar/language rule")
-    explanation: str = Field(
-        description="""
-Clear explanation of the rule, written in the user's native language.
-Keep it short and explain why the learner should know this rule.
-"""
-    )
-
-
-class ProposedRules(BaseModel):
-    rules: list[Rule] = Field(description="Exactly 5 proposed rules")
-
-
 rule_proposer_llm = llm.with_structured_output(ProposedRules)
-
 
 class RuleCreationAgentState(TypedDict):
     native_language: str
