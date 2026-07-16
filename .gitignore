@@ -14,3 +14,4 @@ useful_commands.py
 supabase/snippets/
 .DS_Store
 .cline
+.langgraph_api/
