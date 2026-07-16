@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv
 from langgraph.graph import StateGraph, START, END
 from graphs.states import RuleCreationAgentState
-from graphs.nodes.propose_rules_nodes import propose_rules_node
+from graphs.nodes.propose_rules_node import propose_rules_node
 
 load_dotenv()
 os.environ["LANGSMITH_API_KEY"] = os.getenv("LANGSMITH_API_KEY")
