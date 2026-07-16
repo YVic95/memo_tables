@@ -5,26 +5,12 @@ from langchain_core.prompts import PromptTemplate
 from langgraph.graph import StateGraph, START, END
 from pydantic import BaseModel, Field
 from graphs.llm import llm
+from graphs.prompts import propose_rules_prompt
 
 load_dotenv()
 os.environ["LANGSMITH_API_KEY"] = os.getenv("LANGSMITH_API_KEY")
 os.environ["LANGSMITH_TRACING"] = "true"
 os.environ["LANGSMITH_PROJECT"] = os.getenv("LANGCHAIN_PROJECT_NAME")
-
-propose_rules_prompt = PromptTemplate.from_template(
-    """
-You are a language-learning content expert.
-
-Suggest exactly 5 fundamental grammar or usage rules a native
-{native_language} speaker should learn first when studying
-{target_language}.
-
-Keep explanations concise and beginner-friendly.
-
-Rules should be written in the {native_language} of the user.
-"""
-)
-
 
 class Rule(BaseModel):
     title: str = Field(description="Short name of the grammar/language rule")
