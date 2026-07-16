@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from database import get_db
 from crud.language_pairs import get_language_pair_by_id
-from graphs.rule_agent import graph as propose_rules_graph
+from graphs.suggest_rules_agent import graph as propose_rules_graph
 
 router = APIRouter(tags=["create-rule-agent"])
 
