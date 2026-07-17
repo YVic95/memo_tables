@@ -139,6 +139,19 @@ async function callAgent(payload) {
 
 // messages of the current chat session
 function appendRuleMessage(role, rules) {
+    const container = createRuleMessageContainer(role);
+    const list = createRulesList(rules);
+
+    container.appendChild(list);
+
+    if (role === 'assistant' && rules.length > 0) {
+        container.appendChild(createRulesHint());
+    }
+
+    appendToChat(container);
+}
+
+function createRuleMessageContainer(role) {
     const container = document.createElement('div');
     container.className = `message message-${role}`;
 
@@ -146,70 +159,102 @@ function appendRuleMessage(role, rules) {
     sender.className = 'message-sender';
     sender.textContent = role === 'assistant' ? 'Assistant: ' : 'You: ';
 
+    container.appendChild(sender);
+
+    return container;
+}
+
+function createRulesList(rules) {
     const list = document.createElement('ul');
     list.className = 'proposed-rules-list';
 
     rules.forEach(rule => {
-        const item = document.createElement('li');
-        item.className = 'proposed-rule';
-
-        const title = document.createElement('strong');
-        title.textContent = rule.title;
-
-        const explanation = document.createElement('p');
-        explanation.textContent = rule.explanation;
-
-        item.appendChild(title);
-        item.appendChild(explanation);
-
-        // Make li clickable/selectable
-        item.addEventListener('click', async () => {
-            if (list.querySelector('.proposed-rule-selected')) {
-                return; // A rule has already been selected
-            }
-
-            item.classList.add('proposed-rule-selected');
-
-            // Fade out and remove all unselected cards in this list
-            list.querySelectorAll('.proposed-rule').forEach(otherItem => {
-                if (otherItem === item) return;
-
-                otherItem.classList.add('proposed-rule-dismissed');
-
-                // Remove from DOM after the animation finishes
-                otherItem.addEventListener('transitionend', () => {
-                    otherItem.remove();
-                }, { once: true });
-            });
-            
-            try {
-                const reply = await callAgent({
-                    type: 'initial_rule',
-                    title: rule.title,
-                    explanation: rule.explanation,
-                });
-
-                console.log('Initial rule created:', reply);
-
-                // Display reply.full_content in the chat
-                // appendContentMessage(reply.full_content);
-            } catch (err) {
-                console.error('Failed to initialize rule:', err);
-            }
-        });
-        list.appendChild(item);
+        list.appendChild(createRuleItem(rule, list));
     });
 
-    container.appendChild(sender);
-    container.appendChild(list);
+    return list;
+}
 
-    // Hint for the user, shown only when there are rules to click on
-    if (role === 'assistant' && rules.length > 0) {
-        const hint = document.createElement('p');
-        hint.className = 'proposed-rules-hint';
-        hint.textContent = 'Click on the rule card you\'d like to learn more about to see details.';
-        container.appendChild(hint);
+function createRuleItem(rule, list) {
+    const item = document.createElement('li');
+    item.className = 'proposed-rule';
+
+    const title = document.createElement('strong');
+    title.textContent = rule.title;
+
+    const explanation = document.createElement('p');
+    explanation.textContent = rule.explanation;
+
+    item.append(title, explanation);
+
+    item.addEventListener('click', () => onRuleSelected(item, list, rule));
+
+    return item;
+}
+
+async function onRuleSelected(item, list, rule) {
+    if (list.querySelector('.proposed-rule-selected')) {
+        return;
     }
 
-    document.getElementById('chat-messages').appendChild(container);
+    item.classList.add('proposed-rule-selected');
+
+    dismissOtherRules(list, item);
+
+    try {
+        const reply = await callAgent({
+            type: 'initial_rule',
+            title: rule.title,
+            explanation: rule.explanation,
+        });
+
+        if (reply) {
+            appendFullRule(reply, rule);
+        }
+    } catch (err) {
+        console.error('Failed to initialize rule:', err);
+    }
+}
+
+function dismissOtherRules(list, selectedItem) {
+    list.querySelectorAll('.proposed-rule').forEach(item => {
+        if (item === selectedItem) return;
+
+        item.classList.add('proposed-rule-dismissed');
+
+        item.addEventListener(
+            'transitionend',
+            () => item.remove(),
+            { once: true }
+        );
+    });
+}
+
+function appendFullRule(reply, originalRule) {
+    const fullRule = document.createElement('div');
+    fullRule.className = 'full-rule-content';
+
+    const title = document.createElement('strong');
+    title.textContent = reply.title ?? originalRule.title;
+
+    const body = document.createElement('p');
+    body.textContent = reply.full_content ?? '';
+
+    fullRule.append(title, body);
+    document.getElementById('chat-messages').appendChild(fullRule);
+}
+
+function createRulesHint() {
+    const hint = document.createElement('p');
+    hint.className = 'proposed-rules-hint';
+    hint.textContent =
+        "Click on the rule card you'd like to learn more about to see details.";
+
+    return hint;
+}
+
+function appendToChat(elem) {
+    const chat = document.getElementById('chat-messages');
+    chat.appendChild(elem);
+    elem.scrollIntoView({ behavior: 'smooth' });
 }
