@@ -66,6 +66,8 @@ def get_language_pair_by_id(db: Session, pair_id: str) -> dict | None:
     
     return {
         "pair_id": str(pair.pair_id),
+        "native_language_id": str(pair.native_language_id),
+        "target_language_id": str(pair.target_language_id),
         "native_name": native.name if native else "Unknown",
         "native_code": get_language_code(db, pair.native_language_id),
         "target_name": target.name if target else "Unknown",

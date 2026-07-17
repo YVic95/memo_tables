@@ -10,7 +10,7 @@ def attach_grammatical_category_to_rule_node(state: InitialRuleState) -> Initial
     rows = get_word_categories(state["db"])
 
     categories = "\n".join(
-        f"- {row['id']}: {row['name']} ({row['slug']})"
+        f"- {row.id}: {row.name} ({row.slug})"
         for row in rows
     )
 

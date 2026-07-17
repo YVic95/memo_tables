@@ -9,7 +9,7 @@ translate_chain = translate_prompt | translator_llm
 def translate_rule_node(state: InitialRuleState) -> InitialRuleState:
     result: RuleTranslation = translate_chain.invoke(
         {
-            "native_language": state["native_language"],
+            "target_language": state["target_language"],
             "rule_title": state["rule_title"],
             "rule_explanation": state["rule_explanation"],
         }

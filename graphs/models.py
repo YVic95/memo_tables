@@ -17,5 +17,5 @@ class CategoryChoice(BaseModel):
     word_category_id: str = Field(description="The id of the single best-fitting category")
 
 class RuleTranslation(BaseModel):
-    name: str = Field(description="Translated name")
-    description: str = Field(description="Translated description")
+    name: str = Field(description="Name translated to the target language of user")
+    description: str = Field(description="Description translated to the target language of user")

@@ -27,7 +27,7 @@ attach_grammar_category_to_rule_prompt = PromptTemplate.from_template(
 
 translate_prompt = PromptTemplate.from_template(
     """
-        Translate the following grammar rule name and description into {native_language}.
+        Translate the following grammar rule name and description into {target_language} of the user.
         Name: {rule_title}
         Description: {rule_explanation}
     """

@@ -1,35 +1,10 @@
 from uuid import uuid4
 from sqlalchemy import Column, String, ForeignKey
 from sqlalchemy.orm import Session, declarative_base
-
-Base = declarative_base()
-
-class WordCategory(Base):
-    __tablename__ = "word_categories"
-
-    id = Column(String, primary_key=True)
-    name = Column(String, nullable=False)
-    slug = Column(String, nullable=False)
-
-
-class GrammarRule(Base):
-    __tablename__ = "grammar_rules"
-
-    id = Column(String, primary_key=True)
-    name = Column(String, nullable=False)
-    description = Column(String)
-    language_id = Column(String, ForeignKey("languages.id"), nullable=False)
-    word_category_id = Column(String, ForeignKey("word_categories.id"), nullable=False)
-
-
-class GrammarRuleTranslation(Base):
-    __tablename__ = "grammar_rule_translations"
-
-    id = Column(String, primary_key=True)
-    grammar_rule_id = Column(String, ForeignKey("grammar_rules.id"), nullable=False)
-    language_id = Column(String, ForeignKey("languages.id"), nullable=False)
-    name = Column(String, nullable=False)
-    description = Column(String)
+from models.language import Language
+from models.word_categories import WordCategory
+from models.grammar_rules import GrammarRule
+from models.grammar_rule_translations import GrammarRuleTranslation
 
 def get_word_categories(db: Session):
     return db.query(WordCategory).all()
@@ -40,7 +15,7 @@ def create_grammar_rule(
     description: str,
     language_id: str,
     word_category_id: str,
-) -> str:
+) -> GrammarRule:
     rule = GrammarRule(
         id=str(uuid4()),
         name=title,
@@ -51,7 +26,10 @@ def create_grammar_rule(
     db.add(rule)
     db.commit()
     db.refresh(rule)
-    return rule.id
+    return rule
+
+def get_grammar_rule_by_id(db: Session, rule_id: str) -> GrammarRule | None:
+    return db.query(GrammarRule).filter(GrammarRule.id == rule_id).first()
 
 def create_translation(
     db: Session,

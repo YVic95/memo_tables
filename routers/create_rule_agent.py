@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -12,6 +12,8 @@ router = APIRouter(tags=["create-rule-agent"])
 class AgentRequest(BaseModel):
     type: str
     language_pair_id: str
+    title: Optional[str] = None
+    explanation: Optional[str] = None
 
 @router.post("/api/create-rule-agent")
 async def call_agent(

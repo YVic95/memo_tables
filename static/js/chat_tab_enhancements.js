@@ -129,7 +129,11 @@ async function callAgent(payload) {
         body: JSON.stringify({ ...payload, language_pair_id: selectedPair }),
     });
 
-    if (!result.ok) throw new Error('Agent request failed');
+    if (!result.ok) {
+        const error = await result.json();
+        throw new Error(error.detail || 'Agent request failed');
+    }
+
     return result.json();
 }
 
@@ -159,7 +163,7 @@ function appendRuleMessage(role, rules) {
         item.appendChild(explanation);
 
         // Make li clickable/selectable
-        item.addEventListener('click', () => {
+        item.addEventListener('click', async () => {
             if (list.querySelector('.proposed-rule-selected')) {
                 return; // A rule has already been selected
             }
@@ -177,6 +181,21 @@ function appendRuleMessage(role, rules) {
                     otherItem.remove();
                 }, { once: true });
             });
+            
+            try {
+                const reply = await callAgent({
+                    type: 'initial_rule',
+                    title: rule.title,
+                    explanation: rule.explanation,
+                });
+
+                console.log('Initial rule created:', reply);
+
+                // Display reply.full_content in the chat
+                // appendContentMessage(reply.full_content);
+            } catch (err) {
+                console.error('Failed to initialize rule:', err);
+            }
         });
         list.appendChild(item);
     });

@@ -2,7 +2,7 @@ from graphs.states import InitialRuleState
 from crud.rules import create_grammar_rule
 
 def persist_rule_node(state: InitialRuleState) -> InitialRuleState:
-    rule_id = create_grammar_rule(
+    rule = create_grammar_rule(
         db=state["db"],
         title=state["rule_title"],
         description=state["rule_explanation"],
@@ -12,5 +12,5 @@ def persist_rule_node(state: InitialRuleState) -> InitialRuleState:
 
     return {
         **state,
-        "grammar_rule_id": rule_id,
+        "grammar_rule_id": rule.id,
     }
