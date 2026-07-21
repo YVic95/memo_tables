@@ -331,6 +331,56 @@ body.admin-panel-body {
     to { transform: rotate(360deg); }
 }
 
+/* Agent progress steps */
+.agent-progress {
+    padding: 16px 20px;
+    margin: 12px 0;
+    background: #f4f3ef;
+    border-radius: 8px;
+    border: 1px solid #e0ddd6;
+}
+
+.agent-progress-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #2c301f;
+    margin-bottom: 12px;
+}
+
+.agent-progress-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.agent-progress-step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.85rem;
+    color: #999;
+    transition: color 0.2s;
+}
+
+.agent-progress-step .step-icon {
+    width: 18px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.agent-progress-step.active {
+    color: #2c301f;
+    font-weight: 500;
+}
+
+.agent-progress-step.completed {
+    color: #5e6843;
+}
+
+.agent-progress-step.completed .step-icon {
+    color: #5e6843;
+}
+
 /* Buttons */
 button[type="submit"]#save-language-selection,
 #create-language-pair {
