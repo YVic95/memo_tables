@@ -365,14 +365,14 @@ function appendFullRule(reply, originalRule) {
     const fullRule = document.createElement('div');
     fullRule.className = 'full-rule-content';
 
-    const title = document.createElement('strong');
-    title.textContent = reply.title ?? originalRule.title;
+    // const title = document.createElement('strong');
+    // title.textContent = reply.title ?? originalRule.title;
 
     const body = document.createElement('div');
     body.className = 'full-rule-body';
     body.innerHTML = markdownToHtml(reply.full_content ?? '');
 
-    fullRule.append(title, body);
+    fullRule.append(body);
     appendToChat(fullRule);
 }
 
