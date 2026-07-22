@@ -15,7 +15,7 @@ class GrammarRuleTranslation(Base):
     __tablename__ = "grammar_rule_translations"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    grammar_rule_id = Column(UUID(as_uuid=True), ForeignKey("grammar_rules.id"), nullable=False)
+    grammar_rule_id = Column(UUID(as_uuid=True), ForeignKey("grammar_rules.id", ondelete="CASCADE"), nullable=False)
     language_id = Column(UUID(as_uuid=True), ForeignKey("languages.id"), nullable=False)
     name = Column(String, nullable=False)
     description = Column(Text, nullable=True)
