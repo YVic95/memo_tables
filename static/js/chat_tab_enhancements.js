@@ -365,14 +365,35 @@ function appendFullRule(reply, originalRule) {
     const fullRule = document.createElement('div');
     fullRule.className = 'full-rule-content';
 
-    // const title = document.createElement('strong');
-    // title.textContent = reply.title ?? originalRule.title;
-
     const body = document.createElement('div');
     body.className = 'full-rule-body';
     body.innerHTML = markdownToHtml(reply.full_content ?? '');
 
-    fullRule.append(body);
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'save-button';
+    saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Rule';
+    saveBtn.addEventListener('click', async () => {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin-pulse"></i> Saving...';
+        try {
+            const result = await fetch(`/api/grammar-rules/${reply.grammar_rule_id}/append-content`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: reply.full_content }),
+            });
+            if (!result.ok) {
+                const err = await result.json().catch(() => ({}));
+                throw new Error(err.detail || 'Failed to save');
+            }
+            saveBtn.innerHTML = '<i class="fa-solid fa-check"></i> Saved';
+        } catch (err) {
+            console.error('Failed to save rule:', err);
+            saveBtn.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Error';
+            saveBtn.disabled = false;
+        }
+    });
+
+    fullRule.append(body, saveBtn);
     appendToChat(fullRule);
 }
 

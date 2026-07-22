@@ -31,6 +31,27 @@ def create_grammar_rule(
 def get_grammar_rule_by_id(db: Session, rule_id: str) -> GrammarRule | None:
     return db.query(GrammarRule).filter(GrammarRule.id == rule_id).first()
 
+def append_rule_description(db: Session, rule_id: str, content: str) -> GrammarRule | None:
+    rule = get_grammar_rule_by_id(db, rule_id)
+    if rule is None:
+        return None
+    rule.description = (rule.description or "") + "\n\n" + content
+    db.commit()
+    db.refresh(rule)
+    return rule
+
+def get_translation_for_rule(db: Session, rule_id: str) -> GrammarRuleTranslation | None:
+    return db.query(GrammarRuleTranslation).filter(GrammarRuleTranslation.grammar_rule_id == rule_id).first()
+
+def append_translation_description(db: Session, rule_id: str, content: str) -> GrammarRuleTranslation | None:
+    translation = get_translation_for_rule(db, rule_id)
+    if translation is None:
+        return None
+    translation.description = (translation.description or "") + "\n\n" + content
+    db.commit()
+    db.refresh(translation)
+    return translation
+
 def create_translation(
     db: Session,
     grammar_rule_id: str,
