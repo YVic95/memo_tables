@@ -14,10 +14,8 @@ translate_content_prompt = PromptTemplate.from_template(
     "Translate the following grammar rule content into {target_language}:\n\n{content}"
 )
 
-
 class AppendContentRequest(BaseModel):
     content: str
-
 
 @router.post("/api/grammar-rules/{grammar_rule_id}/append-content")
 async def append_rule_content(
