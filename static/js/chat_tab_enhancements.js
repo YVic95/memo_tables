@@ -270,6 +270,63 @@ function dismissOtherRules(list, selectedItem) {
     });
 }
 
+function markdownToHtml(text) {
+    if (!text) return '';
+
+    let normalized = text
+        .replace(/(?<!\n)(?=## )/g, '\n')
+        .replace(/(?<!\n)(?=### )/g, '\n')
+        .trim();
+
+    const lines = normalized.split('\n');
+    const out = [];
+    let listTag = null;
+
+    function closeList() {
+        if (listTag) { out.push('</' + listTag + '>'); listTag = null; }
+    }
+
+    function inline(s) {
+        return s
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.+?)\*/g, '<em>$1</em>');
+    }
+
+    for (const raw of lines) {
+        // Strip invisible/odd whitespace-like chars, then check for a
+        // "divider" line that's just hashes (empty heading, e.g. lone #, ##, ###)
+        const cleaned = raw.replace(/[\s\u00A0\u200B\uFEFF]+/g, '');
+        if (/^#{1,6}$/.test(cleaned)) { closeList(); continue; }
+
+        const line = raw.trim();
+        if (!line) { closeList(); continue; }
+
+        let m;
+        if ((m = line.match(/^### (.+)/))) {
+            closeList();
+            out.push('<h3>' + inline(m[1]) + '</h3>');
+        } else if ((m = line.match(/^## (.+)/))) {
+            closeList();
+            out.push('<h2>' + inline(m[1]) + '</h2>');
+        } else if ((m = line.match(/^# (.+)/))) {
+            closeList();
+            out.push('<h1>' + inline(m[1]) + '</h1>');
+        } else if ((m = line.match(/^\d+\.\s+(.+)/))) {
+            if (listTag !== 'ol') { closeList(); out.push('<ol>'); listTag = 'ol'; }
+            out.push('<li>' + inline(m[1]) + '</li>');
+        } else if ((m = line.match(/^-\s+(.+)/))) {
+            if (listTag !== 'ul') { closeList(); out.push('<ul>'); listTag = 'ul'; }
+            out.push('<li>' + inline(m[1]) + '</li>');
+        } else {
+            closeList();
+            out.push('<p>' + inline(line) + '</p>');
+        }
+    }
+    closeList();
+
+    return out.join('\n');
+}
+
 function appendFullRule(reply, originalRule) {
     const fullRule = document.createElement('div');
     fullRule.className = 'full-rule-content';
@@ -277,8 +334,9 @@ function appendFullRule(reply, originalRule) {
     const title = document.createElement('strong');
     title.textContent = reply.title ?? originalRule.title;
 
-    const body = document.createElement('p');
-    body.textContent = reply.full_content ?? '';
+    const body = document.createElement('div');
+    body.className = 'full-rule-body';
+    body.innerHTML = markdownToHtml(reply.full_content ?? '');
 
     fullRule.append(title, body);
     appendToChat(fullRule);

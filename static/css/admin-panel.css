@@ -760,3 +760,64 @@ button[type="submit"]#save-language-selection:hover,
     transition: opacity 0.25s ease, max-height 0.35s ease, margin 0.35s ease, padding 0.35s ease;
 }
 /* rule generation chat styles ends */
+
+/* Full rule content */
+.full-rule-content {
+    background: #f9f8f4;
+    border: 1px solid #e0ddd6;
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin: 12px 0;
+    line-height: 1.6;
+}
+
+.full-rule-content > strong:first-child {
+    display: block;
+    font-size: 1.15rem;
+    color: #2A2A2A;
+    margin-bottom: 12px;
+}
+
+.full-rule-body h2 {
+    font-size: 1.1rem;
+    color: #4A5D3A;
+    margin: 20px 0 8px;
+    font-weight: 700;
+}
+
+.full-rule-body h2:first-child {
+    margin-top: 0;
+}
+
+.full-rule-body h3 {
+    font-size: 1rem;
+    color: #4A5D3A;
+    margin: 16px 0 6px;
+    font-weight: 600;
+}
+
+.full-rule-body p {
+    margin: 8px 0;
+    color: #333;
+}
+
+.full-rule-body strong {
+    color: #2A2A2A;
+}
+
+.full-rule-body em {
+    color: #666;
+    font-style: italic;
+}
+
+.full-rule-body ol,
+.full-rule-body ul {
+    margin: 8px 0;
+    padding-left: 24px;
+}
+
+.full-rule-body li {
+    margin-bottom: 8px;
+    color: #333;
+    line-height: 1.5;
+}

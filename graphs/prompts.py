@@ -37,8 +37,40 @@ rule_content_prompt = PromptTemplate.from_template(
     """
         Write the full learning content for this grammar rule, in {native_language},
         for a speaker learning {target_language}.
+
         Name: {rule_title}
         Short explanation: {rule_explanation}
+
+        CRITICAL FORMATTING RULES:
+        - Never use "#" alone as a separator between sections. Use blank lines instead.
+        - Use "##" for the main heading: ## Grammar Rule: {rule_title}
+        - Use "###" for section headings: ### Rule Statement:, ### Examples:, ### Common Mistakes:
+        - Use "**" for emphasis on key terms.
+        - Use "*" for translations and example phrases.
+        - Use numbered lists (1. 2. ...) for examples.
+        - Use "-" sub-lists within common mistakes.
+
+        Follow this structure exactly:
+
+        ## Grammar Rule: {rule_title}
+
+        ### Rule Statement:
+        [clear explanation of the rule]
+
+        ### Examples:
+        1. **[example in target language]** *([translation])* — [brief explanation]
+        2. **[example]** *([translation])* — [explanation]
+        3. **[example]** *([translation])* — [explanation]
+        4. **[example]** *([translation])* — [explanation]
+        5. **[example]** *([translation])* — [explanation]
+
+        ### Common Mistakes:
+        1. **[mistake name]**
+           - Mistake: **[wrong example]**
+           - Correction: **[correct example]** — [explanation]
+        2. **[mistake name]**
+           - Mistake: **[wrong example]**
+           - Correction: **[correct example]** — [explanation]
 
         Include: clear rule statement, 3-5 examples with translations, and 1-2 common mistakes.
     """
