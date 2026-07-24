@@ -8,11 +8,18 @@ document.addEventListener('htmx:load', function(event) {
 function initializeChatTab(container) {
     const addLanguagePairButton = container.querySelector('#add-language-pair');
     const proposeMissingRulesButton = container.querySelector('#propose-missing-rules');
+    const generateTableBtn = container.querySelector('#generate-table-btn');
     const languagePairDropdown = container.querySelector('#language-pair-dropdown');
     const languagePairSelect = container.querySelector('#language-pair-select');
 
     if (!addLanguagePairButton || !proposeMissingRulesButton || !languagePairDropdown || !languagePairSelect) {
         return;
+    }
+
+    if (generateTableBtn) {
+        generateTableBtn.addEventListener('click', () => {
+            alert('Table generation coming soon');
+        });
     }
 
     // Load saved language pair from localStorage
@@ -304,6 +311,8 @@ function appendFullRule(reply, originalRule) {
                 throw new Error(err.detail || 'Failed to save');
             }
             saveBtn.innerHTML = '<i class="fa-solid fa-check"></i> Saved';
+            const tableBtn = document.getElementById('generate-table-btn');
+            if (tableBtn) tableBtn.classList.remove('hidden-button');
         } catch (err) {
             console.error('Failed to save rule:', err);
             saveBtn.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Error';
