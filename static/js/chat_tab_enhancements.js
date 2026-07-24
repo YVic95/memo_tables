@@ -53,7 +53,8 @@ function initializeChatTab(container) {
             localStorage.setItem('selectedLanguagePair', selectedValue);
             enableProposeMissingRulesButton();
         } else {
-            disableProposeMissingRulesButton();
+            // disableProposeMissingRulesButton();
+            hideProposeMissingRulesButton();
         }
     });
 
@@ -61,7 +62,8 @@ function initializeChatTab(container) {
     proposeMissingRulesButton.addEventListener('click', async () => {
         if (!languagePairSelect.value) return;
 
-        proposeMissingRulesButton.disabled = true;
+        // proposeMissingRulesButton.disabled = true;
+        proposeMissingRulesButton.className = 'hidden-button';
         try {
             const reply = await callAgent({
                 type: 'propose_missing_rules'
@@ -109,6 +111,13 @@ function enableProposeMissingRulesButton() {
     const proposeButton = document.getElementById('propose-missing-rules');
     if (proposeButton) {
         proposeButton.disabled = false;
+    }
+}
+
+function hideProposeMissingRulesButton() {
+    const proposeButton = document.getElementById('propose-missing-rules');
+    if (proposeButton) {
+        proposeButton.className = 'hidden-button';
     }
 }
 

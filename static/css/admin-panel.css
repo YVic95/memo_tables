@@ -233,6 +233,10 @@ body.admin-panel-body {
     background-color: #3D4A32;
 }
 
+.hidden-button {
+    display: none !important;
+}
+
 .save-button i {
     font-size: 16px;
 }
