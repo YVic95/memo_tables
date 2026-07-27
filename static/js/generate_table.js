@@ -1,8 +1,8 @@
-async function generateTable(ruleId) {
+async function generateTable(ruleId, languagePairId) {
     const result = await fetch('/api/generate-table', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ grammar_rule_id: ruleId }),
+        body: JSON.stringify({ grammar_rule_id: ruleId, language_pair_id: languagePairId }),
     });
 
     if (!result.ok) {

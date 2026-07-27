@@ -20,5 +20,19 @@ class RuleTranslation(BaseModel):
     name: str = Field(description="Name translated to the target language of user")
     description: str = Field(description="Description translated to the target language of user")
 
+class TableRow(BaseModel):
+    cells: list[str] = Field(description="Cell values for this row, one per column")
+
+class TableData(BaseModel):
+    title: str = Field(description="Heading for this table")
+    headers: list[str] = Field(description="Column headers")
+    rows: list[TableRow] = Field(description="Table rows")
+
+class FragmentationOutput(BaseModel):
+    should_fragment: bool = Field(description="Whether the table can be split into sub-tables")
+    fragmentation_rationale: str = Field(description="Explanation of the fragmentation decision")
+    tables: list[TableData] = Field(description="Sub-tables if fragmented, empty otherwise")
+
 class GenerateTableRequest(BaseModel):
     grammar_rule_id: str
+    language_pair_id: str

@@ -33,6 +33,42 @@ translate_prompt = PromptTemplate.from_template(
     """
 )
 
+generate_table_prompt = PromptTemplate.from_template(
+    """
+        You are a language-learning content expert. Create a grammar or conjugation table for a rule
+        in {target_language}, with column headers in {target_language} and explanations in {native_language}.
+
+        Rule name: {rule_name}
+        Rule description: {rule_description}
+
+        Output a structured table where:
+        - The title summarises the table in {target_language}
+        - Headers are the column labels in {target_language} (e.g. "Person", "Singular", "Plural")
+        - Each row has cells with the {target_language} forms
+
+        Include all meaningful grammatical persons/forms covered by the rule.
+        Use empty string for cells where a form does not apply.
+    """
+)
+
+fragmentation_prompt = PromptTemplate.from_template(
+    """
+        Analyse the following grammar table and decide if it can be split into smaller,
+        pedagogically useful sub-tables.
+
+        Table: {general_table_json}
+
+        Rules:
+        - Split only if the table has at least 2 distinct logical groups (e.g. singular/plural,
+          masculine/feminine, present/past, etc.)
+        - Each sub-table must be self-contained and have at least 2 rows.
+        - If the table is already small or cannot be cleanly divided, set should_fragment to false.
+        - Provide a brief rationale for your decision.
+
+        Output should_fragment, a short rationale, and the list of sub-tables (empty if not fragmenting).
+    """
+)
+
 rule_content_prompt = PromptTemplate.from_template(
     """
         Write the full learning content for this grammar rule, in {native_language},

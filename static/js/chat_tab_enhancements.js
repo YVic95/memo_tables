@@ -20,8 +20,10 @@ function initializeChatTab(container) {
         generateTableBtn.addEventListener('click', async () => {
             const ruleId = generateTableBtn.dataset.ruleId;
             if (!ruleId) return;
+            const languagePairId = languagePairSelect?.value;
+            if (!languagePairId) return;
             try {
-                await generateTable(ruleId);
+                await generateTable(ruleId, languagePairId);
             } catch (err) {
                 console.error('Failed to generate tables:', err);
             }
