@@ -14,6 +14,7 @@ from routers.legal_pages import router as legal_pages_router
 from routers.user_login import router as user_login_router
 from routers.create_rule_agent import router as create_rule_agent_router
 from routers.save_rule import router as save_rule_router
+from routers.generate_table import router as generate_table_router
 
 load_dotenv()
 
@@ -34,6 +35,7 @@ app.include_router(legal_pages_router)
 app.include_router(user_login_router)
 app.include_router(create_rule_agent_router)
 app.include_router(save_rule_router)
+app.include_router(generate_table_router)
 
 # redirect to the login if cookie is expired
 @app.exception_handler(FastAPIHTTPException)

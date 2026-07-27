@@ -19,3 +19,6 @@ class CategoryChoice(BaseModel):
 class RuleTranslation(BaseModel):
     name: str = Field(description="Name translated to the target language of user")
     description: str = Field(description="Description translated to the target language of user")
+
+class GenerateTableRequest(BaseModel):
+    grammar_rule_id: str

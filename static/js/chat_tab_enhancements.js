@@ -17,8 +17,14 @@ function initializeChatTab(container) {
     }
 
     if (generateTableBtn) {
-        generateTableBtn.addEventListener('click', () => {
-            alert('Table generation coming soon');
+        generateTableBtn.addEventListener('click', async () => {
+            const ruleId = generateTableBtn.dataset.ruleId;
+            if (!ruleId) return;
+            try {
+                await generateTable(ruleId);
+            } catch (err) {
+                console.error('Failed to generate tables:', err);
+            }
         });
     }
 
@@ -312,7 +318,10 @@ function appendFullRule(reply, originalRule) {
             }
             saveBtn.innerHTML = '<i class="fa-solid fa-check"></i> Saved';
             const tableBtn = document.getElementById('generate-table-btn');
-            if (tableBtn) tableBtn.classList.remove('hidden-button');
+            if (tableBtn) {
+                tableBtn.dataset.ruleId = reply.grammar_rule_id;
+                tableBtn.classList.remove('hidden-button');
+            }
         } catch (err) {
             console.error('Failed to save rule:', err);
             saveBtn.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Error';
