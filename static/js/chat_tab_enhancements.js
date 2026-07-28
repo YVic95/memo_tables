@@ -22,11 +22,17 @@ function initializeChatTab(container) {
             if (!ruleId) return;
             const languagePairId = languagePairSelect?.value;
             if (!languagePairId) return;
+
+            const loader = document.getElementById('loader');
+            loader.classList.add('htmx-request');
+
             try {
                 const data = await generateTable(ruleId, languagePairId);
                 displayGeneratedTables(data);
             } catch (err) {
                 console.error('Failed to generate tables:', err);
+            } finally {
+                loader.classList.remove('htmx-request');
             }
         });
     }

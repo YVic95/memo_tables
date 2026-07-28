@@ -35,19 +35,49 @@ translate_prompt = PromptTemplate.from_template(
 
 generate_table_prompt = PromptTemplate.from_template(
     """
-        You are a language-learning content expert. Create a grammar or conjugation table for a rule
-        in {target_language}, with column headers in {target_language} and explanations in {native_language}.
+    You are a language-learning content expert. Create a grammar or conjugation
+    table that teaches the rule below to a learner whose native language is
+    {native_language} and who is learning {target_language}.
 
-        Rule name: {rule_name}
-        Rule description: {rule_description}
+    Rule name: {rule_name}
+    Rule description: {rule_description}
 
-        Output a structured table where:
-        - The title summarises the table in {target_language}
-        - Headers are the column labels in {target_language} (e.g. "Person", "Singular", "Plural")
-        - Each row has cells with the {target_language} forms
+    LANGUAGE RULES
+    - Table title: written in {target_language}, briefly summarizing the rule.
+    - Column headers: written in {target_language} (e.g. "Person", "Singular", "Plural").
+    - Explanation text inside cells: written in {native_language}, so the learner
+      understands *why* the form is used.
+    - Word forms and examples inside cells: written in {target_language}.
 
-        Include all meaningful grammatical persons/forms covered by the rule.
-        Use empty string for cells where a form does not apply.
+    COLUMN STRUCTURE (in this order)
+    1. Word/Form — the {target_language} word or form that the rule applies to.
+        This is the primary key of the row: if a row would have no meaningful
+        content at all, omit it entirely rather than including it with empty cells.
+        However, if the rule includes a case where no word/form is used (e.g. the
+        "zero article" before uncountable or plural nouns), keep that row and
+        label the cell descriptively (e.g. "(no article)") instead of
+        leaving it blank — the row itself is meaningful even though the form is absent.
+    2. Explanation — a short explanation, in {target_language}, of when/why this
+       form is used.
+    3. Example — one or more {target_language} example sentences or phrases
+       illustrating the form.
+
+    CONTENT RULES
+    - Cover all grammatically meaningful persons/forms/cases relevant to this rule
+      (e.g. all persons for a conjugation rule, all cases for a declension rule).
+    - Do not include separate "Common mistake" or "Correction" columns or content.
+    - Do not create more than one "Example" column. If a row has multiple example
+      instances, put them all together inside the single Example cell (e.g. as a
+      short list), rather than splitting them across columns.
+    - Do not repeat or re-explain an aspect of the rule that was already covered
+      in an earlier row — each row should add new information.
+    - If a form does not apply to a given row, use an empty string ("") for that
+      cell rather than "N/A" or similar filler.
+    - If an entire column would end up empty across all rows, omit that column
+      entirely rather than including it with blank cells.
+
+    Return only the table (title, headers, rows) — no additional commentary
+    before or after it.
     """
 )
 
