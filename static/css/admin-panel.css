@@ -825,3 +825,69 @@ button[type="submit"]#save-language-selection:hover,
     color: #333;
     line-height: 1.5;
 }
+
+/* Grammar table renderer */
+.grammar-table-container {
+    background: #f9f8f4;
+    border: 1px solid #e0ddd6;
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin: 12px 0;
+    overflow-x: auto;
+}
+
+.grammar-table-title {
+    font-size: 1rem;
+    color: #4A5D3A;
+    margin: 0 0 12px;
+    font-weight: 700;
+}
+
+.grammar-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+}
+
+.grammar-table th {
+    background-color: #4A5D3A;
+    color: #fff;
+    padding: 8px 12px;
+    text-align: left;
+    font-weight: 600;
+}
+
+.grammar-table th:first-child {
+    border-radius: 8px 0 0 0;
+}
+
+.grammar-table th:last-child {
+    border-radius: 0 8px 0 0;
+}
+
+.grammar-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #e0ddd6;
+    color: #333;
+}
+
+.grammar-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.grammar-table tbody tr:hover {
+    background-color: #f0efe9;
+}
+
+.grammar-table-separator {
+    border: none;
+    border-top: 1px solid #e0ddd6;
+    margin: 16px 0;
+}
+
+.grammar-table-subheading {
+    font-size: 1rem;
+    color: #4A5D3A;
+    font-weight: 700;
+    margin: 0 0 8px;
+}

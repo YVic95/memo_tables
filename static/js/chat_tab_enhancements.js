@@ -23,7 +23,8 @@ function initializeChatTab(container) {
             const languagePairId = languagePairSelect?.value;
             if (!languagePairId) return;
             try {
-                await generateTable(ruleId, languagePairId);
+                const data = await generateTable(ruleId, languagePairId);
+                displayGeneratedTables(data);
             } catch (err) {
                 console.error('Failed to generate tables:', err);
             }
