@@ -11,6 +11,16 @@ propose_rules_prompt = PromptTemplate.from_template(
         Keep explanations concise and beginner-friendly.
 
         Rules should be written in the {native_language} of the user.
+
+        Each rule must cover exactly one grammatical concept — do not
+        combine multiple items from the list below into a single rule:
+        - Tense formation: cover only one tense per rule
+          (e.g. do not combine present and past in one rule).
+        - Gender agreement: cover only one gender pairing or category per rule
+          (e.g. do not combine masculine/feminine noun rules with
+          adjective agreement in one rule).
+        - Plural formation: cover only one pluralization pattern per rule
+          (e.g. do not combine regular and irregular plural rules together).
     """
 )
 
