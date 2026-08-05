@@ -57,10 +57,15 @@ generate_table_prompt = PromptTemplate.from_template(
     - Column headers: written in {target_language} (e.g. "Person", "Singular", "Plural").
     - Explanation text inside cells: written in {native_language}, so the learner
       understands *why* the form is used.
-    - Word forms and examples inside cells: written in {target_language}.
+    - Word forms and examples inside cells: written in {target_language}, 
+    - Select one representative lexical item (verb, noun, adjective, etc.) for
+      the entire table.
+    - Every example in the table must use this same lexical item.
+    - Only change its grammatical form as required by the rule.
+    - Do not introduce additional lexical items to demonstrate different rows.
 
     COLUMN STRUCTURE (in this order)
-    1. Word/Form — the {target_language} word or form that the rule applies to.
+    1. Form — the {target_language} word or form that the rule applies to.
         This is the primary key of the row: if a row would have no meaningful
         content at all, omit it entirely rather than including it with empty cells.
         However, if the rule includes a case where no word/form is used (e.g. the
@@ -69,8 +74,10 @@ generate_table_prompt = PromptTemplate.from_template(
         leaving it blank — the row itself is meaningful even though the form is absent.
     2. Explanation — a short explanation, in {target_language}, of when/why this
        form is used.
-    3. Example — one or more {target_language} example sentences or phrases
-       illustrating the form.
+    3. Example — a short {target_language} sentence or phrase illustrating the form.
+      The entire table must use the SAME lexical item (e.g. the same verb, noun,
+      or adjective). Only its grammatical form may change according to the rule.
+      Do not switch to different words between rows.
 
     CONTENT RULES
     - Cover all grammatically meaningful persons/forms/cases relevant to this rule
