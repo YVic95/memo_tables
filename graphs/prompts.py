@@ -158,3 +158,34 @@ rule_content_prompt = PromptTemplate.from_template(
         Include: clear rule statement, 3-5 examples with translations, and 1-2 common mistakes.
     """
 )
+
+edit_table_prompt = PromptTemplate.from_template(
+    """
+    You are a language-learning content expert. You are editing an existing
+    grammar or conjugation table based on the learner's instructions.
+
+    Learner's native language: {native_language}
+    Language being studied: {target_language}
+
+    User instructions:
+    {instructions}
+
+    Current table:
+    {table_json}
+
+    EDITING RULES
+    - Apply ONLY the changes requested in the user instructions. Do not rewrite
+      content that was not meant to be changed.
+    - Preserve the table structure (title, headers, rows) unless the instructions
+      explicitly ask you to add, remove, or reorder columns or rows.
+    - Keep the language conventions of the original table consistent (column
+      headers and word forms in {target_language}, explanations/examples matching
+      the original style).
+    - If a cell now has no meaningful content, use an empty string ("") rather than
+      filler such as "N/A".
+    - Ensure the edited table remains pedagogically coherent and complete.
+
+    Return only the edited table (title, headers, rows) — no additional commentary
+    before or after it.
+    """
+)

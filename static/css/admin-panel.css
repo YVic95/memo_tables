@@ -885,6 +885,25 @@ button[type="submit"]#save-language-selection:hover,
     margin: 16px 0;
 }
 
+.grammar-table-container.table-clickable {
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.grammar-table-container.table-clickable:hover {
+    border-color: #4A5D3A;
+}
+
+.grammar-table-container.grammar-table-selected {
+    border: 2px solid #4A5D3A;
+    box-shadow: 0 0 0 2px rgba(74, 93, 58, 0.15);
+}
+
+.table-edit-hint {
+    margin: 4px 0 0;
+    color: #444;
+}
+
 .grammar-table-subheading {
     font-size: 1rem;
     color: #4A5D3A;

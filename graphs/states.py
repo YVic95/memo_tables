@@ -30,3 +30,10 @@ class GenerateTableState(TypedDict):
     general_table: Optional[dict]
     should_fragment: Optional[bool]
     fragmented_tables: Optional[list[dict]]
+
+class EditTableState(TypedDict):
+    native_language: str
+    target_language: str
+    instructions: str
+    table: dict
+    edited_table: Optional[dict]

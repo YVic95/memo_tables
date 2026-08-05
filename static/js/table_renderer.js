@@ -1,6 +1,9 @@
 function renderTableData(tableData) {
     const container = document.createElement('div');
     container.className = 'grammar-table-container';
+    container.dataset.tableTitle = tableData.title;
+    container._tableData = tableData;
+    container.addEventListener('click', () => onTableSelected(container));
 
     const title = document.createElement('h4');
     title.className = 'grammar-table-title';
