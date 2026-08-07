@@ -64,8 +64,10 @@ generate_table_prompt = PromptTemplate.from_template(
     - Only change its grammatical form as required by the rule.
     - Do not introduce additional lexical items to demonstrate different rows.
 
-    COLUMN STRUCTURE (in this order)
-    1. Form — the {target_language} word or form that the rule applies to.
+    COLUMN STRUCTURE — output EXACTLY these three columns, in this order, and no others:
+    1. Form — MUST include both the subject/case marker (if any, e.g. pronoun) 
+        AND the target-language word form together in a single cell 
+        (e.g. "je parlerai", not split across two columns).
         This is the primary key of the row: if a row would have no meaningful
         content at all, omit it entirely rather than including it with empty cells.
         However, if the rule includes a case where no word/form is used (e.g. the
@@ -78,6 +80,7 @@ generate_table_prompt = PromptTemplate.from_template(
       The entire table must use the SAME lexical item (e.g. the same verb, noun,
       or adjective). Only its grammatical form may change according to the rule.
       Do not switch to different words between rows.
+    Do not add, omit, reorder, or split any of these three columns under any circumstances.
 
     CONTENT RULES
     - Cover all grammatically meaningful persons/forms/cases relevant to this rule
@@ -115,6 +118,17 @@ fragmentation_prompt = PromptTemplate.from_template(
         Output should_fragment, a short rationale, and the list of sub-tables (empty if not fragmenting).
     """
 )
+### Common Mistakes:
+        # 1. **[mistake name]**
+        #    - Mistake: **[wrong example]**
+        #    - Correction: **[correct example]** — [explanation]
+        # 2. **[mistake name]**
+        #    - Mistake: **[wrong example]**
+        #    - Correction: **[correct example]** — [explanation]
+
+        # Include: clear rule statement, 3-5 examples with translations, and 1-2 common mistakes.
+        ### Common Mistakes: -> put it in the section heading when needed
+        # - Use "-" sub-lists within common mistakes. -> put it in the CRITICAL FORMATTING RULES when needed
 
 rule_content_prompt = PromptTemplate.from_template(
     """
@@ -127,11 +141,10 @@ rule_content_prompt = PromptTemplate.from_template(
         CRITICAL FORMATTING RULES:
         - Never use "#" alone as a separator between sections. Use blank lines instead.
         - Use "##" for the main heading: ## Grammar Rule: {rule_title}
-        - Use "###" for section headings: ### Rule Statement:, ### Examples:, ### Common Mistakes:
+        - Use "###" for section headings: ### Rule Statement:, ### Examples:
         - Use "**" for emphasis on key terms.
         - Use "*" for translations and example phrases.
         - Use numbered lists (1. 2. ...) for examples.
-        - Use "-" sub-lists within common mistakes.
 
         Follow this structure exactly:
 
@@ -141,21 +154,14 @@ rule_content_prompt = PromptTemplate.from_template(
         [clear explanation of the rule]
 
         ### Examples:
+        Select ONE representative lexical item (verb, noun, adjective, etc.) for
+        all examples.
         1. **[example in target language]** *([translation])* — [brief explanation]
         2. **[example]** *([translation])* — [explanation]
         3. **[example]** *([translation])* — [explanation]
         4. **[example]** *([translation])* — [explanation]
         5. **[example]** *([translation])* — [explanation]
 
-        ### Common Mistakes:
-        1. **[mistake name]**
-           - Mistake: **[wrong example]**
-           - Correction: **[correct example]** — [explanation]
-        2. **[mistake name]**
-           - Mistake: **[wrong example]**
-           - Correction: **[correct example]** — [explanation]
-
-        Include: clear rule statement, 3-5 examples with translations, and 1-2 common mistakes.
     """
 )
 

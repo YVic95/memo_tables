@@ -405,7 +405,7 @@ button[type="submit"]#save-language-selection:hover,
 
 .language-form.hidden { display: none; }
 
-#create-language-pair:disabled, button:disabled {
+#create-language-pair:disabled, button:disabled, #chat-input:disabled {
     cursor: not-allowed;
 }
 
