@@ -8,6 +8,22 @@ function renderTableData(tableData) {
     const title = document.createElement('h4');
     title.className = 'grammar-table-title';
     title.textContent = tableData.title;
+
+    const toggleIcon = document.createElement('i');
+    toggleIcon.className = 'fa-solid fa-chevron-down';
+    title.appendChild(toggleIcon);
+
+    title.addEventListener('click', (event) => {
+        event.stopPropagation();
+        onTableSelected(container);
+    });
+
+    toggleIcon.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const collapsed = container.classList.toggle('grammar-table-collapsed');
+        toggleIcon.className = collapsed ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down';
+    });
+
     container.appendChild(title);
 
     const table = document.createElement('table');

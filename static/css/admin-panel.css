@@ -669,6 +669,52 @@ button[type="submit"]#save-language-selection:hover,
     overflow-y: auto;
 }
 
+/* Chat messages */
+.message {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 14px;
+}
+
+.message-sender {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #4A5D3A;
+}
+
+.message-sender::before {
+    content: '';
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #4A5D3A;
+}
+
+.message-user .message-sender {
+    color: #8A6D3B;
+}
+
+.message-user .message-sender::before {
+    background: #8A6D3B;
+}
+
+/* User instruction text gets a subtle bubble; assistant content stays flat */
+.message-user .table-edit-hint {
+    align-self: flex-start;
+    max-width: 75%;
+    padding: 8px 12px;
+    border-radius: 12px 12px 12px 4px;
+    background: #4A5D3A;
+    color: #fff;
+    margin: 2px 0 0;
+}
+
 .user-input-holder {
     display: flex;
     align-items: center;
@@ -841,6 +887,29 @@ button[type="submit"]#save-language-selection:hover,
     color: #4A5D3A;
     margin: 0 0 12px;
     font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.grammar-table-title .fa-chevron-down,
+.grammar-table-title .fa-chevron-up {
+    font-size: 0.85rem;
+    color: #4A5D3A;
+    border: 1px solid #4A5D3A;
+    border-radius: 50%;
+    padding: 5px;
+}
+
+.grammar-table-container.grammar-table-collapsed {
+    padding-bottom: 8px;
+}
+
+.grammar-table-collapsed .grammar-table {
+    display: none;
 }
 
 .grammar-table {

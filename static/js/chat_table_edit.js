@@ -43,17 +43,28 @@ function enterTableEditMode() {
 function onTableSelected(container) {
     if (!tableEditMode) return;
 
-    // Single-select: ignore if a table was already selected
-    if (document.querySelector('.grammar-table-container.grammar-table-selected')) {
-        return;
+    const selection = window.getSelection();
+    if (selection && !selection.isCollapsed && selection.toString().trim()) {
+        return; // user is selecting/copying text, don't select the table
     }
 
-    tableEditMode = false;
     selectedTable = container._tableData;
     console.log('[edit-tables] selected table:', selectedTable);
 
+    document.querySelectorAll('.grammar-table-container').forEach(other => {
+        other.classList.remove('grammar-table-selected');
+        if (other !== container) {
+            other.classList.add('table-clickable');
+        }
+    });
+
     container.classList.add('grammar-table-selected');
     container.classList.remove('table-clickable');
+    container.classList.remove('grammar-table-collapsed');
+    const icon = container.querySelector('.grammar-table-title i');
+    if (icon) {
+        icon.className = 'fa-solid fa-chevron-down';
+    }
 
     const { editTableBtn, input, sendBtn } = tableEditElements;
 
@@ -62,7 +73,7 @@ function onTableSelected(container) {
     sendBtn.disabled = false;
     input.focus();
 
-    appendAssistantMessage('You can now write your instructions below and press the send button.');
+    appendAssistantMessage(`You can now write your instructions for editing "${selectedTable.title}" below and press the send button.`);
 }
 
 async function onEditSubmit(event) {
@@ -75,6 +86,8 @@ async function onEditSubmit(event) {
     if (!instructions) return;
 
     appendUserMessage(instructions);
+
+    tableEditMode = false;
 
     input.disabled = true;
     sendBtn.disabled = true;

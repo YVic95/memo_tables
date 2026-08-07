@@ -18,7 +18,7 @@ function createRuleMessageContainer(role) {
 
     const sender = document.createElement('div');
     sender.className = 'message-sender';
-    sender.textContent = role === 'assistant' ? 'Assistant: ' : 'You: ';
+    sender.textContent = role === 'assistant' ? 'Assistant' : 'You';
 
     container.appendChild(sender);
 

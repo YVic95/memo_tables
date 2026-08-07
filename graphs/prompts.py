@@ -180,16 +180,19 @@ edit_table_prompt = PromptTemplate.from_template(
     {table_json}
 
     EDITING RULES
-    - Apply ONLY the changes requested in the user instructions. Do not rewrite
-      content that was not meant to be changed.
-    - Preserve the table structure (title, headers, rows) unless the instructions
-      explicitly ask you to add, remove, or reorder columns or rows.
-    - Keep the language conventions of the original table consistent (column
-      headers and word forms in {target_language}, explanations/examples matching
-      the original style).
-    - If a cell now has no meaningful content, use an empty string ("") rather than
-      filler such as "N/A".
-    - Ensure the edited table remains pedagogically coherent and complete.
+    - Apply ONLY the changes explicitly requested in the user instructions.
+    - Treat every column NOT mentioned in the instructions as LOCKED: copy its
+      cell values from the current table byte-for-byte, even if they now seem
+      redundant, inconsistent, or oddly paired with an edited column. Do not
+      infer that an edit to one column requires edits to another.
+    - If the user's instructions are ambiguous about scope (e.g. they name a
+      single column but the phrasing could also be read as applying to the whole
+      table), assume the NARROWEST interpretation: apply the change to only the
+      named column.
+    - Never replace a cell's content with an empty string ("") unless the user's
+      instructions explicitly ask to remove or clear that specific cell/column.
+    - Before returning, verify: every row/column not named in the instructions
+      must be identical to the current table.
 
     Return only the edited table (title, headers, rows) — no additional commentary
     before or after it.
