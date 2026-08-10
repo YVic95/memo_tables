@@ -904,6 +904,26 @@ button[type="submit"]#save-language-selection:hover,
     padding: 5px;
 }
 
+.grammar-table-delete {
+    margin-left: auto;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #d9534f;
+    font-size: 0.9rem;
+    padding: 4px;
+    border-radius: 6px;
+    line-height: 1;
+}
+
+.grammar-table-delete:hover {
+    background: rgba(217, 83, 79, 0.12);
+}
+
+.grammar-table-delete i {
+    pointer-events: none;
+}
+
 .grammar-table-container.grammar-table-collapsed {
     padding-bottom: 8px;
 }

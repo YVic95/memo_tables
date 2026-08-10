@@ -8,9 +8,19 @@ function renderTableData(tableData) {
     const title = document.createElement('h4');
     title.className = 'grammar-table-title';
     title.textContent = tableData.title;
+    
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'grammar-table-delete';
+    deleteBtn.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
+    deleteBtn.title = 'Delete table';
+    deleteBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        deleteTableFromChat(container);
+    });
+    title.appendChild(deleteBtn);
 
     const toggleIcon = document.createElement('i');
-    toggleIcon.className = 'fa-solid fa-chevron-down';
+    toggleIcon.className = 'fa-solid fa-chevron-down table-collapse-toggle';
     title.appendChild(toggleIcon);
 
     title.addEventListener('click', (event) => {

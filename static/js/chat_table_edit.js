@@ -61,9 +61,9 @@ function onTableSelected(container) {
     container.classList.add('grammar-table-selected');
     container.classList.remove('table-clickable');
     container.classList.remove('grammar-table-collapsed');
-    const icon = container.querySelector('.grammar-table-title i');
+    const icon = container.querySelector('.grammar-table-title .table-collapse-toggle');
     if (icon) {
-        icon.className = 'fa-solid fa-chevron-down';
+        icon.className = 'fa-solid fa-chevron-down table-collapse-toggle';
     }
 
     const { editTableBtn, input, sendBtn } = tableEditElements;
@@ -157,4 +157,13 @@ function appendUserMessage(text) {
     message.textContent = text;
     container.appendChild(message);
     appendToChat(container);
+}
+
+function deleteTableFromChat(container) {
+    container.remove();
+    if (selectedTable === container._tableData) {
+        selectedTable = null;
+        tableEditElements.input.disabled = true;
+        tableEditElements.sendBtn.disabled = true;
+    }
 }
