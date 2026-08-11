@@ -22,12 +22,10 @@ from core.checkpointer import setup_checkpointer
 
 load_dotenv()
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_checkpointer()
     yield
-
 
 app = FastAPI(
     title="Memo Tables App",
