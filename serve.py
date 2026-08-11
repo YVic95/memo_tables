@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Depends, Form, Response
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -17,13 +18,22 @@ from routers.save_rule import router as save_rule_router
 from routers.generate_table_agent import router as generate_table_router
 from routers.edit_tables_agent import router as edit_tables_router
 from routers.chat_sessions import router as chat_sessions_router
+from core.checkpointer import setup_checkpointer
 
 load_dotenv()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    setup_checkpointer()
+    yield
+
 
 app = FastAPI(
     title="Memo Tables App",
     version="1.0",
-    description="App for learning a language using memo tables"
+    description="App for learning a language using memo tables",
+    lifespan=lifespan,
 )
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
