@@ -179,8 +179,15 @@ edit_table_prompt = PromptTemplate.from_template(
     Current table:
     {table_json}
 
+    Previous edits made earlier in this chat (most recent last):
+    {previous_edits}
+
     EDITING RULES
-    - Apply ONLY the changes explicitly requested in the user instructions.
+    - If the user's instructions refer to applying the same edits as a previous
+      edit in this chat (e.g. "same edits", "same as before", "like the previous
+      table"), reproduce those exact changes on the current table, adapting cell
+      values as needed to fit this table's content. Otherwise, apply ONLY the
+      changes explicitly requested in the current instructions.
     - Treat every column NOT mentioned in the instructions as LOCKED: copy its
       cell values from the current table byte-for-byte, even if they now seem
       redundant, inconsistent, or oddly paired with an edited column. Do not

@@ -37,3 +37,4 @@ class EditTableState(TypedDict):
     instructions: str
     table: dict
     edited_table: Optional[dict]
+    edit_history: list[dict]
