@@ -1,6 +1,7 @@
 let tableEditMode = false;
 let selectedTable = null;
 let tableEditElements = null;
+let hasEditHistory = false;
 
 document.addEventListener('htmx:load', function(event) {
     initializeTableEdit(event.target);
@@ -8,6 +9,7 @@ document.addEventListener('htmx:load', function(event) {
 
 function initializeTableEdit(container) {
     const editTableBtn = container.querySelector('#edit-table-btn');
+    const reapplyBtn = container.querySelector('#reapply-edits-btn');
     const form = container.querySelector('#create-rule-chatbot');
     const input = container.querySelector('#chat-input');
     const sendBtn = container.querySelector('#send-message');
@@ -19,9 +21,11 @@ function initializeTableEdit(container) {
     // Reset per-page state
     tableEditMode = false;
     selectedTable = null;
-    tableEditElements = { editTableBtn, form, input, sendBtn };
+    hasEditHistory = false;
+    tableEditElements = { editTableBtn, reapplyBtn, form, input, sendBtn };
 
     editTableBtn.addEventListener('click', enterTableEditMode);
+    reapplyBtn.addEventListener('click', onReapplyClick);
     form.addEventListener('submit', onEditSubmit);
 }
 
@@ -31,6 +35,10 @@ function enterTableEditMode() {
 
     tableEditMode = true;
     console.log('[edit-tables] edit mode entered');
+
+    if (hasEditHistory) {
+        tableEditElements.reapplyBtn.classList.remove('hidden-button');
+    }
 
     appendAssistantMessage('Click the table you want to edit.');
 
@@ -73,7 +81,14 @@ function onTableSelected(container) {
     sendBtn.disabled = false;
     input.focus();
 
-    appendAssistantMessage(`You can now write your instructions for editing "${selectedTable.title}" below and press the send button.`);
+    appendAssistantMessage(`You can now write your instructions for editing "${selectedTable.title}" below and press the send button. To reuse the previous edits, type "apply the same edits" or use the Reapply Last Edits button.`);
+}
+
+function onReapplyClick() {
+    if (!tableEditElements || !selectedTable) return;
+    if (!hasEditHistory) return;
+
+    submitEdit('Apply the same edits to this table as you applied to the previous table.');
 }
 
 async function onEditSubmit(event) {
@@ -81,9 +96,15 @@ async function onEditSubmit(event) {
 
     if (!tableEditElements || !selectedTable) return;
 
-    const { input, sendBtn } = tableEditElements;
+    const { input } = tableEditElements;
     const instructions = input.value.trim();
     if (!instructions) return;
+
+    await submitEdit(instructions);
+}
+
+async function submitEdit(instructions) {
+    const { input, sendBtn, reapplyBtn } = tableEditElements;
 
     appendUserMessage(instructions);
 
@@ -91,6 +112,7 @@ async function onEditSubmit(event) {
 
     input.disabled = true;
     sendBtn.disabled = true;
+    reapplyBtn.classList.add('hidden-button');
 
     const loader = document.getElementById('loader');
     loader.classList.add('htmx-request');
@@ -104,6 +126,8 @@ async function onEditSubmit(event) {
         const editedEl = renderTableData(data.edited_table);
         appendToChat(editedEl);
 
+        hasEditHistory = data.edit_history && data.edit_history.length > 0;
+
         appendAssistantMessage('Table updated. Click the table you just updated to continue editing, or click another table.');
 
         // Re-enter edit mode so the user can continue on the result or pick another table
@@ -113,6 +137,9 @@ async function onEditSubmit(event) {
         appendAssistantMessage('Something went wrong while editing the table. Please try again.');
         input.disabled = false;
         sendBtn.disabled = false;
+        if (hasEditHistory) {
+            reapplyBtn.classList.remove('hidden-button');
+        }
     } finally {
         loader.classList.remove('htmx-request');
     }
@@ -120,15 +147,17 @@ async function onEditSubmit(event) {
 
 async function editTable(instructions, table) {
     const selectedPair = document.getElementById('language-pair-select')?.value;
+    const sessionId = await getOrCreateChatSession();
 
     const result = await fetch('/api/edit-tables', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ language_pair_id: selectedPair, instructions, table }),
+        body: JSON.stringify({ language_pair_id: selectedPair, session_id: sessionId, instructions, table }),
     });
 
     console.log('[edit-tables] request payload:', {
         language_pair_id: selectedPair,
+        session_id: sessionId,
         instructions,
         table,
     });
