@@ -12,9 +12,9 @@ router = APIRouter(tags=["edit-tables"])
 
 class EditTableRequest(BaseModel):
     language_pair_id: str
+    session_id: str
     instructions: str
     table: TableData
-
 
 @router.post("/api/edit-tables")
 def edit_tables(
@@ -26,13 +26,20 @@ def edit_tables(
         raise HTTPException(status_code=404, detail="Language pair not found")
 
     print("[edit-tables] language_pair_id:", body.language_pair_id)
+    print("[edit-tables] session_id:", body.session_id)
     print("[edit-tables] instructions:", body.instructions)
 
-    result = edit_tables_graph.invoke({
-        "native_language": pair["native_name"],
-        "target_language": pair["target_name"],
-        "instructions": body.instructions,
-        "table": body.table.model_dump(),
-    })
+    result = edit_tables_graph.invoke(
+        {
+            "native_language": pair["native_name"],
+            "target_language": pair["target_name"],
+            "instructions": body.instructions,
+            "table": body.table.model_dump(),
+        },
+        config={"configurable": {"thread_id": body.session_id}},
+    )
 
-    return {"edited_table": result["edited_table"]}
+    return {
+        "edited_table": result["edited_table"],
+        "edit_history": result["edit_history"],
+    }
