@@ -123,6 +123,8 @@ async function submitEdit(instructions) {
 
         input.value = '';
 
+        data.edited_table.tableId = selectedTable.tableId;
+
         const editedEl = renderTableData(data.edited_table);
         appendToChat(editedEl);
 

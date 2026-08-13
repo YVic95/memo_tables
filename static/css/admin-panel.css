@@ -215,7 +215,7 @@ body.admin-panel-body {
     border-color: #4A5D3A;
 }
 
-.save-button {
+.save-button, .panel-button {
     background-color: #4A5D3A; /* dark olive green */
     color: white;
     border: none;
@@ -589,6 +589,50 @@ button[type="submit"]#save-language-selection:hover,
     display: flex;
 }
 
+/* Wider modal variant for table previews */
+.modal.modal-wide {
+    max-width: 900px;
+}
+
+.modal .grammar-table-container {
+    margin: 12px 0;
+}
+
+.table-preview-hint {
+    font-size: 0.85rem;
+    color: #666;
+    margin: 0 0 8px;
+}
+
+.table-preview-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.table-preview-grip {
+    color: #aaa;
+    cursor: grab;
+    font-size: 0.9rem;
+}
+
+.table-preview-grip:active {
+    cursor: grabbing;
+}
+
+.grammar-table-container.table-dragging {
+    opacity: 0.5;
+    border-style: dashed;
+}
+
+.grammar-table-container.table-drop-before {
+    box-shadow: 0 -3px 0 0 #4A5D3A;
+}
+
+.grammar-table-container.table-drop-after {
+    box-shadow: 0 3px 0 0 #4A5D3A;
+}
+
 /* Chat controls */
 .chat-controls {
     margin-bottom: 24px;
@@ -596,6 +640,7 @@ button[type="submit"]#save-language-selection:hover,
 
 .button-group {
     display: flex;
+    flex-direction: column;
     gap: 12px;
     flex-wrap: wrap; 
 }

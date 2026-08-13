@@ -31,8 +31,10 @@ function initializeChatTab(container) {
             try {
                 const data = await generateTable(ruleId, languagePairId);
                 const editTableBtn = document.getElementById('edit-table-btn');
-                if (editTableBtn) {
+                const checkTablesBeforeSaveBtn = document.getElementById('check-tables-before-save');
+                if (editTableBtn && checkTablesBeforeSaveBtn) {
                     editTableBtn.classList.remove('hidden-button');
+                    checkTablesBeforeSaveBtn.classList.remove('hidden-button');
                 }
                 displayGeneratedTables(data);
             } catch (err) {
