@@ -137,7 +137,7 @@ generate_verb_table_prompt = PromptTemplate.from_template(
 
     CONTENT RULES
     - Cover all grammatically meaningful persons relevant to this rule
-      (e.g. all 6 persons for a regular present-tense conjugation, or a subset
+      (e.g. all persons for a regular present-tense conjugation, or a subset
       if the rule only covers certain forms).
     - If a form does not apply to a given row, use "" rather than "N/A" or
       similar filler.

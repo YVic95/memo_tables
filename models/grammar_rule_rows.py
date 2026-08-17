@@ -16,4 +16,5 @@ class GrammarRuleRow(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     grammar_rule_id = Column(UUID(as_uuid=True), ForeignKey("grammar_rules.id"), nullable=False)
     label = Column(String, nullable=False)
+    description = Column(String, nullable=True)
     position = Column(Integer, nullable=False)

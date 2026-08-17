@@ -17,3 +17,4 @@ class GrammarRuleRowTranslation(Base):
     grammar_rule_row_id = Column(UUID(as_uuid=True), ForeignKey("grammar_rule_rows.id"), nullable=False)
     language_id = Column(UUID(as_uuid=True), ForeignKey("languages.id"), nullable=False)
     label_translation = Column(String, nullable=False)
+    description_translation = Column(String, nullable=True)
