@@ -101,6 +101,55 @@ generate_table_prompt = PromptTemplate.from_template(
     """
 )
 
+generate_verb_table_prompt = PromptTemplate.from_template(
+    """
+    You are a language-learning content expert. Create a verb conjugation
+    table that teaches the rule below to a learner whose native language is
+    {native_language} and who is learning {target_language}.
+
+    Rule name: {rule_name}
+    Rule description: {rule_description}
+
+    COLUMN STRUCTURE — output EXACTLY these five columns, in this order, and no others:
+    1. Person — grammatical person and number (e.g. "1st singular", "2nd plural",
+       "3rd singular feminine"). Use the standard grammatical labels in
+       {target_language}.
+    2. Pronoun — the subject pronoun in {target_language} (e.g. "ich", "du",
+       "er/sie/es" for German), must start from uppercase letter. 
+       If the target language is pro-drop (pronouns can
+       be omitted), still include the pronoun column but mark rows where the
+       pronoun is optional with a note like "ich (optional)".
+    3. Verb — the conjugated verb form in {target_language}.
+       Also must start from uppercase letter.
+    4. Example — a short sentence in {target_language} using that conjugation.
+    5. Explanation — in {native_language}, explaining when/why this form is used.
+
+    LANGUAGE RULES
+    - Table title: written in {target_language}, summarizing the conjugation rule.
+    - Column headers: written in {target_language}.
+    - Explanation text inside cells: written in {native_language}, so the learner
+      understands *why* the form is used.
+    - All other cells (Person, Pronoun, Verb, Example): written in
+      {target_language}.
+    - Select ONE representative verb for the entire table. Every row must use
+      this same verb. Only change its conjugation form per row.
+    - Do not introduce additional lexical items to demonstrate different rows.
+
+    CONTENT RULES
+    - Cover all grammatically meaningful persons relevant to this rule
+      (e.g. all 6 persons for a regular present-tense conjugation, or a subset
+      if the rule only covers certain forms).
+    - If a form does not apply to a given row, use "" rather than "N/A" or
+      similar filler.
+    - Do not include separate "Common mistake" or "Correction" columns or content.
+    - Do not repeat or re-explain an aspect of the rule that was already covered
+      in an earlier row — each row should add new information.
+
+    Return only the table (title, headers, rows) — no additional commentary
+    before or after it.
+    """
+)
+
 fragmentation_prompt = PromptTemplate.from_template(
     """
         Analyse the following grammar table and decide if it can be split into smaller,

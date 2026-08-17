@@ -9,6 +9,9 @@ from models.grammar_rule_translations import GrammarRuleTranslation
 def get_word_categories(db: Session):
     return db.query(WordCategory).all()
 
+def get_word_category_by_id(db: Session, category_id: str) -> WordCategory | None:
+    return db.query(WordCategory).filter(WordCategory.id == category_id).first()
+
 def create_grammar_rule(
     db: Session,
     title: str,
