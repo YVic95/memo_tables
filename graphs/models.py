@@ -36,3 +36,9 @@ class FragmentationOutput(BaseModel):
 class GenerateTableRequest(BaseModel):
     grammar_rule_id: str
     language_pair_id: str
+
+class SaveTablesRequest(BaseModel):
+    language_pair_id: str
+    session_id: str
+    grammar_rule_id: str
+    tables: list[TableData]

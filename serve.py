@@ -18,6 +18,7 @@ from routers.save_rule import router as save_rule_router
 from routers.generate_table_agent import router as generate_table_router
 from routers.edit_tables_agent import router as edit_tables_router
 from routers.chat_sessions import router as chat_sessions_router
+from routers.save_tables_agent import router as save_tables_router
 from core.checkpointer import setup_checkpointer
 
 load_dotenv()
@@ -48,6 +49,7 @@ app.include_router(save_rule_router)
 app.include_router(generate_table_router)
 app.include_router(edit_tables_router)
 app.include_router(chat_sessions_router)
+app.include_router(save_tables_router)
 
 # redirect to the login if cookie is expired
 @app.exception_handler(FastAPIHTTPException)

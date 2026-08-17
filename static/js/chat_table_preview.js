@@ -84,6 +84,20 @@ function showTablePreview() {
     }
 
     content.append(header, previewContent);
+
+    if (tables.length > 0) {
+        const footer = document.createElement('div');
+        footer.className = 'modal-buttons';
+
+        const saveBtn = document.createElement('button');
+        saveBtn.className = 'save-button';
+        saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Tables';
+        saveBtn.addEventListener('click', onSaveTablesClick);
+        footer.appendChild(saveBtn);
+
+        content.appendChild(footer);
+    }
+
     modal.appendChild(content);
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
@@ -108,6 +122,47 @@ function closeTablePreview() {
         }
         overlay.classList.remove('show');
         overlay.remove();
+    }
+}
+
+async function onSaveTablesClick(event) {
+    const saveBtn = event.currentTarget;
+    const overlay = document.getElementById('table-preview-modal-overlay');
+    const previewContent = overlay.querySelector('#table-preview-content');
+    if (!previewContent) return;
+
+    const tables = Array.from(previewContent.querySelectorAll('.grammar-table-container'))
+        .map(el => el._tableData)
+        .filter(data => data !== undefined);
+
+    const grammarRuleId = document.getElementById('generate-table-btn')?.dataset.ruleId;
+    const languagePairId = document.getElementById('language-pair-select')?.value;
+
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin-pulse"></i> Saving...';
+
+    try {
+        const result = await fetch('/api/save-tables', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                language_pair_id: languagePairId,
+                session_id: await getOrCreateChatSession(),
+                grammar_rule_id: grammarRuleId,
+                tables: tables,
+            }),
+        });
+
+        if (!result.ok) {
+            const err = await result.json().catch(() => ({}));
+            throw new Error(err.detail || 'Failed to save tables');
+        }
+
+        saveBtn.innerHTML = '<i class="fa-solid fa-check"></i> Saved';
+    } catch (err) {
+        console.error('Failed to save tables:', err);
+        saveBtn.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Error';
+        saveBtn.disabled = false;
     }
 }
 
