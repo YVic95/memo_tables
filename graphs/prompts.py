@@ -111,18 +111,15 @@ generate_verb_table_prompt = PromptTemplate.from_template(
     Rule description: {rule_description}
 
     COLUMN STRUCTURE — output EXACTLY these five columns, in this order, and no others:
-    1. Person — grammatical person and number (e.g. "1st singular", "2nd plural",
-       "3rd singular feminine"). Use the standard grammatical labels in
-       {target_language}.
-    2. Pronoun — the subject pronoun in {target_language} (e.g. "ich", "du",
+    1. Pronoun — the subject pronoun in {target_language} (e.g. "ich", "du",
        "er/sie/es" for German), must start from uppercase letter. 
        If the target language is pro-drop (pronouns can
        be omitted), still include the pronoun column but mark rows where the
        pronoun is optional with a note like "ich (optional)".
-    3. Verb — the conjugated verb form in {target_language}.
+    2. Verb — the conjugated verb form in {target_language}.
        Also must start from uppercase letter.
-    4. Example — a short sentence in {target_language} using that conjugation.
-    5. Explanation — in {native_language}, explaining when/why this form is used.
+    3. Example — a short sentence in {target_language} using that conjugation.
+    4. Explanation — in {native_language}, explaining when/why this form is used.
 
     LANGUAGE RULES
     - Table title: written in {target_language}, summarizing the conjugation rule.
