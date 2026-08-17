@@ -76,9 +76,44 @@ function showTablePreview() {
             previewContent.appendChild(hint);
         }
 
-        tables.forEach(table => {
+        const regularTables = tables.filter(t => !t.isFragmented);
+        const fragmentedTables = tables.filter(t => t.isFragmented);
+
+        console.log('[Preview] Regular tables:', regularTables.length);
+        console.log('[Preview] Fragmented tables:', fragmentedTables.length);
+
+        regularTables.forEach(table => {
             previewContent.appendChild(renderTableData(table, true));
         });
+
+        if (fragmentedTables.length > 0) {
+            const group = document.createElement('div');
+            group.className = 'fragmented-tables-group';
+
+            const groupHeading = document.createElement('p');
+            groupHeading.className = 'grammar-table-subheading';
+            groupHeading.textContent = 'Fragmented Tables';
+            group.appendChild(groupHeading);
+
+            fragmentedTables.forEach(table => {
+                const el = renderTableData(table, true);
+                const tbody = el.querySelector('tbody');
+                if (tbody) {
+                    tbody.querySelectorAll('tr').forEach((tr, idx) => {
+                        tr.dataset.rowPosition = idx;
+                    });
+                }
+                group.appendChild(el);
+            });
+
+            console.log('[Preview] Fragmented tables data:', fragmentedTables.map(t => ({
+                fragmented_table_id: t.fragmented_table_id,
+                title: t.title,
+                rows: t.rows.map(r => ({ row_position: r.row_position })),
+            })));
+
+            previewContent.appendChild(group);
+        }
 
         initTableDrag(previewContent);
     }
@@ -137,6 +172,16 @@ async function onSaveTablesClick(event) {
 
     const grammarRuleId = document.getElementById('generate-table-btn')?.dataset.ruleId;
     const languagePairId = document.getElementById('language-pair-select')?.value;
+
+    console.log('[Save] Payload:', {
+        language_pair_id: languagePairId,
+        grammar_rule_id: grammarRuleId,
+        tables: tables.map(t => ({
+            fragmented_table_id: t.fragmented_table_id,
+            title: t.title,
+            rows: t.rows.map(r => ({ row_position: r.row_position, cells: r.cells })),
+        })),
+    });
 
     saveBtn.disabled = true;
     saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin-pulse"></i> Saving...';

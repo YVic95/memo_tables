@@ -91,7 +91,17 @@ function displayGeneratedTables(response) {
         subHeading.textContent = 'Fragmented Tables';
         appendToChat(subHeading);
 
-        response.fragmented_tables.forEach(table => {
+        response.fragmented_tables.forEach((table, index) => {
+            table.isFragmented = true;
+            table.fragmented_table_id = index + 1;
+            table.rows.forEach((row, rowIndex) => {
+                row.row_position = rowIndex;
+            });
+            console.log('[Fragmented Table]', {
+                fragmented_table_id: table.fragmented_table_id,
+                title: table.title,
+                rows: table.rows.map(r => ({ row_position: r.row_position, cells: r.cells })),
+            });
             const el = renderTableData(assignTableId(table));
             appendToChat(el);
         });

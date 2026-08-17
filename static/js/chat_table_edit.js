@@ -124,6 +124,13 @@ async function submitEdit(instructions) {
         input.value = '';
 
         data.edited_table.tableId = selectedTable.tableId;
+        if (selectedTable.isFragmented) {
+            data.edited_table.isFragmented = true;
+            data.edited_table.fragmented_table_id = selectedTable.fragmented_table_id;
+            data.edited_table.rows.forEach((row, idx) => {
+                row.row_position = idx;
+            });
+        }
 
         const editedEl = renderTableData(data.edited_table);
         appendToChat(editedEl);
