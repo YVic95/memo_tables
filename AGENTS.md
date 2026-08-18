@@ -103,3 +103,18 @@ scripts/              ← Shell scripts for dev workflow
 - HTMX: `core/render.py` renders full pages for direct navigation, fragment templates for HTMX requests (`HX-Request` header)
 - `useful_commands.py` is gitignored — contains scratch notes and secrets, do not commit
 - `.env` is gitignored — required for runtime, contains API keys and local Supabase credentials
+
+## Clarification Policy
+
+- If any part of a task is ambiguous, underspecified, or could be interpreted multiple ways, you MUST call the `ask` tool before writing code or taking action. Do not guess, assume, or silently pick a default.
+- Always use `ask` before:
+  - Destructive or irreversible actions (deleting files, dropping tables, force-pushing, overwriting data).
+  - Actions with meaningful cost or side effects (deploying, sending emails, making paid API calls, modifying production config).
+  - Decisions where multiple reasonable approaches exist and the choice materially changes the outcome (e.g., library choice, schema design, breaking API changes).
+  - Missing information required to complete the task (credentials, file paths, target environment, business logic not specified in the request).
+- Do NOT use `ask` for:
+  - Questions you can answer yourself by reading the codebase, docs, or running a read-only command.
+  - Minor stylistic choices already covered by this file's conventions or existing code patterns.
+  - Trivial confirmations that don't change the outcome.
+- When you do call `ask`, ask one focused question at a time. Prefer offering 2–4 concrete options over an open-ended question when possible.
+- If `ask` is unavailable or fails, state your assumption explicitly in your response and proceed with the most conservative/reversible option.
