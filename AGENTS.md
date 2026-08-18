@@ -4,7 +4,7 @@
 
 ### Issue tracker
 
-Local markdown files under `.scratch/` directories. See `docs/agents/issue-tracker.md`.
+GitHub Issues via the `gh` CLI. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
