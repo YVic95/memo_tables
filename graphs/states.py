@@ -1,5 +1,6 @@
 from typing import TypedDict, Optional
 from sqlalchemy.orm import Session
+from graphs.models import TableData
 
 class RuleCreationAgentState(TypedDict):
     native_language: str
@@ -39,3 +40,15 @@ class EditTableState(TypedDict):
     table: dict
     edited_table: Optional[dict]
     edit_history: list[dict]
+
+class SaveTableState(TypedDict):
+    db: Session
+    language_pair_id: str
+    session_id: str
+    grammar_rule_id: str
+    tables: list[TableData]
+    target_language_id: str
+    native_language_id: str
+    word_category_slug: str
+    base_words_to_save: list[dict]
+    base_word_ids: dict[str, str]
