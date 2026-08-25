@@ -511,7 +511,34 @@ async def my_endpoint(
 
 ---
 
-## 12. Key Conventions Summary
+## 12. Variable Naming
+
+Use descriptive, self-documenting variable and parameter names. Never use ambiguous abbreviations or single-letter names outside of trivial loop counters.
+
+### Rules
+
+- Spell out what the variable represents — a reader should understand its purpose without needing a comment
+- Use full words or widely understood abbreviations (e.g., `id`, `url`, `db`)
+- No arbitrary shorthand: write `word_form`, not `wf`; `grammar_rule`, not `gr`; `translation`, not `tr`
+- Loop counters (`i`, `j`) and lambda parameters are acceptable single-letter names
+- Boolean variables must read as a condition: `is_active`, `has_translation`, `can_delete` — not `flag` or `status`
+
+### Examples
+
+| Bad | Good |
+|-----|------|
+| `wf` | `word_form` |
+| `gr` | `grammar_rule` |
+| `tr` | `translation` |
+| `res` | `result` |
+| `s` | `session` or `sentence` |
+| `d` | `db` or `data` |
+| `tmp` | `temporary_rule` |
+| `flag` (boolean) | `is_valid` or `has_translation` |
+
+---
+
+## 13. Key Conventions Summary
 
 | Convention | Detail |
 |------------|--------|
@@ -525,3 +552,4 @@ async def my_endpoint(
 | **Env vars** | `.env` is gitignored; required at runtime |
 | **Entrypoint** | `serve.py` (NOT `main.py`, which is a stub) |
 | **Port** | 8080 for uvicorn |
+| **Variable names** | Descriptive and self-documenting; no ambiguous abbreviations (e.g., `word_form`, not `wf`) |
