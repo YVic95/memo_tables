@@ -4,6 +4,11 @@ from models.language_pairs import LanguagePair
 from models.language import Language
 
 
+def get_language_name_by_id(db: Session, language_id: uuid.UUID) -> str:
+    """Get language name by language ID"""
+    language = db.query(Language).filter(Language.id == language_id).first()
+    return language.name if language else "Unknown"
+
 def get_language_code(db: Session, language_id: uuid.UUID) -> str:
     """Get language code by language ID"""
     language = db.query(Language).filter(Language.id == language_id).first()

@@ -251,3 +251,22 @@ edit_table_prompt = PromptTemplate.from_template(
     before or after it.
     """
 )
+
+deduce_base_word_prompt = PromptTemplate.from_template(
+    """
+        You are a linguistics expert. Given a list of inflected or conjugated
+        word forms in {target_language}, deduce the base (dictionary) form of
+        each word.
+
+        Word category: {word_category}
+        Target language: {target_language}
+
+        Inflected forms:
+        {inflected_forms}
+
+        For each unique inflected form, return its base/dictionary form.
+        If multiple inflected forms share the same base form, list the base
+        form only once. Return only the base forms, one per line, with no
+        additional commentary.
+    """
+)

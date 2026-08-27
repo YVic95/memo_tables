@@ -38,6 +38,9 @@ class GenerateTableRequest(BaseModel):
     grammar_rule_id: uuid.UUID
     language_pair_id: uuid.UUID
 
+class DeducedBaseWords(BaseModel):
+    base_words: list[str] = Field(description="List of deduced base/dictionary word forms")
+
 class SaveTablesRequest(BaseModel):
     language_pair_id: uuid.UUID
     session_id: uuid.UUID
