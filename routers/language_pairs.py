@@ -1,5 +1,5 @@
+import uuid
 from fastapi import APIRouter, Request, Depends
-from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from typing import Annotated
 from fastapi import Form
@@ -16,8 +16,8 @@ router = APIRouter(tags=["language-pairs"])
 @router.post("/admin-panel/language-pairs")
 async def save_language_pair(
     request: Request,
-    native_language_id: Annotated[str, Form()],
-    study_language_id: Annotated[str, Form()],
+    native_language_id: Annotated[uuid.UUID, Form()],
+    study_language_id: Annotated[uuid.UUID, Form()],
     db: Annotated[Session, Depends(get_db)],
 ):
     try:
@@ -40,7 +40,7 @@ async def save_language_pair(
 @router.delete("/admin-panel/language-pairs/{pair_id}")
 async def delete_language_pair_route(
     request: Request,
-    pair_id: str,
+    pair_id: uuid.UUID,
     db: Annotated[Session, Depends(get_db)],
 ):
     delete_language_pair_by_id(db, pair_id)
@@ -55,4 +55,4 @@ async def delete_language_pair_route(
 @router.get("/api/language-pairs")
 async def get_language_pairs_api(db: Annotated[Session, Depends(get_db)]):
     pairs = get_language_pairs(db)
-    return JSONResponse(content={"language_pairs": pairs})
+    return {"language_pairs": pairs}

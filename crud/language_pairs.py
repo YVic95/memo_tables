@@ -1,9 +1,10 @@
+import uuid
 from sqlalchemy.orm import Session
 from models.language_pairs import LanguagePair
 from models.language import Language
 
 
-def get_language_code(db: Session, language_id: str) -> str:
+def get_language_code(db: Session, language_id: uuid.UUID) -> str:
     """Get language code by language ID"""
     language = db.query(Language).filter(Language.id == language_id).first()
     return language.code if language else "Unknown"
@@ -15,7 +16,7 @@ def get_language_pairs(db: Session) -> list[dict]:
         native = db.query(Language).filter(Language.id == p.native_language_id).first()
         target = db.query(Language).filter(Language.id == p.target_language_id).first()
         result.append({
-            "pair_id": str(p.pair_id),
+            "pair_id": p.pair_id,
             "native_name": native.name if native else "Unknown",
             "native_code": get_language_code(db, p.native_language_id),
             "target_name": target.name if target else "Unknown",
@@ -23,7 +24,7 @@ def get_language_pairs(db: Session) -> list[dict]:
         })
     return result
 
-def pair_exists(db: Session, native_id: str, target_id: str) -> bool:
+def pair_exists(db: Session, native_id: uuid.UUID, target_id: uuid.UUID) -> bool:
     return (
         db.query(LanguagePair.pair_id)
         .filter(
@@ -34,7 +35,7 @@ def pair_exists(db: Session, native_id: str, target_id: str) -> bool:
         is not None
     )
 
-def create_language_pair(db: Session, native_id: str, target_id: str) -> dict:
+def create_language_pair(db: Session, native_id: uuid.UUID, target_id: uuid.UUID) -> dict:
     if native_id == target_id:
         raise ValueError("Native and studied language must be different")
 
@@ -45,9 +46,9 @@ def create_language_pair(db: Session, native_id: str, target_id: str) -> dict:
     db.add(pair)
     db.commit()
     db.refresh(pair)
-    return {"pair_id": str(pair.pair_id)}
+    return {"pair_id": pair.pair_id}
 
-def delete_language_pair_by_id(db: Session, pair_id: str) -> bool:
+def delete_language_pair_by_id(db: Session, pair_id: uuid.UUID) -> bool:
     pair = db.query(LanguagePair).filter(LanguagePair.pair_id == pair_id).first()
     if pair is None:
         return False
@@ -56,18 +57,18 @@ def delete_language_pair_by_id(db: Session, pair_id: str) -> bool:
     db.commit()
     return True
 
-def get_language_pair_by_id(db: Session, pair_id: str) -> dict | None:
+def get_language_pair_by_id(db: Session, pair_id: uuid.UUID) -> dict | None:
     pair = db.query(LanguagePair).filter(LanguagePair.pair_id == pair_id).first()
+    if pair is None:
+        return None
+
     native = db.query(Language).filter(Language.id == pair.native_language_id).first()
     target = db.query(Language).filter(Language.id == pair.target_language_id).first()
 
-    if pair is None:
-        return None
-    
     return {
-        "pair_id": str(pair.pair_id),
-        "native_language_id": str(pair.native_language_id),
-        "target_language_id": str(pair.target_language_id),
+        "pair_id": pair.pair_id,
+        "native_language_id": pair.native_language_id,
+        "target_language_id": pair.target_language_id,
         "native_name": native.name if native else "Unknown",
         "native_code": get_language_code(db, pair.native_language_id),
         "target_name": target.name if target else "Unknown",

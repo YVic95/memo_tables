@@ -35,7 +35,7 @@ def sse_event(event_type: str, data: dict) -> str:
 
 class AgentRequest(BaseModel):
     type: str
-    language_pair_id: str
+    language_pair_id: uuid.UUID
     title: Optional[str] = None
     explanation: Optional[str] = None
 

@@ -1,3 +1,4 @@
+import uuid
 from sqlalchemy.orm import Session
 from models.base_words import BaseWord
 from models.word_translations import WordTranslation
@@ -14,8 +15,8 @@ from models.word_form_sentences import WordFormSentence
 def get_or_create_base_word(
     db: Session,
     text: str,
-    language_id: str,
-    word_category_id: str,
+    language_id: uuid.UUID,
+    word_category_id: uuid.UUID,
 ) -> BaseWord:
     existing = (
         db.query(BaseWord)
@@ -42,8 +43,8 @@ def get_or_create_base_word(
 
 def create_word_translation(
     db: Session,
-    base_word_id: str,
-    language_id: str,
+    base_word_id: uuid.UUID,
+    language_id: uuid.UUID,
     translation: str,
 ) -> WordTranslation:
     word_translation = WordTranslation(
@@ -59,8 +60,8 @@ def create_word_translation(
 
 def create_word_rule_assignment(
     db: Session,
-    base_word_id: str,
-    grammar_rule_id: str,
+    base_word_id: uuid.UUID,
+    grammar_rule_id: uuid.UUID,
 ) -> WordRuleAssignment:
     word_rule_assignment = WordRuleAssignment(
         base_word_id=base_word_id,
@@ -74,7 +75,7 @@ def create_word_rule_assignment(
 
 def create_grammar_rule_row(
     db: Session,
-    grammar_rule_id: str,
+    grammar_rule_id: uuid.UUID,
     label: str,
     description: str | None,
     table_no: int,
@@ -95,8 +96,8 @@ def create_grammar_rule_row(
 
 def create_grammar_rule_row_translation(
     db: Session,
-    grammar_rule_row_id: str,
-    language_id: str,
+    grammar_rule_row_id: uuid.UUID,
+    language_id: uuid.UUID,
     label_translation: str,
     description_translation: str | None,
 ) -> GrammarRuleRowTranslation:
@@ -114,8 +115,8 @@ def create_grammar_rule_row_translation(
 
 def create_word_form(
     db: Session,
-    word_rule_assignment_id: str,
-    grammar_rule_row_id: str,
+    word_rule_assignment_id: uuid.UUID,
+    grammar_rule_row_id: uuid.UUID,
     form: str,
 ) -> WordForm:
     word_form = WordForm(
@@ -131,8 +132,8 @@ def create_word_form(
 
 def create_word_form_translation(
     db: Session,
-    word_form_id: str,
-    language_id: str,
+    word_form_id: uuid.UUID,
+    language_id: uuid.UUID,
     translation: str,
 ) -> WordFormTranslation:
     word_form_translation = WordFormTranslation(
@@ -149,9 +150,9 @@ def create_word_form_translation(
 def create_sentence(
     db: Session,
     template: str,
-    language_id: str,
-    word_category_id: str,
-    grammar_rule_id: str,
+    language_id: uuid.UUID,
+    word_category_id: uuid.UUID,
+    grammar_rule_id: uuid.UUID,
     row_position: int,
 ) -> Sentence:
     sentence = Sentence(
@@ -169,8 +170,8 @@ def create_sentence(
 
 def create_sentence_translation(
     db: Session,
-    sentence_id: str,
-    language_id: str,
+    sentence_id: uuid.UUID,
+    language_id: uuid.UUID,
     template: str,
 ) -> SentenceTranslation:
     sentence_translation = SentenceTranslation(
@@ -186,8 +187,8 @@ def create_sentence_translation(
 
 def create_word_form_sentence(
     db: Session,
-    word_form_id: str,
-    sentence_id: str,
+    word_form_id: uuid.UUID,
+    sentence_id: uuid.UUID,
 ) -> WordFormSentence:
     word_form_sentence = WordFormSentence(
         word_form_id=word_form_id,

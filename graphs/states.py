@@ -1,3 +1,4 @@
+import uuid
 from typing import TypedDict, Optional
 from sqlalchemy.orm import Session
 from graphs.models import TableData
@@ -13,17 +14,17 @@ class InitialRuleState(TypedDict):
     rule_explanation: str
     native_language: str
     target_language: str
-    native_language_id: str
-    target_language_id: str
-    word_category_id: str
-    grammar_rule_id: str
+    native_language_id: uuid.UUID
+    target_language_id: uuid.UUID
+    word_category_id: uuid.UUID
+    grammar_rule_id: uuid.UUID
     translated_name: str
     translated_description: str
     full_content: Optional[str]
 
 class GenerateTableState(TypedDict):
     db: Session
-    grammar_rule_id: str
+    grammar_rule_id: uuid.UUID
     native_language: str
     target_language: str
     rule_name: Optional[str]
@@ -43,12 +44,12 @@ class EditTableState(TypedDict):
 
 class SaveTableState(TypedDict):
     db: Session
-    language_pair_id: str
+    language_pair_id: uuid.UUID
     session_id: str
-    grammar_rule_id: str
+    grammar_rule_id: uuid.UUID
     tables: list[TableData]
-    target_language_id: str
-    native_language_id: str
+    target_language_id: uuid.UUID
+    native_language_id: uuid.UUID
     word_category_slug: str
     base_words_to_save: list[dict]
-    base_word_ids: dict[str, str]
+    base_word_ids: dict[str, uuid.UUID]

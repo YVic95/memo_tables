@@ -1,3 +1,4 @@
+import uuid
 from pydantic import BaseModel, Field
 
 class Rule(BaseModel):
@@ -14,7 +15,7 @@ class ProposedRules(BaseModel):
     rules: list[Rule] = Field(description="Exactly 5 proposed rules")
 
 class CategoryChoice(BaseModel):
-    word_category_id: str = Field(description="The id of the single best-fitting category")
+    word_category_id: uuid.UUID = Field(description="The id of the single best-fitting category")
 
 class RuleTranslation(BaseModel):
     name: str = Field(description="Name translated to the target language of user")
@@ -34,11 +35,11 @@ class FragmentationOutput(BaseModel):
     tables: list[TableData] = Field(description="Sub-tables if fragmented, empty otherwise")
 
 class GenerateTableRequest(BaseModel):
-    grammar_rule_id: str
-    language_pair_id: str
+    grammar_rule_id: uuid.UUID
+    language_pair_id: uuid.UUID
 
 class SaveTablesRequest(BaseModel):
-    language_pair_id: str
-    session_id: str
-    grammar_rule_id: str
+    language_pair_id: uuid.UUID
+    session_id: uuid.UUID
+    grammar_rule_id: uuid.UUID
     tables: list[TableData]

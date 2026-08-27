@@ -65,15 +65,15 @@ def seed_data(db_session):
     db_session.refresh(rule)
 
     return {
-        "pair_id": str(pair.pair_id),
-        "rule_id": str(rule.id),
+        "pair_id": pair.pair_id,
+        "rule_id": rule.id,
     }
 
 
 def _make_request(seed_data, **overrides):
     defaults = {
         "language_pair_id": seed_data["pair_id"],
-        "session_id": str(uuid.uuid4()),
+        "session_id": uuid.uuid4(),
         "grammar_rule_id": seed_data["rule_id"],
         "tables": [
             {
@@ -110,7 +110,7 @@ class TestTablesListNotEmpty:
     def test_empty_tables_returns_400(self, mock_get_rule, mock_get_pair, db_session, seed_data):
         mock_get_pair.return_value = {"pair_id": seed_data["pair_id"]}
         mock_get_rule.return_value = GrammarRule(
-            id=uuid.UUID(seed_data["rule_id"]),
+            id=seed_data["rule_id"],
             name="test",
             description="test",
             language_id="1",
@@ -130,7 +130,7 @@ class TestTableHasRows:
     def test_table_with_no_rows_returns_400(self, mock_get_rule, mock_get_pair, db_session, seed_data):
         mock_get_pair.return_value = {"pair_id": seed_data["pair_id"]}
         mock_get_rule.return_value = GrammarRule(
-            id=uuid.UUID(seed_data["rule_id"]),
+            id=seed_data["rule_id"],
             name="test",
             description="test",
             language_id="1",
@@ -152,7 +152,7 @@ class TestRowCellCountMatchesHeaders:
     def test_row_too_many_cells_returns_400(self, mock_get_rule, mock_get_pair, db_session, seed_data):
         mock_get_pair.return_value = {"pair_id": seed_data["pair_id"]}
         mock_get_rule.return_value = GrammarRule(
-            id=uuid.UUID(seed_data["rule_id"]),
+            id=seed_data["rule_id"],
             name="test",
             description="test",
             language_id="1",
@@ -172,7 +172,7 @@ class TestRowCellCountMatchesHeaders:
     def test_row_too_few_cells_returns_400(self, mock_get_rule, mock_get_pair, db_session, seed_data):
         mock_get_pair.return_value = {"pair_id": seed_data["pair_id"]}
         mock_get_rule.return_value = GrammarRule(
-            id=uuid.UUID(seed_data["rule_id"]),
+            id=seed_data["rule_id"],
             name="test",
             description="test",
             language_id="1",
@@ -194,7 +194,7 @@ class TestValidRequest:
     def test_valid_request_returns_success_with_grammar_rule_id(self, mock_get_rule, mock_get_pair, db_session, seed_data):
         mock_get_pair.return_value = {"pair_id": seed_data["pair_id"]}
         mock_get_rule.return_value = GrammarRule(
-            id=uuid.UUID(seed_data["rule_id"]),
+            id=seed_data["rule_id"],
             name="test",
             description="test",
             language_id="1",

@@ -1,3 +1,4 @@
+import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Annotated
 from pydantic import BaseModel
@@ -11,7 +12,7 @@ router = APIRouter(tags=["edit-tables"])
 
 
 class EditTableRequest(BaseModel):
-    language_pair_id: str
+    language_pair_id: uuid.UUID
     session_id: str
     instructions: str
     table: TableData

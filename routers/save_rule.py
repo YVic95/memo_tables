@@ -1,3 +1,4 @@
+import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Annotated
 from pydantic import BaseModel
@@ -19,7 +20,7 @@ class AppendContentRequest(BaseModel):
 
 @router.post("/api/grammar-rules/{grammar_rule_id}/append-content")
 async def append_rule_content(
-    grammar_rule_id: str,
+    grammar_rule_id: uuid.UUID,
     body: AppendContentRequest,
     db: Annotated[Session, Depends(get_db)],
 ):

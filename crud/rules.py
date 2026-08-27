@@ -1,4 +1,5 @@
 from uuid import uuid4
+import uuid
 from sqlalchemy import Column, String, ForeignKey
 from sqlalchemy.orm import Session, declarative_base
 from models.language import Language
@@ -9,18 +10,18 @@ from models.grammar_rule_translations import GrammarRuleTranslation
 def get_word_categories(db: Session):
     return db.query(WordCategory).all()
 
-def get_word_category_by_id(db: Session, category_id: str) -> WordCategory | None:
+def get_word_category_by_id(db: Session, category_id: uuid.UUID) -> WordCategory | None:
     return db.query(WordCategory).filter(WordCategory.id == category_id).first()
 
 def create_grammar_rule(
     db: Session,
     title: str,
     description: str,
-    language_id: str,
-    word_category_id: str,
+    language_id: uuid.UUID,
+    word_category_id: uuid.UUID,
 ) -> GrammarRule:
     rule = GrammarRule(
-        id=str(uuid4()),
+        id=uuid4(),
         name=title,
         description=description,
         language_id=language_id,
@@ -31,10 +32,10 @@ def create_grammar_rule(
     db.refresh(rule)
     return rule
 
-def get_grammar_rule_by_id(db: Session, rule_id: str) -> GrammarRule | None:
+def get_grammar_rule_by_id(db: Session, rule_id: uuid.UUID) -> GrammarRule | None:
     return db.query(GrammarRule).filter(GrammarRule.id == rule_id).first()
 
-def append_rule_description(db: Session, rule_id: str, content: str) -> GrammarRule | None:
+def append_rule_description(db: Session, rule_id: uuid.UUID, content: str) -> GrammarRule | None:
     rule = get_grammar_rule_by_id(db, rule_id)
     if rule is None:
         return None
@@ -43,10 +44,10 @@ def append_rule_description(db: Session, rule_id: str, content: str) -> GrammarR
     db.refresh(rule)
     return rule
 
-def get_translation_for_rule(db: Session, rule_id: str) -> GrammarRuleTranslation | None:
+def get_translation_for_rule(db: Session, rule_id: uuid.UUID) -> GrammarRuleTranslation | None:
     return db.query(GrammarRuleTranslation).filter(GrammarRuleTranslation.grammar_rule_id == rule_id).first()
 
-def append_translation_description(db: Session, rule_id: str, content: str) -> GrammarRuleTranslation | None:
+def append_translation_description(db: Session, rule_id: uuid.UUID, content: str) -> GrammarRuleTranslation | None:
     translation = get_translation_for_rule(db, rule_id)
     if translation is None:
         return None
@@ -57,13 +58,13 @@ def append_translation_description(db: Session, rule_id: str, content: str) -> G
 
 def create_translation(
     db: Session,
-    grammar_rule_id: str,
-    language_id: str,
+    grammar_rule_id: uuid.UUID,
+    language_id: uuid.UUID,
     name: str,
     description: str,
 ) -> GrammarRuleTranslation:
     translation = GrammarRuleTranslation(
-        id=str(uuid4()),
+        id=uuid4(),
         grammar_rule_id=grammar_rule_id,
         language_id=language_id,
         name=name,

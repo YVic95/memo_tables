@@ -5,7 +5,7 @@ from models.language import Language
 # get the language record
 def get_languages(db: Session) -> list[dict]:
     rows = db.query(Language.id, Language.name, Language.code).all()
-    return [{"id": str(r.id), "name": r.name, "code": r.code} for r in rows]
+    return [{"id": r.id, "name": r.name, "code": r.code} for r in rows]
 
 # check if language exists
 def language_exists(db: Session, name: str) -> bool:
@@ -24,4 +24,4 @@ def create_language(db: Session, name: str) -> dict:
     db.add(new_lang)
     db.commit()
     db.refresh(new_lang)
-    return {"id": str(new_lang.id), "name": new_lang.name, "code": new_lang.code}
+    return {"id": new_lang.id, "name": new_lang.name, "code": new_lang.code}
