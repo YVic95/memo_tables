@@ -1,6 +1,6 @@
 import uuid
 import pytest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from fastapi import HTTPException
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
@@ -12,6 +12,13 @@ from models.word_categories import WordCategory
 from models.grammar_rules import GrammarRule
 from graphs.models import SaveTablesRequest
 from routers.save_tables_agent import save_tables
+
+
+@pytest.fixture(autouse=True)
+def mock_graph(monkeypatch):
+    mock = MagicMock()
+    monkeypatch.setattr("routers.save_tables_agent.graph", mock)
+    return mock
 
 
 @pytest.fixture()
@@ -191,7 +198,9 @@ class TestRowCellCountMatchesHeaders:
 class TestValidRequest:
     @patch("routers.save_tables_agent.get_language_pair_by_id")
     @patch("routers.save_tables_agent.get_grammar_rule_by_id")
-    def test_valid_request_returns_success_with_grammar_rule_id(self, mock_get_rule, mock_get_pair, db_session, seed_data):
+    def test_valid_request_returns_success_with_grammar_rule_id(
+        self, mock_get_rule, mock_get_pair, db_session, seed_data
+    ):
         mock_get_pair.return_value = {"pair_id": seed_data["pair_id"]}
         mock_get_rule.return_value = GrammarRule(
             id=seed_data["rule_id"],
@@ -203,5 +212,111 @@ class TestValidRequest:
         body = _make_request(seed_data)
 
         result = save_tables(body, db_session)
-        assert "grammar_rule_id" in result
-        assert result["grammar_rule_id"] == seed_data["rule_id"]
+        assert result["status"] == "saved"
+        assert result["grammar_rule_id"] == str(seed_data["rule_id"])
+        assert result["message"] == (
+            "Saved 1 table: 'Noun Gender' (2 rows). "
+            "Stored 0 sentences, 0 word forms, 0 base words."
+        )
+
+
+class TestGraphInvocation:
+    @patch("routers.save_tables_agent.get_language_pair_by_id")
+    @patch("routers.save_tables_agent.get_grammar_rule_by_id")
+    @patch("routers.save_tables_agent.count_saved_data")
+    def test_valid_request_invokes_graph_and_commits(
+        self, mock_count_saved_data, mock_get_rule, mock_get_pair, seed_data, mock_graph
+    ):
+        mock_get_pair.return_value = {"pair_id": seed_data["pair_id"]}
+        mock_get_rule.return_value = GrammarRule(
+            id=seed_data["rule_id"],
+            name="test",
+            description="test",
+            language_id="1",
+            word_category_id="1",
+        )
+        mock_count_saved_data.return_value = {"sentences": 3, "word_forms": 5, "base_words": 1}
+        mock_db = MagicMock()
+        body = _make_request(seed_data)
+
+        result = save_tables(body, mock_db)
+
+        assert result["status"] == "saved"
+        assert result["grammar_rule_id"] == str(seed_data["rule_id"])
+        assert result["message"] == (
+            "Saved 1 table: 'Noun Gender' (2 rows). "
+            "Stored 3 sentences, 5 word forms, 1 base word."
+        )
+        mock_count_saved_data.assert_called_once_with(mock_db, seed_data["rule_id"])
+        state = mock_graph.invoke.call_args.args[0]
+        assert state["db"] is mock_db
+        assert state["language_pair_id"] == body.language_pair_id
+        assert state["session_id"] == str(body.session_id)
+        assert state["grammar_rule_id"] == body.grammar_rule_id
+        assert state["tables"] == [t.model_dump() for t in body.tables]
+        assert state["target_language_id"] is None
+        assert state["native_language_id"] is None
+        assert state["word_category_slug"] is None
+        assert state["base_words_to_save"] == []
+        assert state["form_to_base_word_id"] == {}
+        mock_db.commit.assert_called_once()
+
+    @patch("routers.save_tables_agent.get_language_pair_by_id")
+    @patch("routers.save_tables_agent.get_grammar_rule_by_id")
+    @patch("routers.save_tables_agent.count_saved_data")
+    def test_message_lists_each_table_with_its_row_count(
+        self, mock_count_saved_data, mock_get_rule, mock_get_pair, mock_graph
+    ):
+        mock_get_pair.return_value = {"pair_id": uuid.uuid4()}
+        mock_get_rule.return_value = GrammarRule(
+            id=uuid.uuid4(),
+            name="test",
+            description="test",
+            language_id="1",
+            word_category_id="1",
+        )
+        mock_count_saved_data.return_value = {"sentences": 1, "word_forms": 2, "base_words": 1}
+        body = SaveTablesRequest(
+            language_pair_id=uuid.uuid4(),
+            session_id=uuid.uuid4(),
+            grammar_rule_id=uuid.uuid4(),
+            tables=[
+                {"title": "Presente", "headers": ["A"], "rows": [{"cells": ["x"]}, {"cells": ["y"]}]},
+                {"title": "Género", "headers": ["A"], "rows": [{"cells": ["z"]}]},
+            ],
+        )
+
+        result = save_tables(body, MagicMock())
+
+        assert result["message"] == (
+            "Saved 2 tables: 'Presente' (2 rows), 'Género' (1 row). "
+            "Stored 1 sentence, 2 word forms, 1 base word."
+        )
+
+    @patch("routers.save_tables_agent.get_language_pair_by_id")
+    @patch("routers.save_tables_agent.get_grammar_rule_by_id")
+    def test_rolls_back_and_reraises_when_graph_fails(
+        self, mock_get_rule, mock_get_pair, mock_graph
+    ):
+        mock_get_pair.return_value = {"pair_id": uuid.uuid4()}
+        mock_get_rule.return_value = GrammarRule(
+            id=uuid.uuid4(),
+            name="test",
+            description="test",
+            language_id="1",
+            word_category_id="1",
+        )
+        mock_graph.invoke.side_effect = RuntimeError("boom")
+        mock_db = MagicMock()
+        body = SaveTablesRequest(
+            language_pair_id=uuid.uuid4(),
+            session_id=uuid.uuid4(),
+            grammar_rule_id=uuid.uuid4(),
+            tables=[{"title": "T", "headers": ["A"], "rows": [{"cells": ["x"]}]}],
+        )
+
+        with pytest.raises(RuntimeError, match="boom"):
+            save_tables(body, mock_db)
+
+        mock_db.rollback.assert_called_once()
+        mock_db.commit.assert_not_called()

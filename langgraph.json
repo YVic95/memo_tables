@@ -1,7 +1,8 @@
 {
   "graphs": {
     "create-rule-agent": "./graphs/suggest_rules_graph.py:graph",
-    "initial-rule-agent": "./graphs/initial_rule_graph.py:graph"
+    "initial-rule-agent": "./graphs/initial_rule_graph.py:graph",
+    "save-rule-agent": "./graphs/save_table_graph.py:graph"
   },
   "env": ".env",
   "source": {

@@ -1,8 +1,45 @@
 import uuid
 from unittest.mock import patch
 import pytest
-from graphs.nodes.deduce_base_word_node import deduce_base_word_node, _extract_unique_forms
-from graphs.models import DeducedBaseWords
+from graphs.nodes.deduce_base_word_node import (
+    deduce_base_word_node,
+    _extract_unique_forms,
+    _extract_verb_forms,
+    _extract_example_words,
+)
+from graphs.models import DeducedBaseWords, DeducedBaseWord
+from models.word_categories import WordCategory
+
+
+def _base_words(*entries):
+    return DeducedBaseWords(base_words=[DeducedBaseWord(**entry) for entry in entries])
+
+
+def _verb_base_word(word, translation, word_category_id, *surface_forms):
+    return {
+        "word": word,
+        "native_translation": translation,
+        "word_category_id": word_category_id,
+        "surface_forms": list(surface_forms),
+    }
+
+
+@pytest.fixture()
+def verb_category(db_session):
+    category = WordCategory(name="Verbs", slug="verb")
+    db_session.add(category)
+    db_session.commit()
+    db_session.refresh(category)
+    return category
+
+
+@pytest.fixture()
+def adjective_category(db_session):
+    category = WordCategory(name="Adjectives", slug="adjectives")
+    db_session.add(category)
+    db_session.commit()
+    db_session.refresh(category)
+    return category
 
 
 def _make_state(db_session, grammar_rule, **overrides):
@@ -16,10 +53,63 @@ def _make_state(db_session, grammar_rule, **overrides):
         "native_language_id": uuid.uuid4(),
         "word_category_slug": "verb",
         "base_words_to_save": [],
-        "base_word_ids": {},
+        "form_to_base_word_id": {},
     }
     state.update(overrides)
     return state
+
+
+VERB_TABLE = {
+    "title": "Present Tense",
+    "headers": ["Pronoun", "Verb", "Example", "Explanation"],
+    "rows": [
+        {"cells": ["Yo", "hablo", "Yo hablo con mi amigo", "I speak"]},
+        {"cells": ["Tú", "hablas", "Tú hablas con mi hermana", "You speak"]},
+    ],
+}
+
+
+class TestExtractVerbForms:
+    def test_extracts_form_column_only(self):
+        result = _extract_verb_forms([VERB_TABLE], {"form": 1})
+        assert set(result) == {"hablo", "hablas"}
+
+    def test_deduplicates_across_tables(self):
+        tables = [
+            {"rows": [{"cells": ["Yo", "hablo", "Yo hablo", "I speak"]}]},
+            {"rows": [{"cells": ["Yo", "hablo", "Yo hablo", "I speak"]}]},
+        ]
+        result = _extract_verb_forms(tables, {"form": 1})
+        assert result == ["hablo"]
+
+    def test_strips_whitespace(self):
+        tables = [{"rows": [{"cells": ["Yo", "  hablo  ", "Yo hablo", "I speak"]}]}]
+        result = _extract_verb_forms(tables, {"form": 1})
+        assert result == ["hablo"]
+
+    def test_skips_empty_cells(self):
+        tables = [{"rows": [{"cells": ["Yo", "", "", "I speak"]}]}]
+        result = _extract_verb_forms(tables, {"form": 1})
+        assert result == []
+
+    def test_skips_rows_shorter_than_form_column(self):
+        tables = [{"rows": [{"cells": ["Yo", "hablo"]}]}]
+        assert _extract_verb_forms(tables, {"form": 1}) == ["hablo"]
+
+
+class TestExtractExampleWords:
+    def test_tokenizes_example_sentences(self):
+        result = _extract_example_words([VERB_TABLE], {"example": 2})
+        expected = {"yo", "hablo", "con", "mi", "amigo", "tú", "hablas", "hermana"}
+        assert set(result) == expected
+
+    def test_strips_punctuation_and_normalizes_case(self):
+        tables = [{"rows": [{"cells": ["", "", "¡Hola, Amigo!", ""]}]}]
+        result = _extract_example_words(tables, {"example": 2})
+        assert set(result) == {"hola", "amigo"}
+
+    def test_returns_empty_when_no_examples(self):
+        assert _extract_example_words([], {"example": 2}) == []
 
 
 class TestExtractUniqueForms:
@@ -37,48 +127,6 @@ class TestExtractUniqueForms:
         result = _extract_unique_forms(tables)
         assert result == ["I speak", "You speak", "hablas", "hablo"]
 
-    def test_deduplicates_across_tables(self):
-        tables = [
-            {
-                "headers": ["Form"],
-                "rows": [{"cells": ["hablo"]}],
-            },
-            {
-                "headers": ["Verb"],
-                "rows": [{"cells": ["hablo"]}],
-            },
-        ]
-        result = _extract_unique_forms(tables)
-        assert result == ["hablo"]
-
-    def test_strips_whitespace(self):
-        tables = [
-            {
-                "headers": ["Form"],
-                "rows": [{"cells": ["  hablo  "]}],
-            }
-        ]
-        result = _extract_unique_forms(tables)
-        assert result == ["hablo"]
-
-    def test_skips_empty_cells(self):
-        tables = [
-            {
-                "headers": ["Form"],
-                "rows": [{"cells": ["hablo", ""]}],
-            }
-        ]
-        result = _extract_unique_forms(tables)
-        assert result == ["hablo"]
-
-    def test_returns_empty_list_for_no_tables(self):
-        assert _extract_unique_forms([]) == []
-
-    def test_returns_sorted_list(self):
-        tables = [{"headers": [], "rows": [{"cells": ["gato", "hablo", "casa"]}]}]
-        result = _extract_unique_forms(tables)
-        assert result == ["casa", "gato", "hablo"]
-
 
 class TestDeduceBaseWordNode:
     def test_returns_empty_when_no_tables(self, db_session, grammar_rule):
@@ -88,67 +136,115 @@ class TestDeduceBaseWordNode:
 
     def test_returns_empty_when_all_cells_empty(self, db_session, grammar_rule):
         state = _make_state(db_session, grammar_rule, tables=[
-            {"headers": ["Form"], "rows": [{"cells": [""]}]},
+            {"headers": ["Pronoun", "Verb", "Example", "Explanation"], "rows": [{"cells": ["", "", "", ""]}]},
         ])
         result = deduce_base_word_node(state)
         assert result["base_words_to_save"] == []
 
     @patch("graphs.nodes.deduce_base_word_node.get_language_name_by_id")
     @patch("graphs.nodes.deduce_base_word_node.deduce_chain")
-    def test_calls_llm_with_correct_params(self, mock_chain, mock_get_lang, db_session, grammar_rule):
+    def test_calls_llm_with_surface_forms_and_categories(
+        self, mock_chain, mock_get_lang, db_session, grammar_rule, verb_category, adjective_category
+    ):
         mock_get_lang.return_value = "Spanish"
-        mock_chain.invoke.return_value = DeducedBaseWords(base_words=["hablar"])
-        state = _make_state(db_session, grammar_rule, tables=[
-            {
-                "headers": ["Form", "Explanation"],
-                "rows": [
-                    {"cells": ["hablo", "I speak"]},
-                    {"cells": ["hablas", "You speak"]},
-                ],
-            }
-        ])
+        mock_chain.invoke.return_value = _base_words(
+            _verb_base_word("hablar", "to speak", verb_category.id, "hablo", "hablas"),
+            _verb_base_word("amigo", "friend", adjective_category.id, "amigo"),
+        )
+        state = _make_state(db_session, grammar_rule, tables=[VERB_TABLE])
+
         deduce_base_word_node(state)
-        mock_chain.invoke.assert_called_once()
+
         call_kwargs = mock_chain.invoke.call_args[0][0]
-        assert call_kwargs["word_category"] == "verb"
         assert call_kwargs["target_language"] == "Spanish"
-        assert "hablo" in call_kwargs["inflected_forms"]
-        assert "hablas" in call_kwargs["inflected_forms"]
+        assert "hablo" in call_kwargs["surface_forms"]
+        assert "hablas" in call_kwargs["surface_forms"]
+        for token in ("yo", "con", "amigo"):
+            assert token in call_kwargs["surface_forms"]
+        assert "I speak" not in call_kwargs["surface_forms"]
+        assert "Yo" not in call_kwargs["surface_forms"]
+        assert str(verb_category.id) in call_kwargs["available_categories"]
+        assert str(adjective_category.id) in call_kwargs["available_categories"]
+        assert "Nouns (nouns)" in call_kwargs["rule_word_category"]
 
     @patch("graphs.nodes.deduce_base_word_node.get_language_name_by_id")
     @patch("graphs.nodes.deduce_base_word_node.deduce_chain")
-    def test_returns_base_words_with_correct_ids(self, mock_chain, mock_get_lang, db_session, grammar_rule):
+    def test_returns_base_words_with_per_word_categories(
+        self, mock_chain, mock_get_lang, db_session, grammar_rule, verb_category, adjective_category
+    ):
         mock_get_lang.return_value = "Spanish"
-        mock_chain.invoke.return_value = DeducedBaseWords(base_words=["hablar", "comer"])
-        state = _make_state(db_session, grammar_rule, tables=[
-            {"headers": ["Form"], "rows": [{"cells": ["hablo"]}, {"cells": ["como"]}]},
-        ])
+        mock_chain.invoke.return_value = _base_words(
+            _verb_base_word("hablar", "to speak", verb_category.id, "hablo", "hablas"),
+            _verb_base_word("amigo", "friend", adjective_category.id, "amigo"),
+        )
+        state = _make_state(db_session, grammar_rule, tables=[VERB_TABLE])
+
         result = deduce_base_word_node(state)
-        assert len(result["base_words_to_save"]) == 2
-        assert result["base_words_to_save"][0]["text"] == "hablar"
-        assert result["base_words_to_save"][0]["language_id"] == state["target_language_id"]
+
+        by_text = {item["text"]: item for item in result["base_words_to_save"]}
+        assert by_text["hablar"]["word_category_id"] == verb_category.id
+        assert by_text["hablar"]["language_id"] == state["target_language_id"]
+        assert by_text["hablar"]["translation"] == "to speak"
+        assert by_text["hablar"]["forms"] == ["hablo", "hablas"]
+        assert by_text["amigo"]["word_category_id"] == adjective_category.id
+        assert by_text["amigo"]["forms"] == ["amigo"]
+
+    @patch("graphs.nodes.deduce_base_word_node.get_language_name_by_id")
+    @patch("graphs.nodes.deduce_base_word_node.deduce_chain")
+    def test_invalid_category_falls_back_to_rule_category(
+        self, mock_chain, mock_get_lang, db_session, grammar_rule, verb_category
+    ):
+        mock_get_lang.return_value = "Spanish"
+        mock_chain.invoke.return_value = _base_words(
+            _verb_base_word("hablar", "to speak", uuid.uuid4(), "hablo"),
+        )
+        state = _make_state(db_session, grammar_rule, tables=[VERB_TABLE])
+
+        result = deduce_base_word_node(state)
+
         assert result["base_words_to_save"][0]["word_category_id"] == grammar_rule.word_category_id
 
     @patch("graphs.nodes.deduce_base_word_node.get_language_name_by_id")
     @patch("graphs.nodes.deduce_base_word_node.deduce_chain")
-    def test_preserves_other_state_fields(self, mock_chain, mock_get_lang, db_session, grammar_rule):
+    def test_non_verb_tables_filter_words_to_rule_category(
+        self, mock_chain, mock_get_lang, db_session, grammar_rule, verb_category
+    ):
         mock_get_lang.return_value = "Spanish"
-        mock_chain.invoke.return_value = DeducedBaseWords(base_words=["hablar"])
-        state = _make_state(db_session, grammar_rule, tables=[
-            {"headers": ["Form"], "rows": [{"cells": ["hablo"]}]},
-        ])
+        mock_chain.invoke.return_value = _base_words(
+            _verb_base_word("gato", "cat", uuid.uuid4(), "gato"),
+        )
+        state = _make_state(
+            db_session, grammar_rule, word_category_slug="nouns",
+            tables=[
+                {"headers": ["Form", "Explanation", "Example"], "rows": [{"cells": ["Masculine", "masculine nouns", "el gato"]}]}
+            ],
+        )
+
         result = deduce_base_word_node(state)
+
+        assert result["base_words_to_save"][0]["word_category_id"] == grammar_rule.word_category_id
+
+    @patch("graphs.nodes.deduce_base_word_node.get_language_name_by_id")
+    @patch("graphs.nodes.deduce_base_word_node.deduce_chain")
+    def test_preserves_other_state_fields(self, mock_chain, mock_get_lang, db_session, grammar_rule, verb_category):
+        mock_get_lang.return_value = "Spanish"
+        mock_chain.invoke.return_value = _base_words(
+            _verb_base_word("hablar", "to speak", verb_category.id, "hablo"),
+        )
+        state = _make_state(db_session, grammar_rule, tables=[VERB_TABLE])
+
+        result = deduce_base_word_node(state)
+
         assert result["session_id"] == "test-session"
         assert result["word_category_slug"] == "verb"
 
     @patch("graphs.nodes.deduce_base_word_node.get_language_name_by_id")
     @patch("graphs.nodes.deduce_base_word_node.deduce_chain")
-    def test_propagates_llm_errors(self, mock_chain, mock_get_lang, db_session, grammar_rule):
+    def test_propagates_llm_errors(self, mock_chain, mock_get_lang, db_session, grammar_rule, verb_category):
         mock_get_lang.return_value = "Spanish"
         mock_chain.invoke.side_effect = RuntimeError("LLM API error")
-        state = _make_state(db_session, grammar_rule, tables=[
-            {"headers": ["Form"], "rows": [{"cells": ["hablo"]}]},
-        ])
+        state = _make_state(db_session, grammar_rule, tables=[VERB_TABLE])
+
         with pytest.raises(RuntimeError, match="LLM API error"):
             deduce_base_word_node(state)
 
@@ -156,7 +252,7 @@ class TestDeduceBaseWordNode:
         state = _make_state(
             db_session,
             type("FakeRule", (), {"id": uuid.UUID("00000000-0000-0000-0000-000000000000")})(),
-            tables=[{"headers": ["Form"], "rows": [{"cells": ["hablo"]}]}],
+            tables=[VERB_TABLE],
         )
         with pytest.raises(ValueError, match="Grammar rule"):
             deduce_base_word_node(state)

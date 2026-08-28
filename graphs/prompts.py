@@ -254,19 +254,49 @@ edit_table_prompt = PromptTemplate.from_template(
 
 deduce_base_word_prompt = PromptTemplate.from_template(
     """
-        You are a linguistics expert. Given a list of inflected or conjugated
-        word forms in {target_language}, deduce the base (dictionary) form of
-        each word.
+        You are a linguistics expert. Given a list of surface word forms in
+        {target_language} — the conjugated verb forms from a verb table, plus
+        the words tokenized out of its example sentences — deduce the base
+        (dictionary) form of each content word, assign it a word category,
+        and translate it into the learner's native language.
 
-        Word category: {word_category}
-        Target language: {target_language}
+        The main verb of the table must always be assigned the word category:
+        {rule_word_category}
 
-        Inflected forms:
-        {inflected_forms}
+        Available word categories — choose exactly one id for every base word:
+        {available_categories}
 
-        For each unique inflected form, return its base/dictionary form.
-        If multiple inflected forms share the same base form, list the base
-        form only once. Return only the base forms, one per line, with no
-        additional commentary.
+        Surface forms:
+        {surface_forms}
+
+        Rules:
+        - Group every surface form under its base/dictionary form. If several
+          surface forms share a base form, list that base form only once and put
+          each surface form in its surface_forms list.
+        - Only include CONTENT words (nouns, verbs, adjectives, adverbs). Skip
+          function words: pronouns, articles, prepositions, conjunctions,
+          particles, and any other non-content items.
+        - Assign the main verb's base form the category {rule_word_category}.
+        - For every other base word, choose the single best-fitting category id
+          from the available list.
+        - Translate each base word into the learner's native language.
+
+        Return only the base words with their translations, category ids, and
+        surface forms — no additional commentary.
+    """
+)
+
+translate_words_prompt = PromptTemplate.from_template(
+    """
+    You are a translation assistant for a language-learning app.
+    Translate each of the following items from {target_language} into
+    {native_language}.
+
+    Items:
+    {items}
+
+    Return a mapping where each input item is a key and its {native_language}
+    translation is the value. Keep translations short and natural. If an item
+    is identical in both languages, return it unchanged.
     """
 )

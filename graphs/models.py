@@ -23,11 +23,19 @@ class RuleTranslation(BaseModel):
 
 class TableRow(BaseModel):
     cells: list[str] = Field(description="Cell values for this row, one per column")
+    row_position: int | None = Field(
+        default=None,
+        description="Position of this row within its table, as provided by the caller",
+    )
 
 class TableData(BaseModel):
     title: str = Field(description="Heading for this table")
     headers: list[str] = Field(description="Column headers")
     rows: list[TableRow] = Field(description="Table rows")
+    fragmented_table_id: int | None = Field(
+        default=None,
+        description="1-based id for fragmented sub-tables; None for a regular table",
+    )
 
 class FragmentationOutput(BaseModel):
     should_fragment: bool = Field(description="Whether the table can be split into sub-tables")
@@ -38,8 +46,17 @@ class GenerateTableRequest(BaseModel):
     grammar_rule_id: uuid.UUID
     language_pair_id: uuid.UUID
 
+class DeducedBaseWord(BaseModel):
+    word: str = Field(description="Base/dictionary form of the word in the target language")
+    native_translation: str = Field(description="Translation of the base word into the learner's native language")
+    word_category_id: uuid.UUID = Field(description="The id of the best-fitting word category for this base word, chosen from the provided list")
+    surface_forms: list[str] = Field(description="The source surface forms (conjugated verb forms or example-sentence words) that map to this base word")
+
 class DeducedBaseWords(BaseModel):
-    base_words: list[str] = Field(description="List of deduced base/dictionary word forms")
+    base_words: list[DeducedBaseWord] = Field(description="List of deduced base/dictionary word forms with their native-language translations")
+
+class Translations(BaseModel):
+    translations: dict[str, str] = Field(description="Mapping from each studied-language word or phrase to its native-language translation")
 
 class SaveTablesRequest(BaseModel):
     language_pair_id: uuid.UUID

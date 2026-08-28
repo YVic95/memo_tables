@@ -52,4 +52,4 @@ class SaveTableState(TypedDict):
     native_language_id: uuid.UUID
     word_category_slug: str
     base_words_to_save: list[dict]
-    base_word_ids: dict[str, uuid.UUID]
+    form_to_base_word_id: dict[str, uuid.UUID]
