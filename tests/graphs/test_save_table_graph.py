@@ -1,7 +1,7 @@
 import uuid
 from unittest.mock import patch
 import pytest
-from graphs.models import DeducedBaseWords, DeducedBaseWord, Translations
+from graphs.models import DeducedBaseWords, DeducedBaseWord, TranslationPair, Translations
 from graphs.save_table_graph import graph
 from models.language_pairs import LanguagePair
 from models.word_categories import WordCategory
@@ -96,14 +96,14 @@ class TestGraphInvocation:
         self, mock_deduce, mock_translate, db_session, seeded_context, language_es, language_en
     ):
         mock_deduce.invoke.return_value = _deduce_result(seeded_context["category_id"])
-        mock_translate.invoke.return_value = Translations(translations={
-            "Yo": "I",
-            "hablo": "I speak",
-            "Yo hablo": "I speak",
-            "Tú": "You",
-            "hablas": "You speak",
-            "Tú hablas": "You speak",
-        })
+        mock_translate.invoke.return_value = Translations(translations=[
+            TranslationPair(text="Yo", translation="I"),
+            TranslationPair(text="hablo", translation="I speak"),
+            TranslationPair(text="Yo hablo", translation="I speak"),
+            TranslationPair(text="Tú", translation="You"),
+            TranslationPair(text="hablas", translation="You speak"),
+            TranslationPair(text="Tú hablas", translation="You speak"),
+        ])
         state = _make_state(db_session, seeded_context)
 
         graph.invoke(state)
@@ -130,7 +130,7 @@ class TestGraphInvocation:
         self, mock_deduce, mock_translate, db_session, seeded_context, language_es, language_en
     ):
         mock_deduce.invoke.return_value = _deduce_result(seeded_context["category_id"])
-        mock_translate.invoke.return_value = Translations(translations={})
+        mock_translate.invoke.return_value = Translations(translations=[])
         state = _make_state(db_session, seeded_context)
 
         graph.invoke(state)

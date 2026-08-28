@@ -79,7 +79,7 @@ def process_all_tables_node(state: SaveTableState) -> SaveTableState:
                 "items": "\n".join(sorted(translation_strings)),
             }
         )
-        translations = result.translations
+        translations = {item.text.strip(): item.translation for item in result.translations}
 
     for table in state["tables"]:
         table_no = table.get("fragmented_table_id") or 0

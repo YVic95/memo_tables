@@ -295,8 +295,9 @@ translate_words_prompt = PromptTemplate.from_template(
     Items:
     {items}
 
-    Return a mapping where each input item is a key and its {native_language}
-    translation is the value. Keep translations short and natural. If an item
-    is identical in both languages, return it unchanged.
+    Return a list with exactly one entry per input item. For each entry, set
+    `text` to the item exactly as given (same spelling and case) and
+    `translation` to its {native_language} translation. Keep translations
+    short and natural. If an item is identical, return it unchanged.
     """
 )

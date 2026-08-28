@@ -2,7 +2,7 @@ import uuid
 from unittest.mock import patch
 import pytest
 from graphs.nodes.process_all_tables_node import process_all_tables_node
-from graphs.models import Translations
+from graphs.models import TranslationPair, Translations
 from crud.table_data import get_or_create_base_word, create_word_rule_assignment
 from models.word_categories import WordCategory
 from models.grammar_rules import GrammarRule
@@ -71,15 +71,15 @@ VERB_TABLE = {
     ],
 }
 
-VERB_TRANSLATIONS = Translations(translations={
-    "Yo": "I",
-    "hablo": "I speak",
-    "Yo hablo con mi amigo": "I speak with my friend",
-    "Tú": "You",
-    "hablas": "You speak",
-    "Tú hablas con mi hermana": "You speak with my sister",
-    "amigo": "friend",
-})
+VERB_TRANSLATIONS = Translations(translations=[
+    TranslationPair(text="Yo", translation="I"),
+    TranslationPair(text="hablo", translation="I speak"),
+    TranslationPair(text="Yo hablo con mi amigo", translation="I speak with my friend"),
+    TranslationPair(text="Tú", translation="You"),
+    TranslationPair(text="hablas", translation="You speak"),
+    TranslationPair(text="Tú hablas con mi hermana", translation="You speak with my sister"),
+    TranslationPair(text="amigo", translation="friend"),
+])
 
 EXPECTED_EXAMPLE_TOKENS = {"yo", "hablo", "con", "mi", "amigo", "tú", "hablas", "hermana"}
 
@@ -248,10 +248,10 @@ class TestGeneralTable:
     @patch("graphs.nodes.process_all_tables_node.translate_chain")
     def test_creates_label_and_description_no_word_form(self, mock_chain, db_session, grammar_rule, language_es, language_en):
         category = db_session.query(WordCategory).filter(WordCategory.slug == "nouns").one()
-        mock_chain.invoke.return_value = Translations(translations={
-            "Masculine": "Masculine",
-            "el gato": "the cat",
-        })
+        mock_chain.invoke.return_value = Translations(translations=[
+            TranslationPair(text="Masculine", translation="Masculine"),
+            TranslationPair(text="el gato", translation="the cat"),
+        ])
         state = _make_state(
             db_session, grammar_rule, language_es, language_en, category.slug,
             tables=[self.GENERAL_TABLE], form_to_base_word_id={},
@@ -307,9 +307,9 @@ class TestFragmentedTables:
 class TestTranslationFallback:
     @patch("graphs.nodes.process_all_tables_node.translate_chain")
     def test_missing_translation_falls_back_to_source_text(self, mock_chain, db_session, verb_rule, language_es, language_en):
-        mock_chain.invoke.return_value = Translations(translations={
-            "Yo": "I",
-        })
+        mock_chain.invoke.return_value = Translations(translations=[
+            TranslationPair(text="Yo", translation="I"),
+        ])
         word = _seed_base_word_with_assignment(db_session, verb_rule, language_es)
         state = _make_state(
             db_session, verb_rule, language_es, language_en, "verb",

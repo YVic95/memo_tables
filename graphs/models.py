@@ -55,8 +55,12 @@ class DeducedBaseWord(BaseModel):
 class DeducedBaseWords(BaseModel):
     base_words: list[DeducedBaseWord] = Field(description="List of deduced base/dictionary word forms with their native-language translations")
 
+class TranslationPair(BaseModel):
+    text: str = Field(description="An exact input item from the items list")
+    translation: str = Field(description="Its translation into the learner's native language")
+
 class Translations(BaseModel):
-    translations: dict[str, str] = Field(description="Mapping from each studied-language word or phrase to its native-language translation")
+    translations: list[TranslationPair] = Field(description="One entry per input item")
 
 class SaveTablesRequest(BaseModel):
     language_pair_id: uuid.UUID
