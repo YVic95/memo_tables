@@ -6,6 +6,36 @@ from graphs.save_table_graph import graph
 from models.language_pairs import LanguagePair
 from models.word_categories import WordCategory
 from models.grammar_rules import GrammarRule
+
+
+class TestDeducedBaseWordValidation:
+    def test_surface_forms_are_deduplicated(self):
+        result = DeducedBaseWord(
+            word="dělat",
+            native_translation="to do",
+            word_category_id=uuid.uuid4(),
+            surface_forms=["dělá", "dělám", "dělá", "dělám", "děláš"],
+        )
+        assert result.surface_forms == ["dělá", "dělám", "děláš"]
+
+    def test_deduplication_is_case_insensitive(self):
+        result = DeducedBaseWord(
+            word="hablar",
+            native_translation="to speak",
+            word_category_id=uuid.uuid4(),
+            surface_forms=["Hablo", "hablo", "HABLO"],
+        )
+        assert result.surface_forms == ["Hablo"]
+
+    def test_no_duplicates_left_unmodified(self):
+        forms = ["dělá", "dělám", "děláš", "děláme", "děláte", "dělají"]
+        result = DeducedBaseWord(
+            word="dělat",
+            native_translation="to do",
+            word_category_id=uuid.uuid4(),
+            surface_forms=forms,
+        )
+        assert result.surface_forms == forms
 from models.base_words import BaseWord
 from models.word_translations import WordTranslation
 from models.word_rule_assignments import WordRuleAssignment
