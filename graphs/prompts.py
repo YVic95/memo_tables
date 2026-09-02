@@ -150,18 +150,43 @@ generate_verb_table_prompt = PromptTemplate.from_template(
 fragmentation_prompt = PromptTemplate.from_template(
     """
         Analyse the following grammar table and decide if it can be split into smaller,
-        pedagogically useful sub-tables.
+        pedagogically useful sub-tables. The table may be in any language and cover any
+        grammatical topic (conjugation, declension, word order, particles, etc.).
 
         Table: {general_table_json}
 
-        Rules:
-        - Split only if the table has at least 2 distinct logical groups (e.g. singular/plural,
-          masculine/feminine, present/past, etc.)
-        - Each sub-table must be self-contained and have at least 2 rows.
-        - If the table is already small or cannot be cleanly divided, set should_fragment to false.
-        - Provide a brief rationale for your decision.
+        Step 1 — Identify grouping axes:
+        Examine every column, especially any column naming grammatical categories —
+        person, number, gender, case, tense, aspect, mood, formality/register, animacy,
+        or similar — even if the column header is generic (e.g. "Form", "Category",
+        or a native-language label like "Osoba", "Persona", "人称"). For each such
+        column, determine whether its values fall into 2 or more natural groups
+        (e.g. singular forms vs plural forms, masculine vs feminine vs neuter,
+        formal vs informal, present vs past), with each group containing at least
+        2 rows.
 
-        Output should_fragment, a short rationale, and the list of sub-tables (empty if not fragmenting).
+        Step 2 — Decide:
+        - If ANY axis from Step 1 produces 2+ groups with at least 2 rows each,
+          set should_fragment to true and split along that axis — EVEN IF the table
+          looks short overall. Row count alone is never a reason to skip splitting;
+          what matters is whether a clean grouping exists.
+        - If multiple axes qualify, choose the one most useful for a learner
+          (typically the axis a learner would need to master as a distinct rule,
+          e.g. splitting by number before splitting by formality).
+        - Only set should_fragment to false if no axis produces 2+ valid groups —
+          for example, the table already represents one homogeneous grammatical
+          category, or any split would leave a group with fewer than 2 rows.
+        - Each sub-table must be self-contained: retain enough context (labels,
+          headers, brief explanation) that it makes sense read on its own, without
+          referring back to the original table.
+
+        Do not rely on absolute table size as a proxy for "already small enough" —
+        judge only by whether a coherent grouping axis with 2+ qualifying groups
+        exists.
+
+        Output should_fragment, a short rationale naming the grouping axis used
+        (or explaining why none qualified), and the list of sub-tables (empty if
+        not fragmenting).
     """
 )
 ### Common Mistakes:
