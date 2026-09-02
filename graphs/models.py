@@ -1,5 +1,5 @@
 import uuid
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 class Rule(BaseModel):
     title: str = Field(description="Short name of the grammar/language rule")
@@ -49,8 +49,20 @@ class GenerateTableRequest(BaseModel):
 class DeducedBaseWord(BaseModel):
     word: str = Field(description="Base/dictionary form of the word in the target language")
     native_translation: str = Field(description="Translation of the base word into the learner's native language")
-    word_category_id: uuid.UUID = Field(description="The id of the best-fitting word category for this base word, chosen from the provided list")
+    word_category_id: uuid.UUID = Field(description="The id of the best-fitting category for this base word, chosen from the provided list")
     surface_forms: list[str] = Field(description="The source surface forms (conjugated verb forms or example-sentence words) that map to this base word")
+
+    @field_validator("surface_forms")
+    @classmethod
+    def dedupe_forms(cls, v: list[str]) -> list[str]:
+        seen: set[str] = set()
+        result: list[str] = []
+        for form in v:
+            key = form.lower()
+            if key not in seen:
+                seen.add(key)
+                result.append(form)
+        return result
 
 class DeducedBaseWords(BaseModel):
     base_words: list[DeducedBaseWord] = Field(description="List of deduced base/dictionary word forms with their native-language translations")
