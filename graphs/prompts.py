@@ -95,6 +95,7 @@ generate_table_prompt = PromptTemplate.from_template(
       cell rather than "N/A" or similar filler.
     - If an entire column would end up empty across all rows, omit that column
       entirely rather than including it with blank cells.
+    - If language use diacritics - use them in a proper way.
 
     Return only the table (title, headers, rows) — no additional commentary
     before or after it.
@@ -204,7 +205,7 @@ fragmentation_prompt = PromptTemplate.from_template(
 rule_content_prompt = PromptTemplate.from_template(
     """
         Write the full learning content for this grammar rule, in {native_language},
-        for a speaker learning {target_language}.
+        for a speaker learning {target_language}. Cover all gramatical forms for concrete rule.
 
         Name: {rule_title}
         Short explanation: {rule_explanation}
@@ -226,12 +227,7 @@ rule_content_prompt = PromptTemplate.from_template(
 
         ### Examples:
         Select ONE representative lexical item (verb, noun, adjective, etc.) for
-        all examples.
-        1. **[example in target language]** *([translation])* — [brief explanation]
-        2. **[example]** *([translation])* — [explanation]
-        3. **[example]** *([translation])* — [explanation]
-        4. **[example]** *([translation])* — [explanation]
-        5. **[example]** *([translation])* — [explanation]
+        all examples. Use ONLY ONE word for all examples.
 
     """
 )

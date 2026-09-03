@@ -1,6 +1,6 @@
 const NODE_LABELS = {
     categorize: 'Categorizing rule',
-    persist_rule: 'Saving rule',
+    persist_rule: 'Saving rule card',
     translate_rule: 'Translating',
     persist_translation: 'Saving translation',
     generate_content: 'Generating content',
