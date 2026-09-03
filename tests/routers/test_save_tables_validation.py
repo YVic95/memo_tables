@@ -320,3 +320,146 @@ class TestGraphInvocation:
 
         mock_db.rollback.assert_called_once()
         mock_db.commit.assert_not_called()
+
+
+class TestTableFiltering:
+    @patch("routers.save_tables_agent.get_language_pair_by_id")
+    @patch("routers.save_tables_agent.get_grammar_rule_by_id")
+    @patch("routers.save_tables_agent.count_saved_data")
+    def test_fragmented_tables_only_when_both_exist(
+        self, mock_count_saved_data, mock_get_rule, mock_get_pair, mock_graph
+    ):
+        mock_get_pair.return_value = {"pair_id": uuid.uuid4()}
+        mock_get_rule.return_value = GrammarRule(
+            id=uuid.uuid4(), name="t", description="t",
+            language_id="1", word_category_id="1",
+        )
+        mock_count_saved_data.return_value = {"sentences": 0, "word_forms": 0, "base_words": 0}
+        body = SaveTablesRequest(
+            language_pair_id=uuid.uuid4(),
+            session_id=uuid.uuid4(),
+            grammar_rule_id=uuid.uuid4(),
+            tables=[
+                {"title": "General", "headers": ["A"], "rows": [{"cells": ["x"]}]},
+                {"title": "Frag 1", "headers": ["A"], "rows": [{"cells": ["a"]}], "fragmented_table_id": 1},
+                {"title": "Frag 2", "headers": ["A"], "rows": [{"cells": ["b"]}], "fragmented_table_id": 2},
+            ],
+        )
+
+        result = save_tables(body, MagicMock())
+
+        state = mock_graph.invoke.call_args.args[0]
+        saved_titles = [t["title"] for t in state["tables"]]
+        assert saved_titles == ["Frag 1", "Frag 2"]
+        assert "General" not in saved_titles
+        assert "Saved 2 tables" in result["message"]
+
+    @patch("routers.save_tables_agent.get_language_pair_by_id")
+    @patch("routers.save_tables_agent.get_grammar_rule_by_id")
+    @patch("routers.save_tables_agent.count_saved_data")
+    def test_general_table_used_when_no_fragmented(
+        self, mock_count_saved_data, mock_get_rule, mock_get_pair, mock_graph
+    ):
+        mock_get_pair.return_value = {"pair_id": uuid.uuid4()}
+        mock_get_rule.return_value = GrammarRule(
+            id=uuid.uuid4(), name="t", description="t",
+            language_id="1", word_category_id="1",
+        )
+        mock_count_saved_data.return_value = {"sentences": 0, "word_forms": 0, "base_words": 0}
+        body = SaveTablesRequest(
+            language_pair_id=uuid.uuid4(),
+            session_id=uuid.uuid4(),
+            grammar_rule_id=uuid.uuid4(),
+            tables=[
+                {"title": "General", "headers": ["A"], "rows": [{"cells": ["x"]}]},
+            ],
+        )
+
+        result = save_tables(body, MagicMock())
+
+        state = mock_graph.invoke.call_args.args[0]
+        saved_titles = [t["title"] for t in state["tables"]]
+        assert saved_titles == ["General"]
+        assert "Saved 1 table" in result["message"]
+
+    @patch("routers.save_tables_agent.get_language_pair_by_id")
+    @patch("routers.save_tables_agent.get_grammar_rule_by_id")
+    @patch("routers.save_tables_agent.count_saved_data")
+    def test_empty_fragmented_falls_back_to_general(
+        self, mock_count_saved_data, mock_get_rule, mock_get_pair, mock_graph
+    ):
+        mock_get_pair.return_value = {"pair_id": uuid.uuid4()}
+        mock_get_rule.return_value = GrammarRule(
+            id=uuid.uuid4(), name="t", description="t",
+            language_id="1", word_category_id="1",
+        )
+        mock_count_saved_data.return_value = {"sentences": 0, "word_forms": 0, "base_words": 0}
+        body = SaveTablesRequest(
+            language_pair_id=uuid.uuid4(),
+            session_id=uuid.uuid4(),
+            grammar_rule_id=uuid.uuid4(),
+            tables=[
+                {"title": "General", "headers": ["A"], "rows": [{"cells": ["x"]}]},
+            ],
+        )
+        body.tables[0].fragmented_table_id = None
+
+        result = save_tables(body, MagicMock())
+
+        state = mock_graph.invoke.call_args.args[0]
+        saved_titles = [t["title"] for t in state["tables"]]
+        assert saved_titles == ["General"]
+
+    @patch("routers.save_tables_agent.get_language_pair_by_id")
+    @patch("routers.save_tables_agent.get_grammar_rule_by_id")
+    def test_bad_general_table_skipped_when_fragmented_exist(
+        self, mock_get_rule, mock_get_pair, mock_graph
+    ):
+        mock_get_pair.return_value = {"pair_id": uuid.uuid4()}
+        mock_get_rule.return_value = GrammarRule(
+            id=uuid.uuid4(), name="t", description="t",
+            language_id="1", word_category_id="1",
+        )
+        body = SaveTablesRequest(
+            language_pair_id=uuid.uuid4(),
+            session_id=uuid.uuid4(),
+            grammar_rule_id=uuid.uuid4(),
+            tables=[
+                {"title": "Bad General", "headers": ["A", "B"], "rows": [{"cells": ["only one"]}]},
+                {"title": "Good Frag", "headers": ["A"], "rows": [{"cells": ["ok"]}], "fragmented_table_id": 1},
+            ],
+        )
+
+        result = save_tables(body, MagicMock())
+
+        state = mock_graph.invoke.call_args.args[0]
+        saved_titles = [t["title"] for t in state["tables"]]
+        assert saved_titles == ["Good Frag"]
+
+    @patch("routers.save_tables_agent.get_language_pair_by_id")
+    @patch("routers.save_tables_agent.get_grammar_rule_by_id")
+    @patch("routers.save_tables_agent.count_saved_data")
+    def test_message_describes_only_saved_tables(
+        self, mock_count_saved_data, mock_get_rule, mock_get_pair, mock_graph
+    ):
+        mock_get_pair.return_value = {"pair_id": uuid.uuid4()}
+        mock_get_rule.return_value = GrammarRule(
+            id=uuid.uuid4(), name="t", description="t",
+            language_id="1", word_category_id="1",
+        )
+        mock_count_saved_data.return_value = {"sentences": 1, "word_forms": 2, "base_words": 1}
+        body = SaveTablesRequest(
+            language_pair_id=uuid.uuid4(),
+            session_id=uuid.uuid4(),
+            grammar_rule_id=uuid.uuid4(),
+            tables=[
+                {"title": "General", "headers": ["A"], "rows": [{"cells": ["x"]}, {"cells": ["y"]}]},
+                {"title": "Frag 1", "headers": ["A"], "rows": [{"cells": ["a"]}], "fragmented_table_id": 1},
+            ],
+        )
+
+        result = save_tables(body, MagicMock())
+
+        assert "General" not in result["message"]
+        assert "Frag 1" in result["message"]
+        assert "Saved 1 table" in result["message"]
