@@ -202,6 +202,27 @@ def get_or_create_word_form(
         return existing
     return create_word_form(db, word_rule_assignment_id, grammar_rule_row_id, form, commit=commit)
 
+# deduplicates on (word_rule_assignment_id, form) only, ignoring grammar_rule_row_id.
+
+def get_or_create_word_form_global(
+    db: Session,
+    word_rule_assignment_id: uuid.UUID,
+    form: str,
+    grammar_rule_row_id: uuid.UUID,
+    commit: bool = True,
+) -> WordForm:
+    existing = (
+        db.query(WordForm)
+        .filter(
+            WordForm.word_rule_assignment_id == word_rule_assignment_id,
+            WordForm.form == form,
+        )
+        .first()
+    )
+    if existing is not None:
+        return existing
+    return create_word_form(db, word_rule_assignment_id, grammar_rule_row_id, form, commit=commit)
+
 
 def create_word_form_translation(
     db: Session,

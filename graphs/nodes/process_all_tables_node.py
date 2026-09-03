@@ -12,6 +12,7 @@ from crud.table_data import (
     create_sentence_translation,
     create_word_form_sentence,
     get_or_create_word_form,
+    get_or_create_word_form_global,
     get_or_create_word_form_translation,
     get_or_create_word_rule_assignment,
 )
@@ -155,8 +156,14 @@ def process_all_tables_node(state: SaveTableState) -> SaveTableState:
                             continue
                         if form is not None and token == form.lower():
                             continue
-                        token_word_form = _word_form_for_surface_form(
-                            db, form_to_base_word_id, grammar_rule_id, token, grammar_row.id
+                        token_base_word_id = form_to_base_word_id.get(token)
+                        if token_base_word_id is None:
+                            continue
+                        assignment = get_or_create_word_rule_assignment(
+                            db, token_base_word_id, grammar_rule_id, commit=False
+                        )
+                        token_word_form = get_or_create_word_form_global(
+                            db, assignment.id, token, grammar_row.id, commit=False
                         )
                         if token_word_form is None:
                             continue
