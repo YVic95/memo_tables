@@ -57,12 +57,27 @@ generate_table_prompt = PromptTemplate.from_template(
     - Column headers: written in {target_language} (e.g. "Person", "Singular", "Plural").
     - Explanation text inside cells: written in {native_language}, so the learner
       understands *why* the form is used.
-    - Word forms and examples inside cells: written in {target_language}, 
+    - Word forms and examples inside cells: written in {target_language}.
     - Select one representative lexical item (verb, noun, adjective, etc.) for
-      the entire table.
-    - Every example in the table must use this same lexical item.
-    - Only change its grammatical form as required by the rule.
-    - Do not introduce additional lexical items to demonstrate different rows.
+      the entire table. Do not introduce additional lexical items anywhere in
+      the table.
+
+    CARRIER SENTENCE (for the Example column)
+    - Before filling in rows, design ONE short carrier sentence/phrase template
+      in {target_language} that can host every form in the table (e.g. a short
+      frame like "___ tous les jours" for a verb-conjugation rule, or an
+      equivalent minimal frame for a case/declension rule).
+    - Use this exact same carrier sentence for every row's Example cell, changing
+      ONLY the target word/form itself (and, if grammatically required, the
+      minimum surrounding agreement — e.g. an article or ending that must
+      agree with a changing case). Do not alter word order, vocabulary, or
+      any other part of the carrier sentence between rows.
+    - If a row's form cannot be inserted into the carrier sentence at all
+      (e.g. a "zero form" row), keep the carrier sentence but mark the slot
+      descriptively (e.g. "(no article) ___ tous les jours").
+    - Choose the carrier sentence so that it remains natural and grammatical
+      across all rows; if no single sentence can host every row naturally,
+      choose the shortest phrase/frame that can.
 
     COLUMN STRUCTURE — output EXACTLY these three columns, in this order, and no others:
     1. Form — MUST include both the subject/case marker (if any, e.g. pronoun) 
@@ -76,19 +91,15 @@ generate_table_prompt = PromptTemplate.from_template(
         leaving it blank — the row itself is meaningful even though the form is absent.
     2. Explanation — a short explanation, in {target_language}, of when/why this
        form is used.
-    3. Example — a short {target_language} sentence or phrase illustrating the form.
-      The entire table must use the SAME lexical item (e.g. the same verb, noun,
-      or adjective). Only its grammatical form may change according to the rule.
-      Do not switch to different words between rows.
+    3. Example — the carrier sentence defined above, with this row's form
+       inserted into it. Exactly one instance per row; do not list multiple
+       example sentences in a single cell.
     Do not add, omit, reorder, or split any of these three columns under any circumstances.
 
     CONTENT RULES
     - Cover all grammatically meaningful persons/forms/cases relevant to this rule
       (e.g. all persons for a conjugation rule, all cases for a declension rule).
     - Do not include separate "Common mistake" or "Correction" columns or content.
-    - Do not create more than one "Example" column. If a row has multiple example
-      instances, put them all together inside the single Example cell (e.g. as a
-      short list), rather than splitting them across columns.
     - Do not repeat or re-explain an aspect of the rule that was already covered
       in an earlier row — each row should add new information.
     - If a form does not apply to a given row, use an empty string ("") for that
