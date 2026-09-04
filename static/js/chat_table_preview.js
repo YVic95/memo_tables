@@ -160,6 +160,26 @@ function closeTablePreview() {
     }
 }
 
+function showToast(message, duration) {
+    duration = duration || 3000;
+    const existing = document.querySelector('.toast');
+    if (existing) existing.remove();
+
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.innerHTML = '<i class="fa-solid fa-check-circle"></i> ' + message;
+    document.body.appendChild(toast);
+
+    requestAnimationFrame(function() {
+        toast.classList.add('show');
+    });
+
+    setTimeout(function() {
+        toast.classList.remove('show');
+        setTimeout(function() { toast.remove(); }, 300);
+    }, duration);
+}
+
 async function onSaveTablesClick(event) {
     const saveBtn = event.currentTarget;
     const overlay = document.getElementById('table-preview-modal-overlay');
@@ -204,6 +224,7 @@ async function onSaveTablesClick(event) {
         }
 
         saveBtn.innerHTML = '<i class="fa-solid fa-check"></i> Saved';
+        showToast('Tables saved successfully');
     } catch (err) {
         console.error('Failed to save tables:', err);
         saveBtn.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Error';
