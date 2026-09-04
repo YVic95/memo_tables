@@ -225,6 +225,9 @@ async function onSaveTablesClick(event) {
 
         saveBtn.innerHTML = '<i class="fa-solid fa-check"></i> Saved';
         showToast('Tables saved successfully');
+
+        const data = await result.json();
+        renderSaveResponseInChat(data);
     } catch (err) {
         console.error('Failed to save tables:', err);
         saveBtn.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Error';
@@ -296,6 +299,38 @@ function clearDropIndicators(content) {
     content.querySelectorAll('.table-drop-before, .table-drop-after, .table-dragging').forEach(el => {
         el.classList.remove('table-drop-before', 'table-drop-after', 'table-dragging');
     });
+}
+
+function renderSaveResponseInChat(data) {
+    const container = document.createElement('div');
+    container.className = 'message message-assistant';
+
+    const sender = document.createElement('div');
+    sender.className = 'message-sender';
+    sender.textContent = 'Assistant';
+    container.appendChild(sender);
+
+    if (data.message) {
+        const msg = document.createElement('p');
+        msg.className = 'skeleton-table-message';
+        msg.textContent = data.message;
+        container.appendChild(msg);
+    }
+
+    if (data.skeleton_table) {
+        const categories = Object.keys(data.skeleton_table);
+        categories.forEach(function(category) {
+            const markdown = data.skeleton_table[category];
+            if (!markdown) return;
+
+            const section = document.createElement('div');
+            section.className = 'skeleton-table-section';
+            section.innerHTML = markdownToHtml(markdown);
+            container.appendChild(section);
+        });
+    }
+
+    appendToChat(container);
 }
 
 document.addEventListener('keydown', function(event) {

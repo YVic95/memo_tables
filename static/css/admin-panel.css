@@ -1071,3 +1071,45 @@ button[type="submit"]#save-language-selection:hover,
     opacity: 1;
     transform: translateX(-50%) translateY(0);
 }
+
+/* Skeleton table in chat after save */
+.skeleton-table-message {
+    margin: 8px 0;
+    color: #333;
+}
+
+.skeleton-table-section {
+    background: #f9f8f4;
+    border: 1px solid #e0ddd6;
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin: 10px 0;
+    overflow-x: auto;
+}
+
+.skeleton-table-section table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.skeleton-table-section th {
+    background: #4A5D3A;
+    color: #fff;
+    padding: 8px 12px;
+    text-align: left;
+    font-weight: 600;
+}
+
+.skeleton-table-section td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #e0ddd6;
+}
+
+.skeleton-table-section tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.skeleton-table-section tbody tr:hover {
+    background: rgba(74, 93, 58, 0.04);
+}
