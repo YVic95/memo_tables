@@ -289,8 +289,7 @@ deduce_base_word_prompt = PromptTemplate.from_template(
         You are a linguistics expert. Given a list of surface word forms in
         {target_language} — the conjugated verb forms from a verb table, plus
         the words tokenized out of its example sentences — deduce the base
-        (dictionary) form of each content word, assign it a word category,
-        and translate it into the learner's native language.
+        (dictionary) form of each content word and assign it a word category.
 
         The main verb of the table must always be assigned the word category:
         {rule_word_category}
@@ -311,10 +310,9 @@ deduce_base_word_prompt = PromptTemplate.from_template(
         - Assign the main verb's base form the category {rule_word_category}.
         - For every other base word, choose the single best-fitting category id
           from the available list.
-        - Translate each base word into the learner's native language.
 
-        Return only the base words with their translations, category ids, and
-        surface forms — no additional commentary.
+        Return only the base words with their category ids and surface forms —
+        no additional commentary.
     """
 )
 

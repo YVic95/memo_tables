@@ -12,7 +12,6 @@ class TestDeducedBaseWordValidation:
     def test_surface_forms_are_deduplicated(self):
         result = DeducedBaseWord(
             word="dělat",
-            native_translation="to do",
             word_category_id=uuid.uuid4(),
             surface_forms=["dělá", "dělám", "dělá", "dělám", "děláš"],
         )
@@ -21,7 +20,6 @@ class TestDeducedBaseWordValidation:
     def test_deduplication_is_case_insensitive(self):
         result = DeducedBaseWord(
             word="hablar",
-            native_translation="to speak",
             word_category_id=uuid.uuid4(),
             surface_forms=["Hablo", "hablo", "HABLO"],
         )
@@ -31,13 +29,11 @@ class TestDeducedBaseWordValidation:
         forms = ["dělá", "dělám", "děláš", "děláme", "děláte", "dělají"]
         result = DeducedBaseWord(
             word="dělat",
-            native_translation="to do",
             word_category_id=uuid.uuid4(),
             surface_forms=forms,
         )
         assert result.surface_forms == forms
 from models.base_words import BaseWord
-from models.word_translations import WordTranslation
 from models.word_rule_assignments import WordRuleAssignment
 from models.grammar_rule_rows import GrammarRuleRow
 from models.word_forms import WordForm
@@ -106,7 +102,6 @@ def _deduce_result(category_id):
     return DeducedBaseWords(base_words=[
         DeducedBaseWord(
             word="hablar",
-            native_translation="to speak",
             word_category_id=category_id,
             surface_forms=["hablo", "hablas"],
         ),
@@ -139,10 +134,6 @@ class TestGraphInvocation:
         graph.invoke(state)
 
         base_word = db_session.query(BaseWord).filter(BaseWord.text == "hablar").one()
-        translation = db_session.query(WordTranslation).one()
-        assert translation.base_word_id == base_word.id
-        assert translation.translation == "to speak"
-        assert translation.language_id == language_en.id
 
         assert db_session.query(WordRuleAssignment).count() == 1
 

@@ -94,7 +94,6 @@ def deduce_base_word_node(state: SaveTableState) -> SaveTableState:
                 "text": base_word.word,
                 "language_id": state["target_language_id"],
                 "word_category_id": word_category_id,
-                "translation": base_word.native_translation,
                 "forms": [form.lower() for form in base_word.surface_forms],
             }
         )

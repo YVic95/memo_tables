@@ -15,10 +15,9 @@ def _base_words(*entries):
     return DeducedBaseWords(base_words=[DeducedBaseWord(**entry) for entry in entries])
 
 
-def _verb_base_word(word, translation, word_category_id, *surface_forms):
+def _verb_base_word(word, word_category_id, *surface_forms):
     return {
         "word": word,
-        "native_translation": translation,
         "word_category_id": word_category_id,
         "surface_forms": list(surface_forms),
     }
@@ -148,8 +147,8 @@ class TestDeduceBaseWordNode:
     ):
         mock_get_lang.return_value = "Spanish"
         mock_chain.invoke.return_value = _base_words(
-            _verb_base_word("hablar", "to speak", verb_category.id, "hablo", "hablas"),
-            _verb_base_word("amigo", "friend", adjective_category.id, "amigo"),
+            _verb_base_word("hablar", verb_category.id, "hablo", "hablas"),
+            _verb_base_word("amigo", adjective_category.id, "amigo"),
         )
         state = _make_state(db_session, grammar_rule, tables=[VERB_TABLE])
 
@@ -174,8 +173,8 @@ class TestDeduceBaseWordNode:
     ):
         mock_get_lang.return_value = "Spanish"
         mock_chain.invoke.return_value = _base_words(
-            _verb_base_word("hablar", "to speak", verb_category.id, "hablo", "hablas"),
-            _verb_base_word("amigo", "friend", adjective_category.id, "amigo"),
+            _verb_base_word("hablar", verb_category.id, "hablo", "hablas"),
+            _verb_base_word("amigo", adjective_category.id, "amigo"),
         )
         state = _make_state(db_session, grammar_rule, tables=[VERB_TABLE])
 
@@ -184,7 +183,6 @@ class TestDeduceBaseWordNode:
         by_text = {item["text"]: item for item in result["base_words_to_save"]}
         assert by_text["hablar"]["word_category_id"] == verb_category.id
         assert by_text["hablar"]["language_id"] == state["target_language_id"]
-        assert by_text["hablar"]["translation"] == "to speak"
         assert by_text["hablar"]["forms"] == ["hablo", "hablas"]
         assert by_text["amigo"]["word_category_id"] == adjective_category.id
         assert by_text["amigo"]["forms"] == ["amigo"]
@@ -196,7 +194,7 @@ class TestDeduceBaseWordNode:
     ):
         mock_get_lang.return_value = "Spanish"
         mock_chain.invoke.return_value = _base_words(
-            _verb_base_word("hablar", "to speak", uuid.uuid4(), "hablo"),
+            _verb_base_word("hablar", uuid.uuid4(), "hablo"),
         )
         state = _make_state(db_session, grammar_rule, tables=[VERB_TABLE])
 
@@ -211,7 +209,7 @@ class TestDeduceBaseWordNode:
     ):
         mock_get_lang.return_value = "Spanish"
         mock_chain.invoke.return_value = _base_words(
-            _verb_base_word("gato", "cat", uuid.uuid4(), "gato"),
+            _verb_base_word("gato", uuid.uuid4(), "gato"),
         )
         state = _make_state(
             db_session, grammar_rule, word_category_slug="nouns",
@@ -229,7 +227,7 @@ class TestDeduceBaseWordNode:
     def test_preserves_other_state_fields(self, mock_chain, mock_get_lang, db_session, grammar_rule, verb_category):
         mock_get_lang.return_value = "Spanish"
         mock_chain.invoke.return_value = _base_words(
-            _verb_base_word("hablar", "to speak", verb_category.id, "hablo"),
+            _verb_base_word("hablar", verb_category.id, "hablo"),
         )
         state = _make_state(db_session, grammar_rule, tables=[VERB_TABLE])
 

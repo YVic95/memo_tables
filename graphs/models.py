@@ -48,7 +48,6 @@ class GenerateTableRequest(BaseModel):
 
 class DeducedBaseWord(BaseModel):
     word: str = Field(description="Base/dictionary form of the word in the target language")
-    native_translation: str = Field(description="Translation of the base word into the learner's native language")
     word_category_id: uuid.UUID = Field(description="The id of the best-fitting category for this base word, chosen from the provided list")
     surface_forms: list[str] = Field(description="The source surface forms (conjugated verb forms or example-sentence words) that map to this base word")
 
@@ -65,7 +64,7 @@ class DeducedBaseWord(BaseModel):
         return result
 
 class DeducedBaseWords(BaseModel):
-    base_words: list[DeducedBaseWord] = Field(description="List of deduced base/dictionary word forms with their native-language translations")
+    base_words: list[DeducedBaseWord] = Field(description="List of deduced base/dictionary word forms with their category ids and surface forms")
 
 class TranslationPair(BaseModel):
     text: str = Field(description="An exact input item from the items list")

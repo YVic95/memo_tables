@@ -4,7 +4,6 @@ import pytest
 from graphs.nodes.save_base_word_node import save_base_word_node
 from crud.table_data import get_or_create_base_word
 from models.base_words import BaseWord
-from models.word_translations import WordTranslation
 from models.word_rule_assignments import WordRuleAssignment
 
 
@@ -23,7 +22,6 @@ def _make_state(db_session, grammar_rule, language_es, language_en, **overrides)
                 "text": "hablar",
                 "language_id": language_en.id,
                 "word_category_id": grammar_rule.word_category_id,
-                "translation": "to speak",
                 "forms": ["hablo", "hablas"],
             }
         ],
@@ -38,18 +36,13 @@ def _count(db_session, model):
 
 
 class TestSaveBaseWord:
-    def test_creates_base_word_translation_and_assignment(self, db_session, grammar_rule, language_es, language_en):
+    def test_creates_base_word_and_assignment(self, db_session, grammar_rule, language_es, language_en):
         state = _make_state(db_session, grammar_rule, language_es, language_en)
         result = save_base_word_node(state)
 
         base_word = db_session.query(BaseWord).filter(BaseWord.text == "hablar").one()
         assert base_word.language_id == language_en.id
         assert base_word.word_category_id == grammar_rule.word_category_id
-
-        translation = db_session.query(WordTranslation).one()
-        assert translation.base_word_id == base_word.id
-        assert translation.language_id == language_es.id
-        assert translation.translation == "to speak"
 
         assignment = db_session.query(WordRuleAssignment).one()
         assert assignment.base_word_id == base_word.id
@@ -68,7 +61,7 @@ class TestSaveBaseWord:
             base_words_to_save=[
                 {"text": "hablar", "language_id": language_en.id,
                  "word_category_id": grammar_rule.word_category_id,
-                 "translation": "to speak", "forms": ["Hablo", "hablas"]},
+                 "forms": ["Hablo", "hablas"]},
             ],
         )
         result = save_base_word_node(state)
@@ -81,17 +74,16 @@ class TestSaveBaseWord:
             db_session, grammar_rule, language_es, language_en,
             base_words_to_save=[
                 {"text": "hablar", "language_id": language_en.id,
-                 "word_category_id": grammar_rule.word_category_id, "translation": "to speak",
+                 "word_category_id": grammar_rule.word_category_id,
                  "forms": ["hablo", "hablas"]},
                 {"text": "amigo", "language_id": language_en.id,
-                 "word_category_id": grammar_rule.word_category_id, "translation": "friend",
+                 "word_category_id": grammar_rule.word_category_id,
                  "forms": ["amigo"]},
             ],
         )
         result = save_base_word_node(state)
 
         assert _count(db_session, BaseWord) == 2
-        assert _count(db_session, WordTranslation) == 2
         assert _count(db_session, WordRuleAssignment) == 2
         amigo = db_session.query(BaseWord).filter(BaseWord.text == "amigo").one()
         assert result["form_to_base_word_id"]["amigo"] == amigo.id
@@ -115,7 +107,6 @@ class TestSaveBaseWord:
         save_base_word_node(state)
 
         assert _count(db_session, BaseWord) == 1
-        assert _count(db_session, WordTranslation) == 1
         assert _count(db_session, WordRuleAssignment) == 1
 
     def test_preserves_other_state_fields(self, db_session, grammar_rule, language_es, language_en):
@@ -132,5 +123,4 @@ class TestSaveBaseWord:
         db_session.rollback()
 
         assert _count(db_session, BaseWord) == 0
-        assert _count(db_session, WordTranslation) == 0
         assert _count(db_session, WordRuleAssignment) == 0
