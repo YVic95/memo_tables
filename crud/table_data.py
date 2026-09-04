@@ -344,3 +344,57 @@ def count_saved_data(db: Session, grammar_rule_id: uuid.UUID) -> dict[str, int]:
         "word_forms": word_forms,
         "base_words": base_words,
     }
+
+
+def get_table_data(
+    db: Session,
+    grammar_rule_id: uuid.UUID,
+) -> list[dict]:
+    rows = (
+        db.query(GrammarRuleRow)
+        .filter(GrammarRuleRow.grammar_rule_id == grammar_rule_id)
+        .order_by(GrammarRuleRow.table_no, GrammarRuleRow.position)
+        .all()
+    )
+
+    if not rows:
+        return []
+
+    assignments = (
+        db.query(WordRuleAssignment, BaseWord)
+        .join(BaseWord, WordRuleAssignment.base_word_id == BaseWord.id)
+        .filter(WordRuleAssignment.grammar_rule_id == grammar_rule_id)
+        .all()
+    )
+
+    forms = (
+        db.query(WordForm)
+        .join(
+            WordRuleAssignment,
+            WordForm.word_rule_assignment_id == WordRuleAssignment.id,
+        )
+        .filter(WordRuleAssignment.grammar_rule_id == grammar_rule_id)
+        .all()
+    )
+
+    form_map: dict[tuple[uuid.UUID, uuid.UUID], str] = {}
+    for word_form in forms:
+        form_map[(word_form.word_rule_assignment_id, word_form.grammar_rule_row_id)] = word_form.form
+
+    grouped: dict[int, list[dict]] = {}
+    for row in rows:
+        table_no = row.table_no
+        if table_no not in grouped:
+            grouped[table_no] = []
+        for assignment, base_word in assignments:
+            form = form_map.get((assignment.id, row.id))
+            grouped[table_no].append({
+                "label": row.label,
+                "base_word_text": base_word.text,
+                "form": form,
+            })
+
+    return [
+        {"table_no": table_no, "entries": entries}
+        for table_no, entries in sorted(grouped.items())
+    ]

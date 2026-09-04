@@ -342,6 +342,174 @@ class TestCreateWordFormSentence:
         assert link.sentence_id == sent.id
 
 
+class TestGetTableData:
+    def test_returns_empty_list_when_no_data(self, db_session, grammar_rule):
+        from crud.table_data import get_table_data
+
+        result = get_table_data(db_session, grammar_rule.id)
+
+        assert result == []
+
+    def test_single_table_single_word(self, db_session, grammar_rule, language_es, word_category):
+        from crud.table_data import get_table_data
+
+        row = create_grammar_rule_row(db_session, grammar_rule.id, "Nominative", None, 1, 0)
+        word = get_or_create_base_word(db_session, "gato", language_es.id, word_category.id)
+        assignment = create_word_rule_assignment(db_session, word.id, grammar_rule.id)
+        create_word_form(db_session, assignment.id, row.id, "gato")
+
+        result = get_table_data(db_session, grammar_rule.id)
+
+        assert len(result) == 1
+        assert result[0]["table_no"] == 1
+        assert len(result[0]["entries"]) == 1
+        assert result[0]["entries"][0]["label"] == "Nominative"
+        assert result[0]["entries"][0]["base_word_text"] == "gato"
+        assert result[0]["entries"][0]["form"] == "gato"
+
+    def test_multiple_tables_grouped_by_table_no(
+        self, db_session, grammar_rule, language_es, word_category
+    ):
+        from crud.table_data import get_table_data
+
+        row1 = create_grammar_rule_row(db_session, grammar_rule.id, "Nominative", None, 1, 0)
+        row2 = create_grammar_rule_row(db_session, grammar_rule.id, "Accusative", None, 2, 0)
+        word = get_or_create_base_word(db_session, "gato", language_es.id, word_category.id)
+        assignment = create_word_rule_assignment(db_session, word.id, grammar_rule.id)
+        create_word_form(db_session, assignment.id, row1.id, "gato")
+        create_word_form(db_session, assignment.id, row2.id, "gato")
+
+        result = get_table_data(db_session, grammar_rule.id)
+
+        assert len(result) == 2
+        table_nos = [g["table_no"] for g in result]
+        assert table_nos == [1, 2]
+        assert len(result[0]["entries"]) == 1
+        assert result[0]["entries"][0]["label"] == "Nominative"
+        assert len(result[1]["entries"]) == 1
+        assert result[1]["entries"][0]["label"] == "Accusative"
+
+    def test_multiple_base_words_create_multiple_entries(
+        self, db_session, grammar_rule, language_es, word_category
+    ):
+        from crud.table_data import get_table_data
+
+        row = create_grammar_rule_row(db_session, grammar_rule.id, "Nominative", None, 1, 0)
+        gato = get_or_create_base_word(db_session, "gato", language_es.id, word_category.id)
+        perro = get_or_create_base_word(db_session, "perro", language_es.id, word_category.id)
+        assign_gato = create_word_rule_assignment(db_session, gato.id, grammar_rule.id)
+        assign_perro = create_word_rule_assignment(db_session, perro.id, grammar_rule.id)
+        create_word_form(db_session, assign_gato.id, row.id, "gato")
+        create_word_form(db_session, assign_perro.id, row.id, "perro")
+
+        result = get_table_data(db_session, grammar_rule.id)
+
+        assert len(result) == 1
+        assert result[0]["table_no"] == 1
+        entries = result[0]["entries"]
+        assert len(entries) == 2
+        base_word_texts = {e["base_word_text"] for e in entries}
+        assert base_word_texts == {"gato", "perro"}
+        for e in entries:
+            assert e["form"] is not None
+
+    def test_row_without_word_form_returns_none_for_form(
+        self, db_session, grammar_rule, language_es, word_category
+    ):
+        from crud.table_data import get_table_data
+
+        row = create_grammar_rule_row(db_session, grammar_rule.id, "Nominative", None, 1, 0)
+        word = get_or_create_base_word(db_session, "gato", language_es.id, word_category.id)
+        create_word_rule_assignment(db_session, word.id, grammar_rule.id)
+
+        result = get_table_data(db_session, grammar_rule.id)
+
+        assert len(result) == 1
+        assert result[0]["entries"][0]["form"] is None
+
+    def test_mixed_form_and_no_form_in_same_table(
+        self, db_session, grammar_rule, language_es, word_category
+    ):
+        from crud.table_data import get_table_data
+
+        row = create_grammar_rule_row(db_session, grammar_rule.id, "Nominative", None, 1, 0)
+        gato = get_or_create_base_word(db_session, "gato", language_es.id, word_category.id)
+        perro = get_or_create_base_word(db_session, "perro", language_es.id, word_category.id)
+        assign_gato = create_word_rule_assignment(db_session, gato.id, grammar_rule.id)
+        assign_perro = create_word_rule_assignment(db_session, perro.id, grammar_rule.id)
+        create_word_form(db_session, assign_gato.id, row.id, "gato")
+
+        result = get_table_data(db_session, grammar_rule.id)
+
+        assert len(result) == 1
+        entries = result[0]["entries"]
+        assert len(entries) == 2
+        forms = {e["base_word_text"]: e["form"] for e in entries}
+        assert forms["gato"] == "gato"
+        assert forms["perro"] is None
+
+    def test_rows_sorted_by_position_within_table(
+        self, db_session, grammar_rule, language_es, word_category
+    ):
+        from crud.table_data import get_table_data
+
+        row_high = create_grammar_rule_row(db_session, grammar_rule.id, "Plural", None, 1, 2)
+        row_low = create_grammar_rule_row(db_session, grammar_rule.id, "Singular", None, 1, 0)
+        row_mid = create_grammar_rule_row(db_session, grammar_rule.id, "Dual", None, 1, 1)
+        word = get_or_create_base_word(db_session, "gato", language_es.id, word_category.id)
+        assignment = create_word_rule_assignment(db_session, word.id, grammar_rule.id)
+        create_word_form(db_session, assignment.id, row_high.id, "gatos")
+        create_word_form(db_session, assignment.id, row_low.id, "gato")
+        create_word_form(db_session, assignment.id, row_mid.id, "gatoos")
+
+        result = get_table_data(db_session, grammar_rule.id)
+
+        labels = [e["label"] for e in result[0]["entries"]]
+        assert labels == ["Singular", "Dual", "Plural"]
+
+    def test_different_grammar_rules_are_isolated(
+        self, db_session, grammar_rule, language_es, word_category
+    ):
+        from crud.table_data import get_table_data
+        from models.grammar_rules import GrammarRule
+
+        other_rule = GrammarRule(
+            name="Other",
+            description="Other",
+            language_id=grammar_rule.language_id,
+            word_category_id=word_category.id,
+        )
+        db_session.add(other_rule)
+        db_session.commit()
+        db_session.refresh(other_rule)
+
+        row = create_grammar_rule_row(db_session, grammar_rule.id, "Nominative", None, 1, 0)
+        word = get_or_create_base_word(db_session, "gato", language_es.id, word_category.id)
+        assignment = create_word_rule_assignment(db_session, word.id, grammar_rule.id)
+        create_word_form(db_session, assignment.id, row.id, "gato")
+
+        result = get_table_data(db_session, other_rule.id)
+
+        assert result == []
+
+    def test_table_no_zero_works_for_non_fragmented(
+        self, db_session, grammar_rule, language_es, word_category
+    ):
+        from crud.table_data import get_table_data
+
+        row = create_grammar_rule_row(db_session, grammar_rule.id, "Default", None, 0, 0)
+        word = get_or_create_base_word(db_session, "gato", language_es.id, word_category.id)
+        assignment = create_word_rule_assignment(db_session, word.id, grammar_rule.id)
+        create_word_form(db_session, assignment.id, row.id, "gato")
+
+        result = get_table_data(db_session, grammar_rule.id)
+
+        assert len(result) == 1
+        assert result[0]["table_no"] == 0
+        assert result[0]["entries"][0]["label"] == "Default"
+        assert result[0]["entries"][0]["form"] == "gato"
+
+
 class TestCountSavedData:
     def test_counts_sentences_word_forms_and_distinct_base_words(
         self, db_session, language_es, language_en, word_category, grammar_rule
