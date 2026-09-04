@@ -59,6 +59,7 @@ def save_tables(
                 "native_language_id": None,
                 "word_category_slug": None,
                 "base_words_to_save": [],
+                "base_word_translations": {},
                 "form_to_base_word_id": {},
             }
         )

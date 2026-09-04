@@ -1,5 +1,5 @@
 import uuid
-from typing import TypedDict, Optional
+from typing import TypedDict, Optional, NotRequired
 from sqlalchemy.orm import Session
 from graphs.models import TableData
 
@@ -52,4 +52,5 @@ class SaveTableState(TypedDict):
     native_language_id: uuid.UUID
     word_category_slug: str
     base_words_to_save: list[dict]
+    base_word_translations: NotRequired[dict[str, str]]
     form_to_base_word_id: dict[str, uuid.UUID]
