@@ -5,6 +5,7 @@ from graphs.nodes.save_base_word_node import save_base_word_node
 from crud.table_data import get_or_create_base_word
 from models.base_words import BaseWord
 from models.word_rule_assignments import WordRuleAssignment
+from models.word_translations import WordTranslation
 
 
 def _make_state(db_session, grammar_rule, language_es, language_en, **overrides):
@@ -25,6 +26,7 @@ def _make_state(db_session, grammar_rule, language_es, language_en, **overrides)
                 "forms": ["hablo", "hablas"],
             }
         ],
+        "base_word_translations": {"hablar": "to speak"},
         "form_to_base_word_id": {},
     }
     state.update(overrides)
@@ -47,6 +49,11 @@ class TestSaveBaseWord:
         assignment = db_session.query(WordRuleAssignment).one()
         assert assignment.base_word_id == base_word.id
         assert assignment.grammar_rule_id == grammar_rule.id
+
+        translation = db_session.query(WordTranslation).one()
+        assert translation.base_word_id == base_word.id
+        assert translation.language_id == language_es.id
+        assert translation.translation == "to speak"
 
     def test_populates_form_to_base_word_id_map(self, db_session, grammar_rule, language_es, language_en):
         state = _make_state(db_session, grammar_rule, language_es, language_en)
@@ -80,11 +87,13 @@ class TestSaveBaseWord:
                  "word_category_id": grammar_rule.word_category_id,
                  "forms": ["amigo"]},
             ],
+            base_word_translations={"hablar": "to speak", "amigo": "friend"},
         )
         result = save_base_word_node(state)
 
         assert _count(db_session, BaseWord) == 2
         assert _count(db_session, WordRuleAssignment) == 2
+        assert _count(db_session, WordTranslation) == 2
         amigo = db_session.query(BaseWord).filter(BaseWord.text == "amigo").one()
         assert result["form_to_base_word_id"]["amigo"] == amigo.id
 
@@ -108,6 +117,7 @@ class TestSaveBaseWord:
 
         assert _count(db_session, BaseWord) == 1
         assert _count(db_session, WordRuleAssignment) == 1
+        assert _count(db_session, WordTranslation) == 1
 
     def test_preserves_other_state_fields(self, db_session, grammar_rule, language_es, language_en):
         state = _make_state(db_session, grammar_rule, language_es, language_en)
@@ -115,6 +125,14 @@ class TestSaveBaseWord:
 
         assert result["session_id"] == "test-session"
         assert result["tables"] == state["tables"]
+
+    def test_skips_translation_when_not_in_state(self, db_session, grammar_rule, language_es, language_en):
+        state = _make_state(db_session, grammar_rule, language_es, language_en,
+                           base_word_translations={})
+        save_base_word_node(state)
+
+        assert _count(db_session, BaseWord) == 1
+        assert _count(db_session, WordTranslation) == 0
 
     def test_writes_are_rolled_back(self, db_session, grammar_rule, language_es, language_en):
         state = _make_state(db_session, grammar_rule, language_es, language_en)
@@ -124,3 +142,12 @@ class TestSaveBaseWord:
 
         assert _count(db_session, BaseWord) == 0
         assert _count(db_session, WordRuleAssignment) == 0
+        assert _count(db_session, WordTranslation) == 0
+
+    def test_skips_translation_when_key_missing_from_state(self, db_session, grammar_rule, language_es, language_en):
+        state = _make_state(db_session, grammar_rule, language_es, language_en)
+        del state["base_word_translations"]
+        save_base_word_node(state)
+
+        assert _count(db_session, BaseWord) == 1
+        assert _count(db_session, WordTranslation) == 0

@@ -37,6 +37,7 @@ from models.base_words import BaseWord
 from models.word_rule_assignments import WordRuleAssignment
 from models.grammar_rule_rows import GrammarRuleRow
 from models.word_forms import WordForm
+from models.word_translations import WordTranslation
 from models.sentences import Sentence
 
 
@@ -69,7 +70,13 @@ def seeded_context(db_session, language_es, language_en, verb_category):
     db_session.commit()
     db_session.refresh(rule)
 
-    return {"pair_id": pair.pair_id, "rule_id": rule.id, "category_id": verb_category.id}
+    return {
+        "pair_id": pair.pair_id,
+        "rule_id": rule.id,
+        "category_id": verb_category.id,
+        "target_language_id": language_es.id,
+        "native_language_id": language_en.id,
+    }
 
 
 def _make_state(db_session, seeded_context, **overrides):
@@ -88,9 +95,9 @@ def _make_state(db_session, seeded_context, **overrides):
                 ],
             }
         ],
-        "target_language_id": None,
-        "native_language_id": None,
-        "word_category_slug": None,
+        "target_language_id": seeded_context["target_language_id"],
+        "native_language_id": seeded_context["native_language_id"],
+        "word_category_slug": "verb",
         "base_words_to_save": [],
         "form_to_base_word_id": {},
     }
@@ -109,17 +116,21 @@ def _deduce_result(category_id):
 
 
 class TestGraphStructure:
-    def test_compiles_with_the_four_save_nodes(self):
+    def test_compiles_with_the_five_save_nodes(self):
         node_names = set(graph.get_graph().nodes.keys())
-        assert {"fetch_context", "deduce_base_word", "save_base_word", "process_all_tables"} <= node_names
+        assert {"fetch_context", "deduce_base_word", "save_base_word", "translate_base_words", "process_all_tables"} <= node_names
 
 
 class TestGraphInvocation:
+    @patch("graphs.nodes.translate_base_words_node.translate_chain")
     @patch("graphs.nodes.process_all_tables_node.translate_chain")
     @patch("graphs.nodes.deduce_base_word_node.deduce_chain")
     def test_runs_end_to_end_and_persists_tables(
-        self, mock_deduce, mock_translate, db_session, seeded_context, language_es, language_en
+        self, mock_deduce, mock_translate, mock_base_translate, db_session, seeded_context, language_es, language_en
     ):
+        mock_base_translate.invoke.return_value = Translations(translations=[
+            TranslationPair(text="hablar", translation="to speak"),
+        ])
         mock_deduce.invoke.return_value = _deduce_result(seeded_context["category_id"])
         mock_translate.invoke.return_value = Translations(translations=[
             TranslationPair(text="Yo", translation="I"),
@@ -145,13 +156,19 @@ class TestGraphInvocation:
 
         assert db_session.query(Sentence).count() == 2
 
+        word_translation = db_session.query(WordTranslation).one()
+        assert word_translation.base_word_id == base_word.id
+        assert word_translation.translation == "to speak"
+
+    @patch("graphs.nodes.translate_base_words_node.translate_chain")
     @patch("graphs.nodes.process_all_tables_node.translate_chain")
     @patch("graphs.nodes.deduce_base_word_node.deduce_chain")
     def test_writes_can_be_rolled_back_after_invoke(
-        self, mock_deduce, mock_translate, db_session, seeded_context, language_es, language_en
+        self, mock_deduce, mock_translate, mock_base_translate, db_session, seeded_context, language_es, language_en
     ):
         mock_deduce.invoke.return_value = _deduce_result(seeded_context["category_id"])
         mock_translate.invoke.return_value = Translations(translations=[])
+        mock_base_translate.invoke.return_value = Translations(translations=[])
         state = _make_state(db_session, seeded_context)
 
         graph.invoke(state)
@@ -159,3 +176,4 @@ class TestGraphInvocation:
 
         assert db_session.query(BaseWord).count() == 0
         assert db_session.query(GrammarRuleRow).count() == 0
+        assert db_session.query(WordTranslation).count() == 0

@@ -167,38 +167,48 @@ fragmentation_prompt = PromptTemplate.from_template(
 
         Table: {general_table_json}
 
-        Step 1 — Identify grouping axes:
-        Examine every column, especially any column naming grammatical categories —
+        Step 1 — Enumerate ALL grouping axes:
+        Examine EVERY column, especially any column naming grammatical categories —
         person, number, gender, case, tense, aspect, mood, formality/register, animacy,
         or similar — even if the column header is generic (e.g. "Form", "Category",
-        or a native-language label like "Osoba", "Persona", "人称"). For each such
-        column, determine whether its values fall into 2 or more natural groups
-        (e.g. singular forms vs plural forms, masculine vs feminine vs neuter,
-        formal vs informal, present vs past), with each group containing at least
-        2 rows.
+        or a native-language label like "Osoba", "Persona", "人称"). For EACH such
+        column, independently check whether its values fall into 2 or more natural
+        groups (e.g. singular vs plural, masculine vs feminine vs neuter, formal vs
+        informal, present vs past), with each group containing at least 2 rows.
 
-        Step 2 — Decide:
-        - If ANY axis from Step 1 produces 2+ groups with at least 2 rows each,
-          set should_fragment to true and split along that axis — EVEN IF the table
-          looks short overall. Row count alone is never a reason to skip splitting;
-          what matters is whether a clean grouping exists.
-        - If multiple axes qualify, choose the one most useful for a learner
-          (typically the axis a learner would need to master as a distinct rule,
-          e.g. splitting by number before splitting by formality).
-        - Only set should_fragment to false if no axis produces 2+ valid groups —
-          for example, the table already represents one homogeneous grammatical
-          category, or any split would leave a group with fewer than 2 rows.
+        Do not stop at the first axis that qualifies. List every column you examined,
+        state whether it qualifies as a splitting axis, and if so, list its groups and
+        row counts. A verb conjugation table, for example, will often have BOTH a
+        person axis (1st/2nd/3rd) and a number axis (singular/plural) that qualify
+        simultaneously — you must surface both, not just the first one you notice.
+
+        Step 2 — Choose the axis (or combination):
+        - If NO axis produces 2+ groups with at least 2 rows each, set should_fragment
+          to false. Row count of the table is never itself a reason to skip splitting.
+        - If exactly ONE axis qualifies, use it.
+        - If MULTIPLE axes qualify, prefer the axis that reflects the more fundamental
+          morphological/grammatical distinction for a learner, using this priority
+          order as a default (override it only if the table clearly argues otherwise):
+              tense/aspect > mood > number > person > gender > formality/register > other
+          Rationale: distinctions like number often correspond to different stems or
+          endings across the whole paradigm, while person is typically a finer-grained
+          pattern *within* a number group — so splitting by number first is usually
+          more useful before further splitting by person.
+        - If two qualifying axes are both pedagogically important and the table is
+          large enough to support it, you may nest them (e.g. split by number first,
+          then by person within each number sub-table) rather than force a single flat
+          split. Only do this if each resulting sub-table still has at least 2 rows.
         - Each sub-table must be self-contained: retain enough context (labels,
           headers, brief explanation) that it makes sense read on its own, without
           referring back to the original table.
 
-        Do not rely on absolute table size as a proxy for "already small enough" —
-        judge only by whether a coherent grouping axis with 2+ qualifying groups
-        exists.
-
-        Output should_fragment, a short rationale naming the grouping axis used
-        (or explaining why none qualified), and the list of sub-tables (empty if
-        not fragmenting).
+        Output:
+        - axes_considered: list of every candidate axis examined, whether it qualified,
+          and its groups/row counts.
+        - should_fragment
+        - rationale: name the grouping axis (or nested axes) used, and explicitly state
+          why it was chosen over any other qualifying axis found in Step 1.
+        - sub_tables: list of sub-tables (empty if not fragmenting).
     """
 )
 ### Common Mistakes:
@@ -329,5 +339,22 @@ translate_words_prompt = PromptTemplate.from_template(
     `text` to the item exactly as given (same spelling and case) and
     `translation` to its {native_language} translation. Keep translations
     short and natural. If an item is identical, return it unchanged.
+    """
+)
+
+translate_base_words_prompt = PromptTemplate.from_template(
+    """
+    You are a translation assistant for a language-learning app.
+    Translate each of the following base words from {target_language} into
+    {native_language}.
+
+    Items:
+    {items}
+
+    Return a list with exactly one entry per input item. For each entry, set
+    `text` to the item exactly as given (same spelling and case) and
+    `translation` to its {native_language} translation. Keep translations
+    short and natural. Always provide a real translation — never return the
+    source word as its own translation.
     """
 )
