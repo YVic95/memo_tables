@@ -510,6 +510,187 @@ class TestGetTableData:
         assert result[0]["entries"][0]["form"] == "gato"
 
 
+class TestBuildMarkdownTables:
+    def test_returns_empty_string_for_empty_input(self):
+        from crud.table_data import build_markdown_tables
+
+        result = build_markdown_tables([], "verb")
+
+        assert result == {"verb": ""}
+
+    def test_single_table_single_word(self):
+        from crud.table_data import build_markdown_tables
+
+        table_data = [
+            {
+                "table_no": 1,
+                "entries": [
+                    {"label": "Singular", "base_word_text": "gato", "form": "gato"},
+                    {"label": "Plural", "base_word_text": "gato", "form": "gatos"},
+                ],
+            }
+        ]
+
+        result = build_markdown_tables(table_data, "noun")
+
+        expected = (
+            "| Label    | Noun: gato |\n"
+            "| -------- | ---------- |\n"
+            "| Singular | gato       |\n"
+            "| Plural   | gatos      |"
+        )
+        assert result == {"noun": expected}
+
+    def test_single_table_multiple_words(self):
+        from crud.table_data import build_markdown_tables
+
+        table_data = [
+            {
+                "table_no": 1,
+                "entries": [
+                    {"label": "Singular", "base_word_text": "gato", "form": "gato"},
+                    {"label": "Singular", "base_word_text": "perro", "form": "perro"},
+                    {"label": "Plural", "base_word_text": "gato", "form": "gatos"},
+                    {"label": "Plural", "base_word_text": "perro", "form": "perros"},
+                ],
+            }
+        ]
+
+        result = build_markdown_tables(table_data, "noun")
+
+        expected = (
+            "| Label    | Noun: gato | Noun: perro |\n"
+            "| -------- | ---------- | ----------- |\n"
+            "| Singular | gato       | perro       |\n"
+            "| Plural   | gatos      | perros      |"
+        )
+        assert result == {"noun": expected}
+
+    def test_multiple_tables_separated_by_blank_lines(self):
+        from crud.table_data import build_markdown_tables
+
+        table_data = [
+            {
+                "table_no": 1,
+                "entries": [
+                    {"label": "Singular", "base_word_text": "gato", "form": "gato"},
+                ],
+            },
+            {
+                "table_no": 2,
+                "entries": [
+                    {"label": "Nominative", "base_word_text": "gato", "form": "gato"},
+                ],
+            },
+        ]
+
+        result = build_markdown_tables(table_data, "noun")
+
+        table1 = (
+            "| Label    | Noun: gato |\n"
+            "| -------- | ---------- |\n"
+            "| Singular | gato       |"
+        )
+        table2 = (
+            "| Label      | Noun: gato |\n"
+            "| ---------- | ---------- |\n"
+            "| Nominative | gato       |"
+        )
+        assert result == {"noun": f"{table1}\n\n{table2}"}
+
+    def test_empty_cells_for_none_forms(self):
+        from crud.table_data import build_markdown_tables
+
+        table_data = [
+            {
+                "table_no": 1,
+                "entries": [
+                    {"label": "Singular", "base_word_text": "gato", "form": "gato"},
+                    {"label": "Singular", "base_word_text": "perro", "form": None},
+                ],
+            }
+        ]
+
+        result = build_markdown_tables(table_data, "noun")
+
+        expected = (
+            "| Label    | Noun: gato | Noun: perro |\n"
+            "| -------- | ---------- | ----------- |\n"
+            "| Singular | gato       |             |"
+        )
+        assert result == {"noun": expected}
+
+    def test_rows_preserve_entry_order(self):
+        from crud.table_data import build_markdown_tables
+
+        table_data = [
+            {
+                "table_no": 1,
+                "entries": [
+                    {"label": "Plural", "base_word_text": "gato", "form": "gatos"},
+                    {"label": "Singular", "base_word_text": "gato", "form": "gato"},
+                ],
+            }
+        ]
+
+        result = build_markdown_tables(table_data, "noun")
+
+        lines = result["noun"].split("\n")
+        row_labels = [line.split("|")[1].strip() for line in lines[2:]]
+        assert row_labels == ["Plural", "Singular"]
+
+    def test_column_headers_use_category_prefix(self):
+        from crud.table_data import build_markdown_tables
+
+        table_data = [
+            {
+                "table_no": 1,
+                "entries": [
+                    {"label": "1st", "base_word_text": "hablar", "form": "hablo"},
+                ],
+            }
+        ]
+
+        result = build_markdown_tables(table_data, "verb")
+
+        header_line = result["verb"].split("\n")[0]
+        assert "Verb: hablar" in header_line
+
+    def test_result_keyed_by_category_slug(self):
+        from crud.table_data import build_markdown_tables
+
+        table_data = [
+            {
+                "table_no": 1,
+                "entries": [
+                    {"label": "1st", "base_word_text": "hablar", "form": "hablo"},
+                ],
+            }
+        ]
+
+        result = build_markdown_tables(table_data, "verb")
+
+        assert "verb" in result
+        assert len(result) == 1
+
+    def test_underscore_slug_becomes_title_case_header(self):
+        from crud.table_data import build_markdown_tables
+
+        table_data = [
+            {
+                "table_no": 1,
+                "entries": [
+                    {"label": "1st", "base_word_text": "hablar", "form": "hablo"},
+                ],
+            }
+        ]
+
+        result = build_markdown_tables(table_data, "reflexive_verb")
+
+        header_line = result["reflexive_verb"].split("\n")[0]
+        assert "Reflexive Verb: hablar" in header_line
+
+
 class TestCountSavedData:
     def test_counts_sentences_word_forms_and_distinct_base_words(
         self, db_session, language_es, language_en, word_category, grammar_rule

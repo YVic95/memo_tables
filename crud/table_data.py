@@ -398,3 +398,59 @@ def get_table_data(
         {"table_no": table_no, "entries": entries}
         for table_no, entries in sorted(grouped.items())
     ]
+
+
+def _build_single_table(entries: list[dict], word_category_slug: str) -> str:
+    category_prefix = word_category_slug.replace("_", " ").title()
+
+    label_to_base_words: dict[str, dict[str, str | None]] = {}
+    ordered_labels: list[str] = []
+    for entry in entries:
+        label = entry["label"]
+        if label not in label_to_base_words:
+            label_to_base_words[label] = {}
+            ordered_labels.append(label)
+        label_to_base_words[label][entry["base_word_text"]] = entry["form"]
+
+    base_words = list(dict.fromkeys(
+        entry["base_word_text"] for entry in entries
+    ))
+
+    headers = ["Label"] + [f"{category_prefix}: {word}" for word in base_words]
+    all_rows: list[list[str]] = []
+    for label in ordered_labels:
+        cells = [label]
+        for word in base_words:
+            form = label_to_base_words[label].get(word)
+            cells.append(form if form is not None else "")
+        all_rows.append(cells)
+
+    col_widths = [len(h) for h in headers]
+    for row in all_rows:
+        for i, cell in enumerate(row):
+            col_widths[i] = max(col_widths[i], len(cell))
+
+    def pad_row(cells: list[str]) -> str:
+        padded = [cells[i].ljust(col_widths[i]) for i in range(len(cells))]
+        return "| " + " | ".join(padded) + " |"
+
+    header_line = pad_row(headers)
+    separator_line = "| " + " | ".join("-" * w for w in col_widths) + " |"
+    data_lines = [pad_row(row) for row in all_rows]
+
+    return "\n".join([header_line, separator_line] + data_lines)
+
+
+def build_markdown_tables(
+    table_data: list[dict],
+    word_category_slug: str,
+) -> dict[str, str]:
+    if not table_data:
+        return {word_category_slug: ""}
+
+    tables = [
+        _build_single_table(group["entries"], word_category_slug)
+        for group in table_data
+    ]
+
+    return {word_category_slug: "\n\n".join(tables)}
