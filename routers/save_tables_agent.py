@@ -3,9 +3,10 @@ from typing import Annotated
 from sqlalchemy.orm import Session
 from database import get_db
 from crud.language_pairs import get_language_pair_by_id
-from crud.rules import get_grammar_rule_by_id
-from crud.table_data import count_saved_data
+from crud.rules import get_grammar_rule_by_id, get_word_category_by_id
+from crud.table_data import count_saved_data, get_table_data, build_markdown_tables
 from graphs.models import SaveTablesRequest, TableData
+from models.grammar_rules import GrammarRule
 from graphs.save_table_graph import graph
 
 router = APIRouter(tags=["save-tables"])
@@ -83,4 +84,12 @@ def save_tables(
         "status": "saved",
         "grammar_rule_id": str(body.grammar_rule_id),
         "message": message,
+        "skeleton_table": _build_skeleton_table(db, rule),
     }
+
+
+def _build_skeleton_table(db: Session, rule: GrammarRule) -> dict[str, str]:
+    category = get_word_category_by_id(db, rule.word_category_id)
+    slug = category.slug if category else "table"
+    table_data = get_table_data(db, rule.id)
+    return build_markdown_tables(table_data, slug)

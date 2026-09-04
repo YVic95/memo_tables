@@ -196,10 +196,14 @@ class TestRowCellCountMatchesHeaders:
 
 
 class TestValidRequest:
+    @patch("routers.save_tables_agent.build_markdown_tables")
+    @patch("routers.save_tables_agent.get_table_data")
+    @patch("routers.save_tables_agent.get_word_category_by_id")
     @patch("routers.save_tables_agent.get_language_pair_by_id")
     @patch("routers.save_tables_agent.get_grammar_rule_by_id")
     def test_valid_request_returns_success_with_grammar_rule_id(
-        self, mock_get_rule, mock_get_pair, db_session, seed_data
+        self, mock_get_rule, mock_get_pair, mock_get_category, mock_get_table_data, mock_build_md,
+        db_session, seed_data,
     ):
         mock_get_pair.return_value = {"pair_id": seed_data["pair_id"]}
         mock_get_rule.return_value = GrammarRule(
@@ -209,6 +213,9 @@ class TestValidRequest:
             language_id="1",
             word_category_id="1",
         )
+        mock_get_category.return_value = WordCategory(name="Nouns", slug="nouns")
+        mock_get_table_data.return_value = []
+        mock_build_md.return_value = {"nouns": ""}
         body = _make_request(seed_data)
 
         result = save_tables(body, db_session)
@@ -218,6 +225,7 @@ class TestValidRequest:
             "Saved 1 table: 'Noun Gender' (2 rows). "
             "Stored 0 sentences, 0 word forms, 0 base words."
         )
+        assert "skeleton_table" in result
 
 
 class TestGraphInvocation:
@@ -463,3 +471,109 @@ class TestTableFiltering:
         assert "General" not in result["message"]
         assert "Frag 1" in result["message"]
         assert "Saved 1 table" in result["message"]
+
+
+class TestSkeletonTable:
+    @patch("routers.save_tables_agent.build_markdown_tables")
+    @patch("routers.save_tables_agent.get_table_data")
+    @patch("routers.save_tables_agent.get_word_category_by_id")
+    @patch("routers.save_tables_agent.get_language_pair_by_id")
+    @patch("routers.save_tables_agent.get_grammar_rule_by_id")
+    @patch("routers.save_tables_agent.count_saved_data")
+    def test_response_includes_skeleton_table_field(
+        self, mock_count, mock_get_rule, mock_get_pair,
+        mock_get_category, mock_get_table_data, mock_build_md,
+        seed_data, mock_graph, db_session,
+    ):
+        mock_get_pair.return_value = {"pair_id": seed_data["pair_id"]}
+        mock_get_rule.return_value = GrammarRule(
+            id=seed_data["rule_id"], name="test", description="test",
+            language_id="1", word_category_id="1",
+        )
+        mock_get_category.return_value = WordCategory(name="Verbs", slug="verbs")
+        mock_count.return_value = {"sentences": 0, "word_forms": 0, "base_words": 0}
+        mock_get_table_data.return_value = [
+            {"table_no": 1, "entries": [{"label": "1st", "base_word_text": "hablar", "form": "hablo"}]}
+        ]
+        mock_build_md.return_value = {"verbs": "| Label | Verb: hablar |\n| --- | --- |\n| 1st | hablo |"}
+        body = _make_request(seed_data)
+
+        result = save_tables(body, db_session)
+
+        assert "skeleton_table" in result
+        assert isinstance(result["skeleton_table"], dict)
+
+    @patch("routers.save_tables_agent.build_markdown_tables")
+    @patch("routers.save_tables_agent.get_table_data")
+    @patch("routers.save_tables_agent.get_word_category_by_id")
+    @patch("routers.save_tables_agent.get_language_pair_by_id")
+    @patch("routers.save_tables_agent.get_grammar_rule_by_id")
+    @patch("routers.save_tables_agent.count_saved_data")
+    def test_skeleton_table_keyed_by_category_slug(
+        self, mock_count, mock_get_rule, mock_get_pair,
+        mock_get_category, mock_get_table_data, mock_build_md,
+        seed_data, mock_graph, db_session,
+    ):
+        mock_get_pair.return_value = {"pair_id": seed_data["pair_id"]}
+        mock_get_rule.return_value = GrammarRule(
+            id=seed_data["rule_id"], name="test", description="test",
+            language_id="1", word_category_id="1",
+        )
+        mock_get_category.return_value = WordCategory(name="Verbs", slug="verbs")
+        mock_count.return_value = {"sentences": 0, "word_forms": 0, "base_words": 0}
+        mock_get_table_data.return_value = [
+            {"table_no": 1, "entries": [{"label": "1st", "base_word_text": "hablar", "form": "hablo"}]}
+        ]
+        mock_build_md.return_value = {"verbs": "| 1st | hablo |"}
+        body = _make_request(seed_data)
+
+        result = save_tables(body, db_session)
+
+        assert "verbs" in result["skeleton_table"]
+        assert result["skeleton_table"]["verbs"] == "| 1st | hablo |"
+
+    @patch("routers.save_tables_agent.build_markdown_tables")
+    @patch("routers.save_tables_agent.get_table_data")
+    @patch("routers.save_tables_agent.get_word_category_by_id")
+    @patch("routers.save_tables_agent.get_language_pair_by_id")
+    @patch("routers.save_tables_agent.get_grammar_rule_by_id")
+    @patch("routers.save_tables_agent.count_saved_data")
+    def test_does_not_break_existing_response_fields(
+        self, mock_count, mock_get_rule, mock_get_pair,
+        mock_get_category, mock_get_table_data, mock_build_md,
+        seed_data, mock_graph, db_session,
+    ):
+        mock_get_pair.return_value = {"pair_id": seed_data["pair_id"]}
+        mock_get_rule.return_value = GrammarRule(
+            id=seed_data["rule_id"], name="test", description="test",
+            language_id="1", word_category_id="1",
+        )
+        mock_get_category.return_value = WordCategory(name="Nouns", slug="nouns")
+        mock_count.return_value = {"sentences": 1, "word_forms": 2, "base_words": 1}
+        mock_get_table_data.return_value = []
+        mock_build_md.return_value = {"nouns": ""}
+        body = _make_request(seed_data)
+
+        result = save_tables(body, db_session)
+
+        assert result["status"] == "saved"
+        assert result["grammar_rule_id"] == str(seed_data["rule_id"])
+        assert "sentence" in result["message"]
+        assert "skeleton_table" in result
+
+    @patch("routers.save_tables_agent.get_language_pair_by_id")
+    @patch("routers.save_tables_agent.get_grammar_rule_by_id")
+    @patch("routers.save_tables_agent.count_saved_data")
+    def test_skeleton_table_not_called_on_graph_failure(
+        self, mock_count, mock_get_rule, mock_get_pair, seed_data, mock_graph, db_session,
+    ):
+        mock_get_pair.return_value = {"pair_id": seed_data["pair_id"]}
+        mock_get_rule.return_value = GrammarRule(
+            id=seed_data["rule_id"], name="test", description="test",
+            language_id="1", word_category_id="1",
+        )
+        mock_graph.invoke.side_effect = RuntimeError("boom")
+        body = _make_request(seed_data)
+
+        with pytest.raises(RuntimeError, match="boom"):
+            save_tables(body, db_session)
