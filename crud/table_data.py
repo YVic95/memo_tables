@@ -349,6 +349,7 @@ def count_saved_data(db: Session, grammar_rule_id: uuid.UUID) -> dict[str, int]:
 def get_table_data(
     db: Session,
     grammar_rule_id: uuid.UUID,
+    word_category_id: uuid.UUID | None = None,
 ) -> list[dict]:
     rows = (
         db.query(GrammarRuleRow)
@@ -360,12 +361,16 @@ def get_table_data(
     if not rows:
         return []
 
-    assignments = (
+    assignments_query = (
         db.query(WordRuleAssignment, BaseWord)
         .join(BaseWord, WordRuleAssignment.base_word_id == BaseWord.id)
         .filter(WordRuleAssignment.grammar_rule_id == grammar_rule_id)
-        .all()
     )
+    if word_category_id is not None:
+        assignments_query = assignments_query.filter(
+            BaseWord.word_category_id == word_category_id
+        )
+    assignments = assignments_query.all()
 
     forms = (
         db.query(WordForm)

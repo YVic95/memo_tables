@@ -91,5 +91,5 @@ def save_tables(
 def _build_skeleton_table(db: Session, rule: GrammarRule) -> dict[str, str]:
     category = get_word_category_by_id(db, rule.word_category_id)
     slug = category.slug if category else "table"
-    table_data = get_table_data(db, rule.id)
+    table_data = get_table_data(db, rule.id, rule.word_category_id)
     return build_markdown_tables(table_data, slug)

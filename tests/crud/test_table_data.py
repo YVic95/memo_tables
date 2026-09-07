@@ -509,6 +509,65 @@ class TestGetTableData:
         assert result[0]["entries"][0]["label"] == "Default"
         assert result[0]["entries"][0]["form"] == "gato"
 
+    def test_filters_out_words_not_matching_category_id(
+        self, db_session, grammar_rule, language_es, word_category
+    ):
+        from crud.table_data import get_table_data
+        from models.word_categories import WordCategory
+
+        adjective_category = WordCategory(name="Adjectives", slug="adjectives")
+        db_session.add(adjective_category)
+        db_session.commit()
+        db_session.refresh(adjective_category)
+
+        row = create_grammar_rule_row(db_session, grammar_rule.id, "Yo", None, 1, 0)
+        verb = get_or_create_base_word(
+            db_session, "hablar", language_es.id, word_category.id
+        )
+        adjective = get_or_create_base_word(
+            db_session, "amigo", language_es.id, adjective_category.id
+        )
+        assign_verb = create_word_rule_assignment(db_session, verb.id, grammar_rule.id)
+        assign_adj = create_word_rule_assignment(db_session, adjective.id, grammar_rule.id)
+        create_word_form(db_session, assign_verb.id, row.id, "hablo")
+        create_word_form(db_session, assign_adj.id, row.id, "amigo")
+
+        result = get_table_data(db_session, grammar_rule.id, word_category.id)
+
+        assert len(result) == 1
+        entries = result[0]["entries"]
+        assert len(entries) == 1
+        assert entries[0]["base_word_text"] == "hablar"
+
+    def test_no_category_filter_returns_all_words(
+        self, db_session, grammar_rule, language_es, word_category
+    ):
+        from crud.table_data import get_table_data
+        from models.word_categories import WordCategory
+
+        adjective_category = WordCategory(name="Adjectives", slug="adjectives")
+        db_session.add(adjective_category)
+        db_session.commit()
+        db_session.refresh(adjective_category)
+
+        row = create_grammar_rule_row(db_session, grammar_rule.id, "Yo", None, 1, 0)
+        verb = get_or_create_base_word(
+            db_session, "hablar", language_es.id, word_category.id
+        )
+        adjective = get_or_create_base_word(
+            db_session, "amigo", language_es.id, adjective_category.id
+        )
+        assign_verb = create_word_rule_assignment(db_session, verb.id, grammar_rule.id)
+        assign_adj = create_word_rule_assignment(db_session, adjective.id, grammar_rule.id)
+        create_word_form(db_session, assign_verb.id, row.id, "hablo")
+        create_word_form(db_session, assign_adj.id, row.id, "amigo")
+
+        result = get_table_data(db_session, grammar_rule.id)
+
+        assert len(result) == 1
+        base_word_texts = {e["base_word_text"] for e in result[0]["entries"]}
+        assert base_word_texts == {"hablar", "amigo"} 
+
 
 class TestBuildMarkdownTables:
     def test_returns_empty_string_for_empty_input(self):
