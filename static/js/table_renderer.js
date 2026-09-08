@@ -11,6 +11,26 @@ function renderTableData(tableData, readOnly = false) {
     title.className = 'grammar-table-title';
     title.textContent = tableData.title;
 
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'grammar-table-copy';
+    copyBtn.innerHTML = '<i class="fa-solid fa-copy"></i>';
+    copyBtn.title = 'Copy table content';
+    copyBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const markdown = tableToMarkdown(tableData);
+        navigator.clipboard.writeText(markdown).then(() => {
+            const icon = copyBtn.querySelector('i');
+            icon.className = 'fa-solid fa-check';
+            setTimeout(() => {
+                icon.className = 'fa-solid fa-copy';
+            }, 1500);
+        }).catch(() => {
+            const icon = copyBtn.querySelector('i');
+            icon.className = 'fa-solid fa-copy';
+        });
+    });
+    title.appendChild(copyBtn);
+
     if (!readOnly) {
         const deleteBtn = document.createElement('button');
         deleteBtn.className = 'grammar-table-delete';

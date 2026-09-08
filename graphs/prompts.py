@@ -358,3 +358,21 @@ translate_base_words_prompt = PromptTemplate.from_template(
     source word as its own translation.
     """
 )
+
+# Use this prompt for copy-paste purposes inside the chat 
+# to check if the generated table is correct
+correction_prompt = """
+Check the following Markdown table for errors and correct them. Specifically:
+
+1. Fix any missing, broken, or corrupted special characters (e.g., accented letters, diacritics, or other non-ASCII characters that may have been lost or garbled during copy-paste), based on the language used in the table.
+2. Check grammar, spelling, and capitalization rules appropriate to the language used in the table (capitalization conventions, verb forms, articles, etc. vary by language — apply the correct rules for whichever language is present).
+3. Identify any redundant or duplicate rows that share identical values in key columns (e.g., different labels mapping to the same form or value), and merge them into a single row where appropriate, combining the differing example content (e.g., using "/" to separate multiple examples).
+4. Check the table's title/heading for its claimed scope (e.g., "singular", "plural", "present tense", a specific case, a specific set of categories) and verify that every row belonging to that scope is present. If any expected forms are missing, add the missing rows with the correct form, a fitting example sentence, and an explanation consistent in style and language with the existing rows.
+5. Preserve the original table structure, formatting, and all substantive content (examples, explanations) — do not remove information, only correct errors, merge truly redundant rows, and add genuinely missing ones.
+6. Return the corrected table in the same Markdown format as the input, inside a code block, so it can be copied directly.
+
+Table to check:
+<table>
+{table_content}
+<table>
+"""
