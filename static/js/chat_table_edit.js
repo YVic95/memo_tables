@@ -2,6 +2,7 @@ let tableEditMode = false;
 let selectedTable = null;
 let tableEditElements = null;
 let hasEditHistory = false;
+let insertTarget = null;
 
 document.addEventListener('htmx:load', function(event) {
     initializeTableEdit(event.target);
@@ -22,11 +23,34 @@ function initializeTableEdit(container) {
     tableEditMode = false;
     selectedTable = null;
     hasEditHistory = false;
+    insertTarget = null;
     tableEditElements = { editTableBtn, reapplyBtn, form, input, sendBtn };
 
     editTableBtn.addEventListener('click', enterTableEditMode);
     reapplyBtn.addEventListener('click', onReapplyClick);
     form.addEventListener('submit', onEditSubmit);
+}
+
+function enterInsertMode(container) {
+    if (!tableEditElements) return;
+
+    insertTarget = container;
+    tableEditMode = false;
+
+    const { editTableBtn, input, sendBtn, reapplyBtn } = tableEditElements;
+
+    editTableBtn.classList.add('hidden-button');
+    input.disabled = false;
+    sendBtn.disabled = false;
+    reapplyBtn.classList.add('hidden-button');
+    input.focus();
+
+    document.querySelectorAll('.grammar-table-container').forEach(other => {
+        other.classList.remove('table-clickable');
+        other.classList.remove('grammar-table-selected');
+    });
+
+    appendAssistantMessage(`Paste the corrected content for "${container._tableData.title}" as markdown below and press the send button.`);
 }
 
 function enterTableEditMode() {
@@ -35,6 +59,7 @@ function enterTableEditMode() {
 
     tableEditMode = true;
     console.log('[edit-tables] edit mode entered');
+    insertTarget = null;
 
     if (hasEditHistory) {
         tableEditElements.reapplyBtn.classList.remove('hidden-button');
@@ -94,7 +119,14 @@ function onReapplyClick() {
 async function onEditSubmit(event) {
     event.preventDefault();
 
-    if (!tableEditElements || !selectedTable) return;
+    if (!tableEditElements) return;
+
+    if (insertTarget) {
+        await submitInsert(insertTarget);
+        return;
+    }
+
+    if (!selectedTable) return;
 
     const { input } = tableEditElements;
     const instructions = input.value.trim();
@@ -154,6 +186,43 @@ async function submitEdit(instructions) {
     }
 }
 
+async function submitInsert(targetContainer) {
+    const { input, sendBtn } = tableEditElements;
+    const markdown = input.value;
+
+    appendUserMessage(markdown);
+
+    const parsed = tableSerializer.parseMarkdownToTableData(markdown);
+
+    if (parsed.error) {
+        console.error('[edit-tables] insert parse failed:', parsed.error);
+        appendAssistantMessage('Couldn\'t parse the table. Make sure it matches the copy-paste format (a "## Title" heading followed by a pipe table).');
+        return;
+    }
+
+    input.value = '';
+    insertTarget = null;
+
+    const originalData = targetContainer._tableData;
+    const newData = parsed;
+    newData.tableId = originalData.tableId;
+    if (originalData.isFragmented) {
+        newData.isFragmented = true;
+        newData.fragmented_table_id = originalData.fragmented_table_id;
+        newData.rows.forEach((row, idx) => {
+            row.row_position = idx;
+        });
+    }
+
+    targetContainer.replaceWith(renderTableData(newData));
+
+    input.disabled = true;
+    sendBtn.disabled = true;
+    tableEditElements.editTableBtn.classList.remove('hidden-button');
+
+    appendAssistantMessage('Table updated with the corrected content.');
+}
+
 async function editTable(instructions, table) {
     const selectedPair = document.getElementById('language-pair-select')?.value;
     const sessionId = await getOrCreateChatSession();
@@ -199,6 +268,11 @@ function appendUserMessage(text) {
 
 function deleteTableFromChat(container) {
     container.remove();
+    if (insertTarget === container) {
+        insertTarget = null;
+        tableEditElements.input.disabled = true;
+        tableEditElements.sendBtn.disabled = true;
+    }
     if (selectedTable === container._tableData) {
         selectedTable = null;
         tableEditElements.input.disabled = true;

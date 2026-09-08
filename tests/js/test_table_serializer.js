@@ -1,6 +1,6 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const tableToMarkdown = require('../../static/js/table_serializer.js');
+const { tableToMarkdown } = require('../../static/js/table_serializer.js');
 
 describe('tableToMarkdown', () => {
   it('serializes a single-row, two-column table', () => {

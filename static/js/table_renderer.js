@@ -17,7 +17,7 @@ function renderTableData(tableData, readOnly = false) {
     copyBtn.title = 'Copy table content';
     copyBtn.addEventListener('click', (event) => {
         event.stopPropagation();
-        const markdown = tableToMarkdown(tableData);
+        const markdown = tableSerializer.tableToMarkdown(tableData);
         navigator.clipboard.writeText(markdown).then(() => {
             const icon = copyBtn.querySelector('i');
             icon.className = 'fa-solid fa-check';
@@ -30,6 +30,19 @@ function renderTableData(tableData, readOnly = false) {
         });
     });
     title.appendChild(copyBtn);
+
+    const insertBtn = document.createElement('button');
+    insertBtn.className = 'grammar-table-insert';
+    insertBtn.innerHTML = '<i class="fa-solid fa-clipboard"></i>';
+    insertBtn.title = 'Insert corrected table content';
+    insertBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        enterInsertMode(container);
+    });
+    if (readOnly) {
+        insertBtn.classList.add('hidden-button');
+    }
+    title.appendChild(insertBtn);
 
     if (!readOnly) {
         const deleteBtn = document.createElement('button');
