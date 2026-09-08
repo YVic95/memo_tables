@@ -214,13 +214,17 @@ async function submitInsert(targetContainer) {
         });
     }
 
-    targetContainer.replaceWith(renderTableData(newData));
+    const newEl = renderTableData(newData);
+    targetContainer.replaceWith(newEl);
 
     input.disabled = true;
     sendBtn.disabled = true;
     tableEditElements.editTableBtn.classList.remove('hidden-button');
 
-    appendAssistantMessage('Table updated with the corrected content.');
+    appendAssistantMessage(
+        'Table updated with the corrected content.',
+        createGoToTableAction(newEl),
+    );
 }
 
 async function editTable(instructions, table) {
@@ -248,13 +252,32 @@ async function editTable(instructions, table) {
     return result.json();
 }
 
-function appendAssistantMessage(text) {
+function appendAssistantMessage(text, actionEl) {
     const container = createRuleMessageContainer('assistant');
     const message = document.createElement('p');
     message.className = 'table-edit-hint';
     message.textContent = text;
     container.appendChild(message);
+    if (actionEl) {
+        container.appendChild(actionEl);
+    }
     appendToChat(container);
+}
+
+function createGoToTableAction(tableEl) {
+    const link = document.createElement('a');
+    link.className = 'go-to-table-link';
+    link.href = '#';
+    link.innerHTML = '<i class="fa-solid fa-arrow-up"></i> Go to table';
+    link.addEventListener('click', (event) => {
+        event.preventDefault();
+        tableEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        tableEl.classList.add('grammar-table-flash');
+        setTimeout(() => {
+            tableEl.classList.remove('grammar-table-flash');
+        }, 1600);
+    });
+    return link;
 }
 
 function appendUserMessage(text) {
