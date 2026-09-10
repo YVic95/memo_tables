@@ -1,6 +1,6 @@
 import uuid
 from pydantic import BaseModel, Field, field_validator
-
+from typing import Any
 class Rule(BaseModel):
     title: str = Field(description="Short name of the grammar/language rule")
     explanation: str = Field(
@@ -78,3 +78,9 @@ class SaveTablesRequest(BaseModel):
     session_id: uuid.UUID
     grammar_rule_id: uuid.UUID
     tables: list[TableData]
+
+class ChatMessageRequest(BaseModel):
+    session_id: uuid.UUID
+    role: str
+    message_type: str
+    content: dict[str, Any]

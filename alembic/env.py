@@ -34,6 +34,7 @@ from models.word_form_translations import WordFormTranslation
 from models.word_form_sentences import WordFormSentence
 from models.language_pairs import LanguagePair
 from models.chat_sessions import ChatSession
+from models.chat_messages import ChatMessage
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
