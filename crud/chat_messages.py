@@ -17,7 +17,7 @@ def _serialize_message(message: ChatMessage) -> dict:
 
 def create_chat_message(db: Session, session_id: uuid.UUID, role: str, message_type: str, content: dict) -> dict:
     max_position_subquery = (
-        select(func.coalesce(func.max(ChatMessage.position), -1) + 1)
+        select(func.coalesce(func.max(ChatMessage.position), 0) + 1)
         .where(ChatMessage.session_id == session_id)
         .scalar_subquery()
     )
