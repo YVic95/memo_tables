@@ -2,6 +2,7 @@ import uuid
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from models.chat_messages import ChatMessage
+from graphs.models import MessageRole, MessageType
 from sqlalchemy.exc import IntegrityError
 
 def _serialize_message(message: ChatMessage) -> dict:
@@ -15,20 +16,25 @@ def _serialize_message(message: ChatMessage) -> dict:
         "created_at": message.created_at.isoformat() if message.created_at else None,
     }
 
-def create_chat_message(db: Session, session_id: uuid.UUID, role: str, message_type: str, content: dict) -> dict:
-    max_position_subquery = (
+def create_chat_message(
+    db: Session,
+    session_id: uuid.UUID,
+    role: MessageRole,
+    message_type: MessageType,
+    content: dict,
+) -> dict:
+    next_position_subquery = (
         select(func.coalesce(func.max(ChatMessage.position), 0) + 1)
         .where(ChatMessage.session_id == session_id)
         .scalar_subquery()
     )
-    next_position = db.execute(select(max_position_subquery)).scalar()
 
     message = ChatMessage(
         session_id=session_id,
         role=role,
         message_type=message_type,
         content=content,
-        position=next_position,
+        position=next_position_subquery,
     )
     db.add(message)
     try:
@@ -39,7 +45,10 @@ def create_chat_message(db: Session, session_id: uuid.UUID, role: str, message_t
     db.refresh(message)
     return _serialize_message(message)
 
-def get_chat_messages(db: Session, session_id: uuid.UUID) -> list[dict]:
+def get_chat_messages(
+    db: Session, 
+    session_id: uuid.UUID
+) -> list[dict]:
     messages = (
         db.query(ChatMessage)
         .filter(ChatMessage.session_id == session_id)

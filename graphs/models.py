@@ -1,6 +1,20 @@
 import uuid
+from enum import StrEnum
 from pydantic import BaseModel, Field, field_validator
 from typing import Any
+
+class MessageRole(StrEnum):
+    user = "user"
+    assistant = "assistant"
+
+class MessageType(StrEnum):
+    text = "text"
+    proposed_rules = "proposed_rules"
+    full_rule = "full_rule"
+    table = "table"
+    save_confirmation = "save_confirmation"
+    info = "info"
+
 class Rule(BaseModel):
     title: str = Field(description="Short name of the grammar/language rule")
     explanation: str = Field(
@@ -81,6 +95,6 @@ class SaveTablesRequest(BaseModel):
 
 class ChatMessageRequest(BaseModel):
     session_id: uuid.UUID
-    role: str
-    message_type: str
+    role: MessageRole
+    message_type: MessageType
     content: dict[str, Any]
