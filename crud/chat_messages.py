@@ -2,8 +2,8 @@ import uuid
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from models.chat_messages import ChatMessage
+from models.chat_sessions import ChatSession
 from graphs.models import MessageRole, MessageType
-from sqlalchemy.exc import IntegrityError
 
 def _serialize_message(message: ChatMessage) -> dict:
     return {
@@ -23,25 +23,28 @@ def create_chat_message(
     message_type: MessageType,
     content: dict,
 ) -> dict:
-    next_position_subquery = (
+    # Locks the session row for the rest of this transaction. Any other
+    # transaction trying to do the same for this session_id blocks here
+    # until this one commits/rolls back — that's what serializes the
+    # position calculation below and prevents the collision.
+    db.execute(
+        select(ChatSession.id).where(ChatSession.id == session_id).with_for_update()
+    )
+
+    next_position = db.execute(
         select(func.coalesce(func.max(ChatMessage.position), 0) + 1)
         .where(ChatMessage.session_id == session_id)
-        .scalar_subquery()
-    )
+    ).scalar_one()
 
     message = ChatMessage(
         session_id=session_id,
         role=role,
         message_type=message_type,
         content=content,
-        position=next_position_subquery,
+        position=next_position,
     )
     db.add(message)
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        raise
+    db.commit()
     db.refresh(message)
     return _serialize_message(message)
 
