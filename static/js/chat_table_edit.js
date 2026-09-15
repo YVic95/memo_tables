@@ -166,6 +166,7 @@ async function submitEdit(instructions) {
 
         const editedEl = renderTableData(data.edited_table);
         appendToChat(editedEl);
+        persistTableMessage({ edited_table: data.edited_table });
 
         hasEditHistory = data.edit_history && data.edit_history.length > 0;
 
@@ -262,6 +263,7 @@ function appendAssistantMessage(text, actionEl) {
         container.appendChild(actionEl);
     }
     appendToChat(container);
+    persistTextMessage('assistant', text);
 }
 
 function createGoToTableAction(tableEl) {
@@ -287,6 +289,7 @@ function appendUserMessage(text) {
     message.textContent = text;
     container.appendChild(message);
     appendToChat(container);
+    persistTextMessage('user', text);
 }
 
 function deleteTableFromChat(container) {

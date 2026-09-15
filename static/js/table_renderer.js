@@ -139,4 +139,9 @@ function displayGeneratedTables(response) {
             appendToChat(el);
         });
     }
+
+    persistTableMessage({
+        general_table: response.general_table,
+        fragmented_tables: response.fragmented_tables || [],
+    });
 }

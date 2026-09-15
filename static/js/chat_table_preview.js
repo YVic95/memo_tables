@@ -331,6 +331,10 @@ function renderSaveResponseInChat(data) {
     }
 
     appendToChat(container);
+
+    if (data.message || data.skeleton_table) {
+        persistSaveConfirmationMessage(data);
+    }
 }
 
 document.addEventListener('keydown', function(event) {

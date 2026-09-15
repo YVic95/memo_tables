@@ -7,6 +7,8 @@ async function onRuleSelected(item, list, rule) {
 
     dismissOtherRules(list, item);
 
+    persistUserRuleSelectedMessage(rule);
+
     const progressContainer = createProgressContainer();
     appendToChat(progressContainer);
 
@@ -105,6 +107,7 @@ function appendFullRule(reply, originalRule) {
 
     fullRule.append(body, saveBtn);
     appendToChat(fullRule);
+    persistFullRuleMessage(reply);
 }
 
 function appendStreamError(message) {
@@ -112,4 +115,5 @@ function appendStreamError(message) {
     errorEl.className = 'full-rule-error';
     errorEl.textContent = message;
     appendToChat(errorEl);
+    persistTextMessage('assistant', message);
 }

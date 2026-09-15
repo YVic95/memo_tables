@@ -10,6 +10,12 @@ function appendRuleMessage(role, rules) {
     }
 
     appendToChat(container);
+
+    if (Array.isArray(rules)) {
+        persistProposedRulesMessage(rules);
+    } else if (typeof rules === 'string' && rules.length > 0) {
+        persistTextMessage(role, rules);
+    }
 }
 
 function createRuleMessageContainer(role) {
