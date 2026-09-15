@@ -8,7 +8,7 @@ class ChatMessage(Base):
     __tablename__ = "chat_messages"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    session_id = Column(UUID(as_uuid=True), ForeignKey("chat_sessions.id"), nullable=False, index=True)
+    session_id = Column(UUID(as_uuid=True), ForeignKey("chat_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
     role = Column(String, nullable=False)
     message_type = Column(String, nullable=False)
     content = Column(JSONB, nullable=False)
