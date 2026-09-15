@@ -13,6 +13,7 @@ class MessageType(StrEnum):
     full_rule = "full_rule"
     table = "table"
     save_confirmation = "save_confirmation"
+    table_deleted = "table_deleted"
     info = "info"
 
 class Rule(BaseModel):

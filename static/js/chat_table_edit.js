@@ -220,6 +220,7 @@ async function submitInsert(targetContainer) {
 
     const newEl = renderTableData(newData);
     targetContainer.replaceWith(newEl);
+    persistTableReplacement(newData);
 
     input.disabled = true;
     sendBtn.disabled = true;
@@ -297,6 +298,9 @@ function appendUserMessage(text) {
 
 function deleteTableFromChat(container) {
     container.remove();
+    if (container._tableData && container._tableData.tableId != null) {
+        persistTableDeletedMessage(container._tableData.tableId);
+    }
     if (insertTarget === container) {
         insertTarget = null;
         tableEditElements.input.disabled = true;

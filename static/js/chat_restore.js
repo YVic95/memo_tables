@@ -7,7 +7,12 @@ async function restoreActiveChatIfAny() {
     const chatMessages = document.getElementById('chat-messages');
     if (!chatMessages) return;
 
-    const activeSession = await fetchActiveChatSession();
+    let activeSession = null;
+    try {
+        activeSession = await fetchActiveChatSession();
+    } catch (err) {
+        console.error('Failed to check for an active chat session:', err);
+    }
 
     if (!activeSession) {
         localStorage.removeItem(CHAT_SESSION_STORAGE_KEY);
@@ -18,59 +23,80 @@ async function restoreActiveChatIfAny() {
         return;
     }
 
-    const messages = await fetchChatMessages(activeSession.id);
-    if (!messages || messages.length === 0) {
-        return;
-    }
-
-    // The user may have started chatting (or the section may have been swapped
-    // away) while the fetch was in flight — don't clobber that state.
-    if (document.getElementById('chat-messages') !== chatMessages || chatMessages.children.length > 0) {
-        return;
-    }
-
-    localStorage.setItem(CHAT_SESSION_STORAGE_KEY, activeSession.id);
-
-    let workflowStep = activeSession.workflow_step;
-    if (workflowStep === 'editing_tables') {
-        showToast('Edit session expired. The table you were editing could not be restored.', 3000, 'fa-solid fa-triangle-exclamation');
-        workflowStep = 'table_generated';
-        setWorkflowStep('table_generated');
-    }
-
-    const restored = analyzeRestoreMessages(messages);
-    const ruleSaved = workflowStep !== null;
-
-    chatMessages.innerHTML = '';
-
-    setPersistenceSuppressed(true);
+    showChatRestoreOverlay();
     try {
-        messages.forEach(msg => {
-            renderRestoredMessage(msg, restored, ruleSaved);
-        });
+        const messages = await fetchChatMessages(activeSession.id);
+        if (!messages || messages.length === 0) {
+            return;
+        }
+
+        // The user may have started chatting (or the section may have been
+        // swapped away) while the fetch was in flight — don't clobber that.
+        if (document.getElementById('chat-messages') !== chatMessages || chatMessages.children.length > 0) {
+            return;
+        }
+
+        localStorage.setItem(CHAT_SESSION_STORAGE_KEY, activeSession.id);
+
+        let workflowStep = activeSession.workflow_step;
+        if (workflowStep === 'editing_tables') {
+            showToast('Edit session expired. The table you were editing could not be restored.', 3000, 'fa-solid fa-triangle-exclamation');
+            workflowStep = 'table_generated';
+            setWorkflowStep('table_generated');
+        }
+
+        const restored = analyzeRestoreMessages(messages);
+        const ruleSaved = workflowStep !== null;
+
+        chatMessages.innerHTML = '';
+
+        setPersistenceSuppressed(true);
+        try {
+            messages.forEach(msg => {
+                renderRestoredMessage(msg, restored, ruleSaved);
+            });
+        } finally {
+            setPersistenceSuppressed(false);
+        }
+
+        if (restored.hasProposedRules) {
+            hideProposeMissingRulesButton();
+        }
+
+        const restoredTableIds = Array.from(chatMessages.querySelectorAll('.grammar-table-container'))
+            .map(el => el._tableData?.tableId)
+            .filter(id => id !== undefined && id !== null);
+        if (restoredTableIds.length > 0) {
+            nextTableId = Math.max(...restoredTableIds);
+        }
+
+        applyWorkflowButtonState(workflowStep, restored.latestRuleId);
     } finally {
-        setPersistenceSuppressed(false);
+        hideChatRestoreOverlay();
     }
+}
 
-    if (restored.hasProposedRules) {
-        hideProposeMissingRulesButton();
+function showChatRestoreOverlay() {
+    const overlay = document.getElementById('chat-restore-overlay');
+    if (overlay) {
+        overlay.classList.add('visible');
     }
+}
 
-    const restoredTableIds = Array.from(chatMessages.querySelectorAll('.grammar-table-container'))
-        .map(el => el._tableData?.tableId)
-        .filter(id => id !== undefined && id !== null);
-    if (restoredTableIds.length > 0) {
-        nextTableId = Math.max(...restoredTableIds);
+function hideChatRestoreOverlay() {
+    const overlay = document.getElementById('chat-restore-overlay');
+    if (overlay) {
+        overlay.classList.remove('visible');
     }
-
-    applyWorkflowButtonState(workflowStep, restored.latestRuleId);
 }
 
 function analyzeRestoreMessages(messages) {
     const result = {
         hasProposedRules: false,
         latestRuleId: null,
+        deletedTableIds: new Set(),
         consumedLists: new Set(),
+        selectionEchoPositions: new Set(),
         selectedTitleByList: new Map(),
     };
 
@@ -80,6 +106,18 @@ function analyzeRestoreMessages(messages) {
             fullRulePositions.push(msg.position);
             if (msg.content && msg.content.grammar_rule_id) {
                 result.latestRuleId = msg.content.grammar_rule_id;
+            }
+        } else if (msg.message_type === 'table_deleted' && msg.content && msg.content.table_id != null) {
+            result.deletedTableIds.add(msg.content.table_id);
+        } else if (msg.message_type === 'table' && msg.content) {
+            if (msg.content.table && msg.content.table.tableId != null) {
+                result.restoredTablePositions.set(msg.content.table.tableId, msg.position);
+            } else if (Array.isArray(msg.content.tables)) {
+                msg.content.tables.forEach(table => {
+                    if (table && table.tableId != null) {
+                        result.restoredTablePositions.set(table.tableId, msg.position);
+                    }
+                });
             }
         }
     });
@@ -104,6 +142,7 @@ function analyzeRestoreMessages(messages) {
             const selectedTitle = pendingTitles.find(title => text.startsWith(title + ':') || text === title);
             if (selectedTitle) {
                 result.selectedTitleByList.set(pendingListPosition, selectedTitle);
+                result.selectionEchoPositions.add(msg.position);
             }
             selectionRecorded = true;
             pendingListPosition = null;
@@ -128,6 +167,9 @@ function renderRestoredMessage(msg, restored, ruleSaved) {
             break;
         case 'text':
             if (msg.role === 'user') {
+                if (restored.selectionEchoPositions.has(msg.position)) {
+                    break;
+                }
                 appendUserMessage(content.text || '');
             } else {
                 appendAssistantMessage(content.text || '');
@@ -140,7 +182,7 @@ function renderRestoredMessage(msg, restored, ruleSaved) {
             }, null, ruleSaved);
             break;
         case 'table':
-            renderRestoredTable(content);
+            renderRestoredTable(content, restored, msg.position);
             break;
         case 'save_confirmation':
             renderSaveResponseInChat({
@@ -153,14 +195,33 @@ function renderRestoredMessage(msg, restored, ruleSaved) {
     }
 }
 
-function renderRestoredTable(content) {
+function renderRestoredTable(content, restored, position) {
+    const deletedTableIds = restored.deletedTableIds;
+    const restoredTablePositions = restored.restoredTablePositions;
+
+    function isCurrentTable(table) {
+        if (table.tableId == null) {
+            return true;
+        }
+        return restoredTablePositions.get(table.tableId) === position;
+    }
+
     if (content.table) {
+        if (deletedTableIds.has(content.table.tableId) || !isCurrentTable(content.table)) {
+            return;
+        }
         const el = renderTableData(content.table);
         appendToChat(el);
         return;
     }
 
     if (content.grouped_fragmentation && Array.isArray(content.tables)) {
+        const tables = content.tables.filter(table =>
+            !deletedTableIds.has(table.tableId) && isCurrentTable(table));
+        if (tables.length === 0) {
+            return;
+        }
+
         const separator = document.createElement('hr');
         separator.className = 'grammar-table-separator';
         appendToChat(separator);
@@ -170,7 +231,7 @@ function renderRestoredTable(content) {
         subHeading.textContent = 'Fragmented Tables';
         appendToChat(subHeading);
 
-        content.tables.forEach(table => {
+        tables.forEach(table => {
             table.isFragmented = true;
             const el = renderTableData(table);
             appendToChat(el);

@@ -61,6 +61,14 @@ function persistTableMessage(tablePayload) {
     }
 }
 
+function persistTableDeletedMessage(tableId) {
+    persistChatMessage('assistant', 'table_deleted', { table_id: tableId });
+}
+
+function persistTableReplacement(tableData) {
+    persistChatMessage('assistant', 'table', { table: tableData });
+}
+
 function persistTextMessage(role, text) {
     persistChatMessage(role, 'text', { text });
 }
