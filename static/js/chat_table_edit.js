@@ -158,7 +158,8 @@ async function submitEdit(instructions) {
 
         input.value = '';
 
-        data.edited_table.tableId = selectedTable.tableId;
+        data.edited_table.edited_from = selectedTable.tableId;
+        assignTableId(data.edited_table);
         if (selectedTable.isFragmented) {
             data.edited_table.isFragmented = true;
             data.edited_table.fragmented_table_id = selectedTable.fragmented_table_id;
