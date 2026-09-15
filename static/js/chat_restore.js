@@ -98,6 +98,7 @@ function analyzeRestoreMessages(messages) {
         consumedLists: new Set(),
         selectionEchoPositions: new Set(),
         selectedTitleByList: new Map(),
+        restoredTablePositions: new Map(),
     };
 
     const fullRulePositions = [];
