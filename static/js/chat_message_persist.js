@@ -2,8 +2,17 @@
 // A failed persist call never surfaces an error and never interrupts the chat flow.
 
 let _persistQueue = Promise.resolve();
+let _persistenceSuppressed = false;
+
+function setPersistenceSuppressed(suppressed) {
+    _persistenceSuppressed = suppressed;
+}
 
 function persistChatMessage(role, messageType, content) {
+    if (_persistenceSuppressed) {
+        return Promise.resolve();
+    }
+
     _persistQueue = _persistQueue
         .then(() => getOrCreateChatSession())
         .then(sessionId => fetch('/api/chat-messages', {

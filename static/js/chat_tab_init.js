@@ -37,6 +37,7 @@ function initializeChatTab(container) {
                     checkTablesBeforeSaveBtn.classList.remove('hidden-button');
                 }
                 displayGeneratedTables(data);
+                setWorkflowStep('table_generated');
             } catch (err) {
                 console.error('Failed to generate tables:', err);
             } finally {
@@ -104,4 +105,6 @@ function initializeChatTab(container) {
             appendRuleMessage('assistant', 'Something went wrong. Please try again.');
         }
     });
+
+    restoreActiveChatIfAny();
 }

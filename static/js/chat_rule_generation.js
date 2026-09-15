@@ -68,7 +68,7 @@ function dismissOtherRules(list, selectedItem) {
     });
 }
 
-function appendFullRule(reply, originalRule) {
+function appendFullRule(reply, originalRule, savedState) {
     const fullRule = document.createElement('div');
     fullRule.className = 'full-rule-content';
 
@@ -78,32 +78,38 @@ function appendFullRule(reply, originalRule) {
 
     const saveBtn = document.createElement('button');
     saveBtn.className = 'save-button';
-    saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Rule';
-    saveBtn.addEventListener('click', async () => {
+    if (savedState) {
+        saveBtn.innerHTML = '<i class="fa-solid fa-check"></i> Saved';
         saveBtn.disabled = true;
-        saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin-pulse"></i> Saving...';
-        try {
-            const result = await fetch(`/api/grammar-rules/${reply.grammar_rule_id}/append-content`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content: reply.full_content }),
-            });
-            if (!result.ok) {
-                const err = await result.json().catch(() => ({}));
-                throw new Error(err.detail || 'Failed to save');
+    } else {
+        saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Rule';
+        saveBtn.addEventListener('click', async () => {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin-pulse"></i> Saving...';
+            try {
+                const result = await fetch(`/api/grammar-rules/${reply.grammar_rule_id}/append-content`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content: reply.full_content }),
+                });
+                if (!result.ok) {
+                    const err = await result.json().catch(() => ({}));
+                    throw new Error(err.detail || 'Failed to save');
+                }
+                saveBtn.innerHTML = '<i class="fa-solid fa-check"></i> Saved';
+                const tableBtn = document.getElementById('generate-table-btn');
+                if (tableBtn) {
+                    tableBtn.dataset.ruleId = reply.grammar_rule_id;
+                    tableBtn.classList.remove('hidden-button');
+                }
+                setWorkflowStep('rule_saved');
+            } catch (err) {
+                console.error('Failed to save rule:', err);
+                saveBtn.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Error';
+                saveBtn.disabled = false;
             }
-            saveBtn.innerHTML = '<i class="fa-solid fa-check"></i> Saved';
-            const tableBtn = document.getElementById('generate-table-btn');
-            if (tableBtn) {
-                tableBtn.dataset.ruleId = reply.grammar_rule_id;
-                tableBtn.classList.remove('hidden-button');
-            }
-        } catch (err) {
-            console.error('Failed to save rule:', err);
-            saveBtn.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Error';
-            saveBtn.disabled = false;
-        }
-    });
+        });
+    }
 
     fullRule.append(body, saveBtn);
     appendToChat(fullRule);

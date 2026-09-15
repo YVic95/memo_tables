@@ -1,7 +1,7 @@
 // messages of the current chat session
-function appendRuleMessage(role, rules) {
+function appendRuleMessage(role, rules, options) {
     const container = createRuleMessageContainer(role);
-    const list = createRulesList(rules);
+    const list = createRulesList(rules, options);
 
     container.appendChild(list);
 
@@ -31,18 +31,22 @@ function createRuleMessageContainer(role) {
     return container;
 }
 
-function createRulesList(rules) {
+function createRulesList(rules, options) {
     const list = document.createElement('ul');
     list.className = 'proposed-rules-list';
 
-    rules.forEach(rule => {
-        list.appendChild(createRuleItem(rule, list));
+    const visibleRules = (options && options.selectedTitle)
+        ? rules.filter(rule => rule.title === options.selectedTitle)
+        : rules;
+
+    visibleRules.forEach(rule => {
+        list.appendChild(createRuleItem(rule, list, options));
     });
 
     return list;
 }
 
-function createRuleItem(rule, list) {
+function createRuleItem(rule, list, options) {
     const item = document.createElement('li');
     item.className = 'proposed-rule';
 
@@ -53,6 +57,15 @@ function createRuleItem(rule, list) {
     explanation.textContent = rule.explanation;
 
     item.append(title, explanation);
+
+    if (options && options.selectable === false) {
+        if (rule.title === options.selectedTitle) {
+            item.classList.add('proposed-rule-selected');
+        } else {
+            item.classList.add('proposed-rule-dismissed');
+        }
+        return item;
+    }
 
     item.addEventListener('click', () => onRuleSelected(item, list, rule));
 

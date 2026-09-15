@@ -51,6 +51,7 @@ function enterInsertMode(container) {
     });
 
     appendAssistantMessage(`Paste the corrected content for "${container._tableData.title}" as markdown below and press the send button.`);
+    setWorkflowStep('editing_tables');
 }
 
 function enterTableEditMode() {
@@ -71,6 +72,8 @@ function enterTableEditMode() {
         container.classList.remove('grammar-table-selected');
         container.classList.add('table-clickable');
     });
+
+    setWorkflowStep('editing_tables');
 }
 
 function onTableSelected(container) {

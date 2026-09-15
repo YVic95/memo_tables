@@ -160,14 +160,15 @@ function closeTablePreview() {
     }
 }
 
-function showToast(message, duration) {
+function showToast(message, duration, iconClass) {
     duration = duration || 3000;
+    iconClass = iconClass || 'fa-solid fa-check-circle';
     const existing = document.querySelector('.toast');
     if (existing) existing.remove();
 
     const toast = document.createElement('div');
     toast.className = 'toast';
-    toast.innerHTML = '<i class="fa-solid fa-check-circle"></i> ' + message;
+    toast.innerHTML = '<i class="' + iconClass + '"></i> ' + message;
     document.body.appendChild(toast);
 
     requestAnimationFrame(function() {
@@ -225,6 +226,16 @@ async function onSaveTablesClick(event) {
 
         saveBtn.innerHTML = '<i class="fa-solid fa-check"></i> Saved';
         showToast('Tables saved successfully');
+        setWorkflowStep('saved_tables');
+
+        const editTableBtn = document.getElementById('edit-table-btn');
+        const checkTablesBeforeSaveBtn = document.getElementById('check-tables-before-save');
+        if (editTableBtn) {
+            editTableBtn.classList.add('hidden-button');
+        }
+        if (checkTablesBeforeSaveBtn) {
+            checkTablesBeforeSaveBtn.classList.add('hidden-button');
+        }
 
         const data = await result.json();
         renderSaveResponseInChat(data);

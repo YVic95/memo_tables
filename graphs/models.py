@@ -98,3 +98,9 @@ class ChatMessageRequest(BaseModel):
     role: MessageRole
     message_type: MessageType
     content: dict[str, Any]
+
+class WorkflowStepUpdate(BaseModel):
+    workflow_step: str | None = Field(
+        default=None,
+        description="Marker of how far the chat workflow advanced: rule_saved, table_generated, editing_tables, saved_tables",
+    )
