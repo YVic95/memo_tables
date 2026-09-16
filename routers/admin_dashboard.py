@@ -3,6 +3,7 @@ from typing import Annotated
 from routers.auth import require_admin
 from core.render import render_section
 from core.menu import menu_sections
+from graphs.prompts import correction_prompt
 
 router = APIRouter(prefix="/admin-panel", tags=["admin-panel"])
 
@@ -15,5 +16,6 @@ async def admin_panel(request: Request, user: Annotated[dict, Depends(require_ad
         context={
             "user": user,
             "menu_sections": menu_sections,
+            "correction_prompt": correction_prompt,
         },
     )

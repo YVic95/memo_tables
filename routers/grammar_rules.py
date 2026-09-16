@@ -3,6 +3,7 @@ from typing import Annotated
 from routers.auth import require_admin
 from core.render import render_section
 from core.menu import menu_sections
+from graphs.prompts import correction_prompt
 from sqlalchemy.orm import Session
 from database import get_db
 
@@ -22,5 +23,6 @@ async def rules_section(
         context={
             "user": user,
             "menu_sections": menu_sections,
+            "correction_prompt": correction_prompt,
         },
     )

@@ -18,7 +18,10 @@ function renderTableData(tableData, readOnly = false) {
     copyBtn.addEventListener('click', (event) => {
         event.stopPropagation();
         const markdown = tableSerializer.tableToMarkdown(tableData);
-        navigator.clipboard.writeText(markdown).then(() => {
+        const promptEl = document.getElementById('correction-prompt-source');
+        const prompt = promptEl ? promptEl.textContent.trim() : '';
+        const content = prompt ? prompt.replace('{table_content}', markdown) : markdown;
+        navigator.clipboard.writeText(content).then(() => {
             const icon = copyBtn.querySelector('i');
             icon.className = 'fa-solid fa-check';
             setTimeout(() => {

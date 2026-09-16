@@ -9,6 +9,7 @@ from crud.language_pairs import get_language_pairs, create_language_pair, delete
 from core.render import render_section
 from core.templates import templates
 from core.menu import menu_sections
+from graphs.prompts import correction_prompt
 
 router = APIRouter(prefix="/admin-panel/languages", tags=["languages"])
 
@@ -25,6 +26,7 @@ async def languages_section(
         context={
             "user": user,
             "menu_sections": menu_sections,
+            "correction_prompt": correction_prompt,
             "languages": get_languages(db),
             "language_pairs": get_language_pairs(db),
         },
