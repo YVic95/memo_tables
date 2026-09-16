@@ -43,6 +43,14 @@ def set_workflow_step(db: Session, session_id: uuid.UUID, workflow_step: str | N
     db.commit()
     return _serialize_session(session)
 
+def set_chat_session_title(db: Session, session_id: uuid.UUID, title: str) -> dict | None:
+    session = db.query(ChatSession).filter(ChatSession.id == session_id).first()
+    if session is None:
+        return None
+    session.title = title
+    db.commit()
+    return _serialize_session(session)
+
 def close_chat_session(db: Session, session_id: uuid.UUID) -> bool:
     session = db.query(ChatSession).filter(ChatSession.id == session_id).first()
     if session is None:

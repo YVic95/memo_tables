@@ -244,6 +244,7 @@ function applyWorkflowButtonState(workflowStep, ruleId) {
     const generateBtn = document.getElementById('generate-table-btn');
     const editBtn = document.getElementById('edit-table-btn');
     const checkBtn = document.getElementById('check-tables-before-save');
+    const closeBtn = document.getElementById('close-chat-session-btn');
 
     if (generateBtn) {
         generateBtn.classList.add('hidden-button');
@@ -254,6 +255,9 @@ function applyWorkflowButtonState(workflowStep, ruleId) {
     }
     if (checkBtn) {
         checkBtn.classList.add('hidden-button');
+    }
+    if (closeBtn) {
+        closeBtn.classList.add('hidden-button');
     }
 
     if (workflowStep === 'rule_saved' && ruleId && generateBtn) {
@@ -267,5 +271,9 @@ function applyWorkflowButtonState(workflowStep, ruleId) {
         if (checkBtn) {
             checkBtn.classList.remove('hidden-button');
         }
+    }
+
+    if (workflowStep === 'saved_tables' && closeBtn) {
+        closeBtn.classList.remove('hidden-button');
     }
 }

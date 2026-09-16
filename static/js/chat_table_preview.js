@@ -236,6 +236,10 @@ async function onSaveTablesClick(event) {
         if (checkTablesBeforeSaveBtn) {
             checkTablesBeforeSaveBtn.classList.add('hidden-button');
         }
+        const closeChatSessionBtn = document.getElementById('close-chat-session-btn');
+        if (closeChatSessionBtn) {
+            closeChatSessionBtn.classList.remove('hidden-button');
+        }
 
         const data = await result.json();
         renderSaveResponseInChat(data);

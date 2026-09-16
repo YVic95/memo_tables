@@ -9,6 +9,9 @@ async function onRuleSelected(item, list, rule) {
 
     persistUserRuleSelectedMessage(rule);
 
+    const languagePairId = document.getElementById('language-pair-select')?.value;
+    if (languagePairId) setChatSessionTitle(languagePairId, rule.title);
+
     const progressContainer = createProgressContainer();
     appendToChat(progressContainer);
 

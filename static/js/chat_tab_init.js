@@ -11,9 +11,25 @@ function initializeChatTab(container) {
     const generateTableBtn = container.querySelector('#generate-table-btn');
     const languagePairDropdown = container.querySelector('#language-pair-dropdown');
     const languagePairSelect = container.querySelector('#language-pair-select');
+    const closeChatSessionBtn = container.querySelector('#close-chat-session-btn');
 
     if (!addLanguagePairButton || !proposeMissingRulesButton || !languagePairDropdown || !languagePairSelect) {
         return;
+    }
+
+    if (closeChatSessionBtn) {
+        closeChatSessionBtn.addEventListener('click', async () => {
+            closeChatSessionBtn.disabled = true;
+            closeChatSessionBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin-pulse"></i> Closing...';
+            try {
+                await closeChatSession();
+            } catch (err) {
+                console.error('Failed to close chat session:', err);
+                closeChatSessionBtn.disabled = false;
+                closeChatSessionBtn.innerHTML = '<i class="fa-solid fa-power-off"></i> Close Chat Session';
+                showToast('Failed to close the chat session', 3000, 'fa-solid fa-triangle-exclamation');
+            }
+        });
     }
 
     if (generateTableBtn) {

@@ -100,8 +100,16 @@ class ChatMessageRequest(BaseModel):
     message_type: MessageType
     content: dict[str, Any]
 
-class WorkflowStepUpdate(BaseModel):
+class ChatSessionUpdate(BaseModel):
     workflow_step: str | None = Field(
         default=None,
         description="Marker of how far the chat workflow advanced: rule_saved, table_generated, editing_tables, saved_tables",
+    )
+    language_pair_id: uuid.UUID | None = Field(
+        default=None,
+        description="The language pair the session is about, used to build the session title",
+    )
+    rule_title: str | None = Field(
+        default=None,
+        description="Title of the rule picked for this session, used to build the session title",
     )
