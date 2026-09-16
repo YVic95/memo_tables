@@ -5,6 +5,16 @@ from models.chat_messages import ChatMessage
 from models.chat_sessions import ChatSession
 from graphs.models import MessageRole, MessageType
 
+def _strip_nulls(obj):
+    if isinstance(obj, str):
+        return obj.replace("\x00", "")
+    if isinstance(obj, dict):
+        return {k: _strip_nulls(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_strip_nulls(item) for item in obj]
+    return obj
+
+
 def _serialize_message(message: ChatMessage) -> dict:
     return {
         "id": message.id,
@@ -35,6 +45,8 @@ def create_chat_message(
         select(func.coalesce(func.max(ChatMessage.position), 0) + 1)
         .where(ChatMessage.session_id == session_id)
     ).scalar_one()
+
+    content = _strip_nulls(content)
 
     message = ChatMessage(
         session_id=session_id,
