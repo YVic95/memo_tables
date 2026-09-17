@@ -5,6 +5,8 @@ const {
   tableBlockColumnCount,
   tableElementToMarkdown,
   withRuleHeading,
+  resolveSkeletonTableReplacement,
+  reduceSkeletonReplacements,
 } = require('../../static/js/skeleton_tables.js');
 
 const singleTable =
@@ -125,5 +127,57 @@ describe('tableElementToMarkdown', () => {
   it('returns empty markdown when the table has no header row', () => {
     const table = { querySelectorAll: () => [] };
     assert.equal(tableElementToMarkdown(table), '');
+  });
+});
+
+describe('resolveSkeletonTableReplacement', () => {
+  it('extracts the category and table title from a titled skeleton markdown', () => {
+    const markdown = '## Nouns: Masculine\n\n| Label | Noun: gato |\n| --- | --- |\n| Singular | gato |';
+    assert.deepEqual(
+      resolveSkeletonTableReplacement('nouns', markdown),
+      { category: 'nouns', tableTitle: 'Nouns: Masculine', markdown },
+    );
+  });
+
+  it('returns null for markdown without a ## title heading', () => {
+    const markdown = '| Label | Noun: gato |\n| --- | --- |\n| Singular | gato |';
+    assert.equal(resolveSkeletonTableReplacement('nouns', markdown), null);
+  });
+
+  it('returns null for empty markdown', () => {
+    assert.equal(resolveSkeletonTableReplacement('nouns', ''), null);
+    assert.equal(resolveSkeletonTableReplacement('nouns', '   \n'), null);
+  });
+});
+
+describe('reduceSkeletonReplacements', () => {
+  const titled = (title, table) => '## ' + title + '\n\n' + table;
+
+  it('keeps the last replacement per category and table title', () => {
+    const replacements = [
+      { category: 'nouns', markdown: titled('Nouns: Masculine', singleTable) },
+      { category: 'nouns', markdown: titled('Nouns: Feminine', secondTable) },
+      { category: 'nouns', markdown: titled('Nouns: Masculine', secondTable) },
+    ];
+    const reduced = reduceSkeletonReplacements(replacements);
+    assert.equal(reduced.length, 2);
+    assert.deepEqual(reduced.map(r => r.tableTitle), ['Nouns: Masculine', 'Nouns: Feminine']);
+    const masculine = reduced.find(r => r.tableTitle === 'Nouns: Masculine');
+    assert.equal(masculine.markdown, titled('Nouns: Masculine', secondTable));
+  });
+
+  it('drops replacements that do not resolve to a valid titled table', () => {
+    const replacements = [
+      { category: 'nouns', markdown: '| Label | x |\n| --- | --- |' },
+      { category: 'nouns', markdown: titled('Nouns: Feminine', secondTable) },
+    ];
+    const reduced = reduceSkeletonReplacements(replacements);
+    assert.equal(reduced.length, 1);
+    assert.equal(reduced[0].tableTitle, 'Nouns: Feminine');
+  });
+
+  it('returns an empty list for no replacements', () => {
+    assert.deepEqual(reduceSkeletonReplacements([]), []);
+    assert.deepEqual(reduceSkeletonReplacements(null), []);
   });
 });

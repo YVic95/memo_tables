@@ -485,6 +485,29 @@ function replaceSkeletonTable(wrapper, correctedMarkdown, title) {
     oldTable.replaceWith(newTable);
 }
 
+function findSkeletonTableWrapper(category, tableTitle) {
+    const sections = Array.from(document.querySelectorAll('.skeleton-table-section'));
+    for (let i = sections.length - 1; i >= 0; i--) {
+        const wrappers = Array.from(sections[i].querySelectorAll('.skeleton-table-wrapper'))
+            .filter((wrapper) => wrapper.dataset.category === category);
+        if (wrappers.length === 0) continue;
+
+        for (const wrapper of wrappers) {
+            if (wrapper.dataset.sourceTitle === tableTitle) return wrapper;
+        }
+        return wrappers.length === 1 ? wrappers[0] : null;
+    }
+    return null;
+}
+
+function applyRestoredSkeletonReplacements(replacements) {
+    skeletonTableSerializer.reduceSkeletonReplacements(replacements).forEach((resolved) => {
+        const wrapper = findSkeletonTableWrapper(resolved.category, resolved.tableTitle);
+        if (!wrapper) return;
+        replaceSkeletonTable(wrapper, resolved.markdown, resolved.tableTitle);
+    });
+}
+
 function appendSkeletonMessage(text, role, persist) {
     const container = createRuleMessageContainer(role);
     const message = document.createElement('p');

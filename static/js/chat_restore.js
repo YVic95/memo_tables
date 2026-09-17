@@ -51,12 +51,17 @@ async function restoreActiveChatIfAny() {
         chatMessages.innerHTML = '';
 
         setPersistenceSuppressed(true);
+        const skeletonReplacements = [];
         try {
             messages.forEach(msg => {
-                renderRestoredMessage(msg, restored, ruleSaved);
+                renderRestoredMessage(msg, restored, ruleSaved, skeletonReplacements);
             });
         } finally {
             setPersistenceSuppressed(false);
+        }
+
+        if (skeletonReplacements.length > 0) {
+            applyRestoredSkeletonReplacements(skeletonReplacements);
         }
 
         if (restored.hasProposedRules) {
@@ -157,7 +162,7 @@ function analyzeRestoreMessages(messages) {
     return result;
 }
 
-function renderRestoredMessage(msg, restored, ruleSaved) {
+function renderRestoredMessage(msg, restored, ruleSaved, skeletonReplacements) {
     const content = msg.content || {};
     switch (msg.message_type) {
         case 'proposed_rules':
@@ -192,6 +197,9 @@ function renderRestoredMessage(msg, restored, ruleSaved) {
                 skeleton_titles: content.skeleton_titles,
                 rule_title: content.rule_title,
             });
+            break;
+        case 'skeleton_table_replacement':
+            skeletonReplacements.push({ category: content.category, markdown: content.markdown });
             break;
         default:
             break;

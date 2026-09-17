@@ -63,6 +63,35 @@
     return trimmed ? '## ' + trimmed + '\n\n' + content : content;
   }
 
+  function resolveSkeletonTableReplacement(category, markdown) {
+    if (typeof markdown !== 'string' || !markdown.trim()) {
+      return null;
+    }
+
+    const firstLine = markdown.split('\n').find(line => line.trim());
+    if (!firstLine || !firstLine.trim().startsWith('## ')) {
+      return null;
+    }
+
+    const tableTitle = firstLine.trim().slice(3).trim();
+    if (!tableTitle) {
+      return null;
+    }
+
+    return { category, tableTitle, markdown };
+  }
+
+  function reduceSkeletonReplacements(replacements) {
+    const latest = new Map();
+    (replacements || []).forEach(replacement => {
+      const resolved = resolveSkeletonTableReplacement(replacement.category, replacement.markdown);
+      if (resolved) {
+        latest.set(resolved.category + '\u0000' + resolved.tableTitle, resolved);
+      }
+    });
+    return Array.from(latest.values());
+  }
+
   function tableElementToMarkdown(tableEl) {
     const getCells = (tr) =>
       Array.from(tr.children).map(cell => cell.textContent.trim());
@@ -89,5 +118,7 @@
     tableBlockColumnCount,
     tableElementToMarkdown,
     withRuleHeading,
+    resolveSkeletonTableReplacement,
+    reduceSkeletonReplacements,
   };
 });
