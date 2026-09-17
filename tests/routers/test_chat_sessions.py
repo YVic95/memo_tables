@@ -174,3 +174,29 @@ class TestTitle:
         refreshed = db_session.query(ChatSession).filter(ChatSession.id == open_session.id).first()
         assert refreshed.title is None
         assert refreshed.workflow_step == "rule_saved"
+
+
+class TestChatMessagePersistence:
+    def test_skeleton_table_replacement_persists_and_roundtrips(self, db_session, open_session):
+        client = TestClient(app)
+        markdown = "| Label | Verb: hablar |\n| --- | --- |\n| 1st | hablo |"
+        resp = client.post(
+            "/api/chat-messages",
+            json={
+                "session_id": str(open_session.id),
+                "role": "assistant",
+                "message_type": "skeleton_table_replacement",
+                "content": {"category": "verbs", "markdown": markdown},
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["message_type"] == "skeleton_table_replacement"
+        assert data["content"] == {"category": "verbs", "markdown": markdown}
+
+        msgs = client.get(f"/api/chat-sessions/{open_session.id}/messages").json()
+        assert any(
+            m["message_type"] == "skeleton_table_replacement"
+            and m["content"]["category"] == "verbs"
+            for m in msgs
+        )

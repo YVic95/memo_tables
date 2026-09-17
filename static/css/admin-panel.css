@@ -1197,6 +1197,13 @@ button[type="submit"]#save-language-selection:hover,
     margin-right: 0;
 }
 
+.skeleton-table-title {
+    margin-right: auto;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #4A5D3A;
+}
+
 /* Chat session restore overlay */
 .chat-restore-overlay {
     position: fixed;

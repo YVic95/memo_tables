@@ -58,6 +58,11 @@
     return headerLine.split('|').length;
   }
 
+  function withRuleHeading(title, content) {
+    const trimmed = String(title || '').trim().replace(/^#+\s*/, '');
+    return trimmed ? '## ' + trimmed + '\n\n' + content : content;
+  }
+
   function tableElementToMarkdown(tableEl) {
     const getCells = (tr) =>
       Array.from(tr.children).map(cell => cell.textContent.trim());
@@ -79,5 +84,10 @@
       .join('\n');
   }
 
-  return { splitPipeTableBlocks, tableBlockColumnCount, tableElementToMarkdown };
+  return {
+    splitPipeTableBlocks,
+    tableBlockColumnCount,
+    tableElementToMarkdown,
+    withRuleHeading,
+  };
 });

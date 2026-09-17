@@ -4,6 +4,7 @@ const {
   splitPipeTableBlocks,
   tableBlockColumnCount,
   tableElementToMarkdown,
+  withRuleHeading,
 } = require('../../static/js/skeleton_tables.js');
 
 const singleTable =
@@ -54,6 +55,21 @@ describe('splitPipeTableBlocks', () => {
   it('returns no blocks for empty input', () => {
     assert.deepEqual(splitPipeTableBlocks(''), []);
     assert.deepEqual(splitPipeTableBlocks('   \n\n'), []);
+  });
+});
+
+describe('withRuleHeading', () => {
+  it('prepends a markdown h2 heading above the block when a title is given', () => {
+    assert.equal(withRuleHeading('Nouns', singleTable), '## Nouns\n\n' + singleTable);
+  });
+
+  it('leaves the block unchanged when the title is blank', () => {
+    assert.equal(withRuleHeading('', singleTable), singleTable);
+    assert.equal(withRuleHeading('   ', singleTable), singleTable);
+  });
+
+  it('strips heading noise from the title', () => {
+    assert.equal(withRuleHeading('## Nouns', singleTable), '## Nouns\n\n' + singleTable);
   });
 });
 

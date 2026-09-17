@@ -80,16 +80,29 @@ def save_tables(
         f"{_plural(counts['base_words'], 'base word')}."
     )
 
+    titles_by_no = {table.fragmented_table_id or 0: table.title for table in tables_to_save}
+    skeleton_table, skeleton_titles = _build_skeleton_summary(db, rule, titles_by_no)
+
     return {
         "status": "saved",
         "grammar_rule_id": str(body.grammar_rule_id),
+        "rule_title": rule.name,
         "message": message,
-        "skeleton_table": _build_skeleton_table(db, rule),
+        "skeleton_table": skeleton_table,
+        "skeleton_titles": skeleton_titles,
     }
 
 
-def _build_skeleton_table(db: Session, rule: GrammarRule) -> dict[str, str]:
+def _build_skeleton_summary(
+    db: Session,
+    rule: GrammarRule,
+    titles_by_no: dict[int, str],
+) -> tuple[dict[str, str], dict[str, list[str]]]:
     category = get_word_category_by_id(db, rule.word_category_id)
     slug = category.slug if category else "table"
     table_data = get_table_data(db, rule.id, rule.word_category_id)
-    return build_markdown_tables(table_data, slug)
+    if not table_data:
+        return {slug: ""}, {slug: []}
+
+    titles = [titles_by_no.get(group["table_no"], rule.name) for group in table_data]
+    return build_markdown_tables(table_data, slug), {slug: titles}

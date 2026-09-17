@@ -561,6 +561,67 @@ class TestSkeletonTable:
         assert "sentence" in result["message"]
         assert "skeleton_table" in result
 
+    @patch("routers.save_tables_agent.build_markdown_tables")
+    @patch("routers.save_tables_agent.get_table_data")
+    @patch("routers.save_tables_agent.get_word_category_by_id")
+    @patch("routers.save_tables_agent.get_language_pair_by_id")
+    @patch("routers.save_tables_agent.get_grammar_rule_by_id")
+    @patch("routers.save_tables_agent.count_saved_data")
+    def test_response_includes_rule_title(
+        self, mock_count, mock_get_rule, mock_get_pair,
+        mock_get_category, mock_get_table_data, mock_build_md,
+        seed_data, mock_graph, db_session,
+    ):
+        mock_get_pair.return_value = {"pair_id": seed_data["pair_id"]}
+        mock_get_rule.return_value = GrammarRule(
+            id=seed_data["rule_id"], name="Plural Agreement", description="test",
+            language_id="1", word_category_id="1",
+        )
+        mock_get_category.return_value = WordCategory(name="Nouns", slug="nouns")
+        mock_count.return_value = {"sentences": 0, "word_forms": 0, "base_words": 0}
+        mock_get_table_data.return_value = []
+        mock_build_md.return_value = {"nouns": ""}
+        body = _make_request(seed_data)
+
+        result = save_tables(body, db_session)
+
+        assert result["rule_title"] == "Plural Agreement"
+
+    @patch("routers.save_tables_agent.build_markdown_tables")
+    @patch("routers.save_tables_agent.get_table_data")
+    @patch("routers.save_tables_agent.get_word_category_by_id")
+    @patch("routers.save_tables_agent.get_language_pair_by_id")
+    @patch("routers.save_tables_agent.get_grammar_rule_by_id")
+    @patch("routers.save_tables_agent.count_saved_data")
+    def test_skeleton_titles_aligned_with_blocks(
+        self, mock_count, mock_get_rule, mock_get_pair,
+        mock_get_category, mock_get_table_data, mock_build_md,
+        seed_data, mock_graph, db_session,
+    ):
+        mock_get_pair.return_value = {"pair_id": seed_data["pair_id"]}
+        mock_get_rule.return_value = GrammarRule(
+            id=seed_data["rule_id"], name="Plural Agreement", description="test",
+            language_id="1", word_category_id="1",
+        )
+        mock_get_category.return_value = WordCategory(name="Nouns", slug="nouns")
+        mock_count.return_value = {"sentences": 0, "word_forms": 0, "base_words": 0}
+        mock_get_table_data.return_value = [
+            {"table_no": 0, "entries": [{"label": "A", "base_word_text": "x", "form": "y"}]},
+            {"table_no": 2, "entries": [{"label": "B", "base_word_text": "x", "form": "y"}]},
+            {"table_no": 3, "entries": [{"label": "C", "base_word_text": "x", "form": "y"}]},
+        ]
+        mock_build_md.return_value = {"nouns": "table0\n\ntable2\n\ntable3"}
+        body = _make_request(seed_data, tables=[
+            {"title": "Nouns: Feminine", "headers": ["Form"], "rows": [{"cells": ["x"]}], "fragmented_table_id": 2},
+            {"title": "Nouns: Masculine", "headers": ["Form"], "rows": [{"cells": ["y"]}], "fragmented_table_id": 3},
+        ])
+
+        result = save_tables(body, db_session)
+
+        assert result["skeleton_titles"] == {
+            "nouns": ["Plural Agreement", "Nouns: Feminine", "Nouns: Masculine"],
+        }
+
     @patch("routers.save_tables_agent.get_language_pair_by_id")
     @patch("routers.save_tables_agent.get_grammar_rule_by_id")
     @patch("routers.save_tables_agent.count_saved_data")

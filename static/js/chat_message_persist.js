@@ -77,5 +77,11 @@ function persistSaveConfirmationMessage(reply) {
     persistChatMessage('assistant', 'save_confirmation', {
         message: reply.message,
         skeleton_table: reply.skeleton_table,
+        skeleton_titles: reply.skeleton_titles,
+        rule_title: reply.rule_title,
     });
+}
+
+function persistSkeletonTableReplacement(category, markdown) {
+    persistChatMessage('assistant', 'skeleton_table_replacement', { category, markdown });
 }

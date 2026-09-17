@@ -333,6 +333,7 @@ function renderSaveResponseInChat(data) {
     }
 
     if (data.skeleton_table) {
+        const ruleTitle = data.rule_title || 'Table';
         const categories = Object.keys(data.skeleton_table);
         categories.forEach(function(category) {
             const markdown = data.skeleton_table[category];
@@ -344,6 +345,7 @@ function renderSaveResponseInChat(data) {
 
             const tables = section.querySelectorAll('table');
             const tableBlocks = skeletonTableSerializer.splitPipeTableBlocks(markdown).filter(b => b.isTable);
+            const titles = (data.skeleton_titles && data.skeleton_titles[category]) || [];
             tables.forEach((table, idx) => {
                 const block = tableBlocks[idx];
                 const renderedColumns = table.querySelectorAll('thead tr th').length;
@@ -351,7 +353,8 @@ function renderSaveResponseInChat(data) {
                 const source = block && renderedColumns === blockColumns
                     ? block.content
                     : skeletonTableSerializer.tableElementToMarkdown(table);
-                wrapSkeletonTable(table, source);
+                const title = titles[idx] || ruleTitle;
+                wrapSkeletonTable(table, skeletonTableSerializer.withRuleHeading(title, source), title, category);
             });
 
             container.appendChild(section);
@@ -365,13 +368,23 @@ function renderSaveResponseInChat(data) {
     }
 }
 
-function wrapSkeletonTable(table, sourceMarkdown) {
+let skeletonInsertTarget = null;
+let skeletonSubmitBound = false;
+
+function wrapSkeletonTable(table, sourceMarkdown, tableTitle, category) {
     const wrapper = document.createElement('div');
     wrapper.className = 'skeleton-table-wrapper';
     wrapper.dataset.sourceMarkdown = sourceMarkdown;
+    wrapper.dataset.sourceTitle = tableTitle || '';
+    wrapper.dataset.category = category || '';
 
     const toolbar = document.createElement('div');
     toolbar.className = 'skeleton-table-toolbar';
+
+    const titleEl = document.createElement('div');
+    titleEl.className = 'skeleton-table-title';
+    titleEl.textContent = tableTitle || '';
+    toolbar.appendChild(titleEl);
 
     const copyBtn = document.createElement('button');
     copyBtn.className = 'grammar-table-copy';
@@ -380,7 +393,8 @@ function wrapSkeletonTable(table, sourceMarkdown) {
     copyBtn.addEventListener('click', () => {
         const promptEl = document.getElementById('correction-prompt-source');
         const prompt = promptEl ? promptEl.textContent.trim() : '';
-        const content = prompt ? prompt.replace('{table_content}', sourceMarkdown) : sourceMarkdown;
+        const markdown = wrapper.dataset.sourceMarkdown;
+        const content = prompt ? prompt.replace('{table_content}', markdown) : markdown;
         navigator.clipboard.writeText(content).then(() => {
             const icon = copyBtn.querySelector('i');
             icon.className = 'fa-solid fa-check';
@@ -398,11 +412,89 @@ function wrapSkeletonTable(table, sourceMarkdown) {
     insertBtn.className = 'grammar-table-insert';
     insertBtn.innerHTML = '<i class="fa-solid fa-clipboard"></i>';
     insertBtn.title = 'Insert corrected table content';
+    insertBtn.addEventListener('click', () => enterSkeletonInsertMode(wrapper));
     toolbar.appendChild(insertBtn);
 
     wrapper.appendChild(toolbar);
     table.parentNode.insertBefore(wrapper, table);
     wrapper.appendChild(table);
+}
+
+function ensureSkeletonSubmitBound() {
+    if (skeletonSubmitBound) return;
+    const form = document.getElementById('create-rule-chatbot');
+    if (!form) return;
+    form.addEventListener('submit', (event) => {
+        if (!skeletonInsertTarget) return;
+        event.preventDefault();
+        submitSkeletonInsert(skeletonInsertTarget);
+    });
+    skeletonSubmitBound = true;
+}
+
+function enterSkeletonInsertMode(wrapper) {
+    skeletonInsertTarget = wrapper;
+    ensureSkeletonSubmitBound();
+
+    const input = document.getElementById('chat-input');
+    const sendBtn = document.getElementById('send-message');
+    if (input) input.disabled = false;
+    if (sendBtn) sendBtn.disabled = false;
+    if (input) input.focus();
+
+    const label = wrapper.dataset.category || wrapper.dataset.sourceTitle || 'table';
+    appendSkeletonMessage(`Paste the corrected content for the "${label}" table as markdown below and press the send button.`, 'assistant', true);
+}
+
+function submitSkeletonInsert(wrapper) {
+    const input = document.getElementById('chat-input');
+    const sendBtn = document.getElementById('send-message');
+    const markdown = input ? input.value : '';
+    if (!markdown.trim()) return;
+
+    const parsed = tableSerializer.parseMarkdownToTableData(markdown);
+    if (parsed.error) {
+        appendSkeletonMessage('Couldn\'t parse the table. Make sure it matches the copy-paste format (a "## Title" heading followed by a pipe table).', 'assistant', false);
+        if (input) input.focus();
+        return;
+    }
+
+    if (input) input.value = '';
+    appendSkeletonMessage(markdown, 'user', true);
+
+    const correctedMarkdown = tableSerializer.tableToMarkdown(parsed);
+    replaceSkeletonTable(wrapper, correctedMarkdown, parsed.title);
+    persistSkeletonTableReplacement(wrapper.dataset.category, correctedMarkdown);
+
+    skeletonInsertTarget = null;
+    if (input) input.disabled = true;
+    if (sendBtn) sendBtn.disabled = true;
+
+    appendSkeletonMessage('Table updated with the corrected content.', 'assistant', true);
+}
+
+function replaceSkeletonTable(wrapper, correctedMarkdown, title) {
+    const holder = document.createElement('div');
+    holder.innerHTML = markdownToHtml(correctedMarkdown);
+    const newTable = holder.querySelector('table');
+    const oldTable = wrapper.querySelector('table');
+    if (!newTable || !oldTable) return;
+
+    wrapper.dataset.sourceMarkdown = correctedMarkdown;
+    wrapper.dataset.sourceTitle = title;
+    oldTable.replaceWith(newTable);
+}
+
+function appendSkeletonMessage(text, role, persist) {
+    const container = createRuleMessageContainer(role);
+    const message = document.createElement('p');
+    message.className = 'table-edit-hint';
+    message.textContent = text;
+    container.appendChild(message);
+    appendToChat(container);
+    if (persist) {
+        persistTextMessage(role, text);
+    }
 }
 
 document.addEventListener('keydown', function(event) {

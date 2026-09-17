@@ -189,6 +189,8 @@ function renderRestoredMessage(msg, restored, ruleSaved) {
             renderSaveResponseInChat({
                 message: content.message,
                 skeleton_table: content.skeleton_table,
+                skeleton_titles: content.skeleton_titles,
+                rule_title: content.rule_title,
             });
             break;
         default:
