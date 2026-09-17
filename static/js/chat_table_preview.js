@@ -341,6 +341,19 @@ function renderSaveResponseInChat(data) {
             const section = document.createElement('div');
             section.className = 'skeleton-table-section';
             section.innerHTML = markdownToHtml(markdown);
+
+            const tables = section.querySelectorAll('table');
+            const tableBlocks = skeletonTableSerializer.splitPipeTableBlocks(markdown).filter(b => b.isTable);
+            tables.forEach((table, idx) => {
+                const block = tableBlocks[idx];
+                const renderedColumns = table.querySelectorAll('thead tr th').length;
+                const blockColumns = block ? skeletonTableSerializer.tableBlockColumnCount(block.content) : 0;
+                const source = block && renderedColumns === blockColumns
+                    ? block.content
+                    : skeletonTableSerializer.tableElementToMarkdown(table);
+                wrapSkeletonTable(table, source);
+            });
+
             container.appendChild(section);
         });
     }
@@ -350,6 +363,46 @@ function renderSaveResponseInChat(data) {
     if (data.message || data.skeleton_table) {
         persistSaveConfirmationMessage(data);
     }
+}
+
+function wrapSkeletonTable(table, sourceMarkdown) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'skeleton-table-wrapper';
+    wrapper.dataset.sourceMarkdown = sourceMarkdown;
+
+    const toolbar = document.createElement('div');
+    toolbar.className = 'skeleton-table-toolbar';
+
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'grammar-table-copy';
+    copyBtn.innerHTML = '<i class="fa-solid fa-copy"></i>';
+    copyBtn.title = 'Copy table content';
+    copyBtn.addEventListener('click', () => {
+        const promptEl = document.getElementById('correction-prompt-source');
+        const prompt = promptEl ? promptEl.textContent.trim() : '';
+        const content = prompt ? prompt.replace('{table_content}', sourceMarkdown) : sourceMarkdown;
+        navigator.clipboard.writeText(content).then(() => {
+            const icon = copyBtn.querySelector('i');
+            icon.className = 'fa-solid fa-check';
+            setTimeout(() => {
+                icon.className = 'fa-solid fa-copy';
+            }, 1500);
+        }).catch(() => {
+            const icon = copyBtn.querySelector('i');
+            icon.className = 'fa-solid fa-copy';
+        });
+    });
+    toolbar.appendChild(copyBtn);
+
+    const insertBtn = document.createElement('button');
+    insertBtn.className = 'grammar-table-insert';
+    insertBtn.innerHTML = '<i class="fa-solid fa-clipboard"></i>';
+    insertBtn.title = 'Insert corrected table content';
+    toolbar.appendChild(insertBtn);
+
+    wrapper.appendChild(toolbar);
+    table.parentNode.insertBefore(wrapper, table);
+    wrapper.appendChild(table);
 }
 
 document.addEventListener('keydown', function(event) {
