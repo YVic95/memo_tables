@@ -1,0 +1,109 @@
+# Canonical rule catalog for the English -> Spanish language pair.
+# Rules are written in the native language of the learner (English).
+#
+# Edit this file, then run: uv run python scripts/load_canon.py
+# Re-running is safe: entries are upserted by slug, removed entries are
+# deactivated (never deleted), and added entries are inserted.
+
+native_language: en
+target_language: es
+
+rules:
+  - slug: present-tense-ar-conjugation
+    category: verb
+    level: A1
+    position: 1
+    name: Present tense regular -ar conjugation
+    description: >-
+      Regular Spanish verbs ending in -ar (hablar, trabajar, estudiar) drop the
+      -ar and add -o, -as, -a, -amos, -áis, -an in the present tense.
+  - slug: present-tense-er-conjugation
+    category: verb
+    level: A1
+    position: 2
+    name: Present tense regular -er conjugation
+    description: >-
+      Regular Spanish verbs ending in -er (comer, beber, aprender) drop the -er
+      and add -o, -es, -e, -emos, -éis, -en in the present tense.
+  - slug: present-tense-ir-conjugation
+    category: verb
+    level: A1
+    position: 3
+    name: Present tense regular -ir conjugation
+    description: >-
+      Regular Spanish verbs ending in -ir (vivir, escribir, abrir) drop the -ir
+      and add -o, -es, -e, -imos, -ís, -en in the present tense.
+  - slug: ser-vs-estar
+    category: verb
+    level: A1
+    position: 4
+    name: Ser vs. estar
+    description: >-
+      Spanish uses ser for permanent or essential qualities, origin, and
+      profession, and estar for temporary states, locations, and ongoing
+      conditions. Note the contrast: la manzana es verde (the apple is green
+      by nature) vs. la manzana está verde (the apple is unripe).
+  - slug: tener-present-tense
+    category: verb
+    level: A1
+    position: 5
+    name: "Irregular verbs: tener (Present tense)"
+    description: >-
+      The verb tener (to have) is irregular in the present tense: tengo, tienes,
+      tiene, tenemos, tenéis, tienen. It also forms common idioms such as tener
+      hambre (to be hungry), tener sed (to be thirsty), and tener prisa (to be
+      in a hurry).
+  - slug: ir-present-tense
+    category: verb
+    level: A1
+    position: 6
+    name: "Irregular verbs: ir (Present tense)"
+    description: >-
+      The verb ir (to go) is irregular in the present tense: voy, vas, va,
+      vamos, vais, van. Combined with a, it expresses future intention, as in
+      voy a estudiar (I am going to study).
+  - slug: basic-negation
+    category: verb
+    level: A1
+    position: 7
+    name: Basic negation
+    description: >-
+      Place the word no directly before the Spanish verb to negate a sentence:
+      no quiero, no hablo. Negative words such as nada (nothing), nadie (nobody),
+      and nunca (never) can follow or replace the negative part of the sentence.
+  - slug: reflexive-verbs
+    category: verb
+    level: A2
+    position: 1
+    name: Reflexive verbs
+    description: >-
+      Spanish reflexive verbs describe actions the subject performs on itself
+      and use the reflexive pronouns me, te, se, nos, os, se, as in me lavo (I
+      wash myself), se levanta (he gets up), and nos vestimos (we get dressed).
+  - slug: preterite-ar-conjugation
+    category: verb
+    level: A2
+    position: 2
+    name: Regular preterite conjugation for -ar verbs
+    description: >-
+      In the preterite, which describes completed past actions, regular -ar
+      verbs drop the -ar and add -é, -aste, -ó, -amos, -asteis, -aron, as in
+      hablé, hablaste, habló.
+  - slug: preterite-er-conjugation
+    category: verb
+    level: A2
+    position: 3
+    name: Regular preterite conjugation for -er verbs
+    description: >-
+      In the preterite, which describes completed past actions, regular -er
+      verbs drop the -er and add -í, -iste, -ió, -imos, -isteis, -ieron, as in
+      comí, comiste, comió.
+  - slug: preterite-ir-conjugation
+    category: verb
+    level: A2
+    position: 4
+    name: Regular preterite conjugation for -ir verbs
+    description: >-
+      In the preterite, which describes completed past actions, regular -ir
+      verbs drop the -ir and add -í, -iste, -ió, -imos, -isteis, -ieron — the
+      same endings as regular -er verbs — as in viví, viviste, vivió.
