@@ -18,6 +18,7 @@ memo_tables/
 ├── models/                      # SQLAlchemy ORM models (one file per table)
 │   ├── __init__.py              #   MUST exist — Alembic imports from here
 │   ├── language.py
+│   ├── canonical_rules.py
 │   ├── grammar_rules.py
 │   ├── grammar_rule_translations.py
 │   ├── grammar_rule_rows.py
@@ -46,6 +47,7 @@ memo_tables/
 │   ├── languages.py
 │   ├── language_pairs.py
 │   ├── rules.py
+│   ├── canonical_rules.py
 │   └── chat_sessions.py
 │
 ├── graphs/                      # LangGraph agent definitions
@@ -92,6 +94,8 @@ memo_tables/
 │   ├── menu.py                  #   Sidebar menu sections config
 │   └── checkpointer.py          #   PostgresSaver for LangGraph
 │
+├── data/                        # Authoring data
+│   └── canonical_rules/         #   Canonical rule catalog (one YAML file per language pair)
 ├── templates/                   # Jinja2 HTML templates
 │   ├── admin-panel.html         #   Base layout (sidebar + header + content)
 │   ├── admin-panel-languages.html
@@ -118,7 +122,8 @@ memo_tables/
 │   ├── start.sh
 │   ├── stop.sh
 │   ├── migrate.sh
-│   └── create_admin_user.py
+│   ├── create_admin_user.py
+│   └── load_canon.py
 │
 └── docs/                        # Documentation
     ├── agents/
