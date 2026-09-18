@@ -5,9 +5,10 @@
 # - description (text, nullable)
 # - language_id (UUID, foreign key to languages.id, not null)
 # - word_category_id (UUID, foreign key to word_categories.id, not null)
+# - canonical_rule_id (UUID, foreign key to canonical_rules.id, not null, unique)
 
 import uuid
-from sqlalchemy import Column, String, Text, ForeignKey
+from sqlalchemy import Column, String, Text, ForeignKey, Index, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from database import Base
 
@@ -19,3 +20,17 @@ class GrammarRule(Base):
     description = Column(Text, nullable=True)
     language_id = Column(UUID(as_uuid=True), ForeignKey("languages.id"), nullable=False)
     word_category_id = Column(UUID(as_uuid=True), ForeignKey("word_categories.id"), nullable=False)
+    canonical_rule_id = Column(UUID(as_uuid=True), ForeignKey("canonical_rules.id"), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "canonical_rule_id",
+            name="uq_grammar_rules_canonical_rule_id",
+        ),
+        Index(
+            "ix_grammar_rules_name_trgm",
+            "name",
+            postgresql_using="gin",
+            postgresql_ops={"name": "gin_trgm_ops"},
+        ),
+    )

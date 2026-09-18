@@ -12,6 +12,7 @@ from database import Base
 
 # Alembic models
 from models.language import Language
+from models.canonical_rules import CanonicalRule
 from models.entity_embeddings import EntityEmbedding
 from models.expressions import Expression
 from models.topics import Topic
