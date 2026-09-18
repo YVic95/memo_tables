@@ -71,6 +71,7 @@ routers/              ← FastAPI routers (auth, admin, CRUD)
   auth.py             ← Supabase JWT auth, require_admin dependency
 models/               ← SQLAlchemy models (one file per table)
 crud/                 ← Database access functions
+  canonical_rules.py  ← Canonical rule catalog read/sync functions
 core/                 ← Shared utils (Jinja2 template config, HTMX render helper)
 graphs/               ← LangGraph agents
   nodes/              ← Graph node functions
@@ -80,11 +81,13 @@ graphs/               ← LangGraph agents
   llm.py              ← OpenRouter ChatOpenAI client
   suggest_rules_graph.py   ← Proposes 5 grammar rules
   initial_rule_graph.py    ← Categorizes, persists, translates, generates content
+data/canonical_rules/ ← Canonical rule catalog (one YAML file per language pair)
 templates/            ← Jinja2 HTML templates (HTMX admin panel)
 static/               ← CSS, FontAwesome icons
 supabase/             ← Supabase config + SQL migrations
 alembic/              ← Alembic migration scripts
 scripts/              ← Shell scripts for dev workflow
+  load_canon.py       ← Syncs data/canonical_rules/*.yaml into canonical_rules table
 ```
 
 ## Auth model
