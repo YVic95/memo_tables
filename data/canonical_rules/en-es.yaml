@@ -107,3 +107,11 @@ rules:
       In the preterite, which describes completed past actions, regular -ir
       verbs drop the -ir and add -í, -iste, -ió, -imos, -isteis, -ieron — the
       same endings as regular -er verbs — as in viví, viviste, vivió.
+  - slug: imperfect
+    category: verb
+    level: A2
+    position: 5
+    name: The imperfect (imperfecto)
+    description: >-
+       expresses ongoing or habitual past action. Used for background description, 
+       repeated past actions, "used to."
