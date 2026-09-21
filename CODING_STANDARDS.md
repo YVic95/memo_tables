@@ -267,13 +267,15 @@ def get_grammar_rule_by_id(db: Session, rule_id: str) -> GrammarRule | None:
 
 ```python
 from pydantic import BaseModel, Field
+import uuid
 
-class Rule(BaseModel):
+class CatalogRule(BaseModel):
     title: str = Field(description="Short name of the grammar/language rule")
     explanation: str = Field(description="Clear explanation of the rule")
+    canonical_rule_id: uuid.UUID = Field(description="The catalog entry id the rule was chosen from")
 
-class ProposedRules(BaseModel):
-    rules: list[Rule] = Field(description="Exactly 5 proposed rules")
+class ProposedCatalogRules(BaseModel):
+    rules: list[CatalogRule] = Field(description="Up to 5 rules chosen from the injected catalog candidates")
 
 class TableData(BaseModel):
     title: str = Field(description="Heading for this table")

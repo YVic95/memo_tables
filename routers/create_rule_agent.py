@@ -48,24 +48,28 @@ async def call_agent(
     if pair is None:
         raise HTTPException(status_code=404, detail="Language pair not found")
 
+    pair_data = {
+        "native_language": pair["native_name"],
+        "target_language": pair["target_name"],
+        "native_language_id": pair["native_language_id"],
+        "target_language_id": pair["target_language_id"],
+    }
+
     if body.type == "propose_missing_rules":
         result = propose_rules_graph.invoke({
-            "native_language": pair["native_name"],
-            "target_language": pair["target_name"],
+            "db": db,
+            **pair_data,
             "proposed_rules": [],
+            "message": "",
         })
-        return {"rules": result["proposed_rules"]}
+        return {
+            "rules": result["proposed_rules"],
+            "message": result.get("message", ""),
+        }
 
     if body.type == "initial_rule":
         if not body.title or not body.explanation:
             raise HTTPException(status_code=400, detail="title and explanation are required")
-
-        pair_data = {
-            "native_language": pair["native_name"],
-            "target_language": pair["target_name"],
-            "native_language_id": pair["native_language_id"],
-            "target_language_id": pair["target_language_id"],
-        }
 
         def event_stream():
             session = SessionLocal()

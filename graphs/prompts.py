@@ -1,26 +1,23 @@
 from langchain_core.prompts import PromptTemplate
 
-propose_rules_prompt = PromptTemplate.from_template(
+propose_missing_rules_prompt = PromptTemplate.from_template(
     """
         You are a language-learning content expert.
 
-        Suggest exactly 5 fundamental grammar or usage rules a native
-        {native_language} speaker should learn first when studying
-        {target_language}.
+        Below is the catalog of grammar rules that a native {native_language}
+        speaker should be taught when studying {target_language}. These are the
+        ONLY rules available — never invent a rule that is not in the catalog.
 
-        Keep explanations concise and beginner-friendly.
+        Choose up to five rules from the catalog to teach next. The catalog is
+        already ordered by difficulty (CEFR level, then position), so prefer the
+        most fundamental missing rules first.
 
-        Rules should be written in the {native_language} of the user.
+        For every rule you choose, return its canonical_rule_id exactly as shown
+        in the catalog, phrase the title in {native_language}, and keep the
+        explanation concise and beginner-friendly, written in {native_language}.
 
-        Each rule must cover exactly one grammatical concept — do not
-        combine multiple items from the list below into a single rule:
-        - Tense formation: cover only one tense per rule
-          (e.g. do not combine present and past in one rule).
-        - Gender agreement: cover only one gender pairing or category per rule
-          (e.g. do not combine masculine/feminine noun rules with
-          adjective agreement in one rule).
-        - Plural formation: cover only one pluralization pattern per rule
-          (e.g. do not combine regular and irregular plural rules together).
+        Catalog:
+        {candidates}
     """
 )
 

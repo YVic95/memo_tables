@@ -17,7 +17,7 @@ class MessageType(StrEnum):
     table_deleted = "table_deleted"
     info = "info"
 
-class Rule(BaseModel):
+class CatalogRule(BaseModel):
     title: str = Field(description="Short name of the grammar/language rule")
     explanation: str = Field(
         description=
@@ -26,9 +26,12 @@ class Rule(BaseModel):
             Keep it short and explain why the learner should know this rule.
         """
     )
+    canonical_rule_id: uuid.UUID = Field(
+        description="The id of the catalog entry this rule was chosen from"
+    )
 
-class ProposedRules(BaseModel):
-    rules: list[Rule] = Field(description="Exactly 5 proposed rules")
+class ProposedCatalogRules(BaseModel):
+    rules: list[CatalogRule] = Field(description="Up to 5 rules chosen from the injected catalog candidates")
 
 class CategoryChoice(BaseModel):
     word_category_id: uuid.UUID = Field(description="The id of the single best-fitting category")

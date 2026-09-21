@@ -2,11 +2,13 @@ import pytest
 from sqlalchemy import func
 
 from models.canonical_rules import CanonicalRule
+from models.grammar_rules import GrammarRule
 from models.language import Language
 from models.word_categories import WordCategory
 from crud.canonical_rules import (
     deactivate_canonical_rules_not_in,
     get_canonical_rules_for_pair,
+    get_missing_canonical_rules_for_pair,
     upsert_canonical_rule,
 )
 
@@ -118,6 +120,129 @@ class TestGetCanonicalRulesForPair:
         assert len(en_es_rules) == 1
         assert len(de_es_rules) == 1
         assert en_es_rules[0].id != de_es_rules[0].id
+
+
+class TestGetMissingCanonicalRulesForPair:
+    def test_returns_active_entry_with_no_linked_rule(
+        self, db_session, language_en, language_es, word_category
+    ):
+        upsert_canonical_rule(
+            db_session,
+            native_language_id=language_en.id,
+            target_language_id=language_es.id,
+            word_category_id=word_category.id,
+            slug="missing-rule",
+            level="A1",
+            name="Missing Rule",
+            description="d",
+            position=1,
+        )
+
+        rules = get_missing_canonical_rules_for_pair(
+            db_session, language_en.id, language_es.id
+        )
+
+        assert [r.slug for r in rules] == ["missing-rule"]
+
+    def test_excludes_entry_linked_to_a_persisted_rule(
+        self, db_session, language_en, language_es, word_category, canonical_rule, grammar_rule
+    ):
+        upsert_canonical_rule(
+            db_session,
+            native_language_id=language_en.id,
+            target_language_id=language_es.id,
+            word_category_id=word_category.id,
+            slug="still-missing",
+            level="A1",
+            name="Still Missing",
+            description="d",
+            position=2,
+        )
+
+        rules = get_missing_canonical_rules_for_pair(
+            db_session, language_en.id, language_es.id
+        )
+
+        assert [r.slug for r in rules] == ["still-missing"]
+
+    def test_excludes_deactivated_entries(
+        self, db_session, language_en, language_es, verb_category
+    ):
+        _populate(
+            db_session,
+            language_en,
+            language_es,
+            verb_category,
+            [
+                {"slug": "active-missing", "level": "A1", "name": "Active", "description": "d", "position": 1},
+                {"slug": "retired", "level": "A1", "name": "Retired", "description": "d", "position": 2},
+            ],
+        )
+        deactivate_canonical_rules_not_in(db_session, language_en.id, language_es.id, {"active-missing"})
+
+        rules = get_missing_canonical_rules_for_pair(
+            db_session, language_en.id, language_es.id
+        )
+
+        assert [r.slug for r in rules] == ["active-missing"]
+
+    def test_orders_by_level_then_position(
+        self, db_session, language_en, language_es, verb_category
+    ):
+        _populate(
+            db_session,
+            language_en,
+            language_es,
+            verb_category,
+            [
+                {"slug": "a2-b", "level": "A2", "name": "A2 B", "description": "d", "position": 2},
+                {"slug": "a1-c", "level": "A1", "name": "A1 C", "description": "d", "position": 3},
+                {"slug": "a1-a", "level": "A1", "name": "A1 A", "description": "d", "position": 1},
+                {"slug": "b1-a", "level": "B1", "name": "B1 A", "description": "d", "position": 1},
+            ],
+        )
+
+        rules = get_missing_canonical_rules_for_pair(
+            db_session, language_en.id, language_es.id
+        )
+
+        assert [r.slug for r in rules] == ["a1-a", "a1-c", "a2-b", "b1-a"]
+
+    def test_is_scoped_to_the_language_pair(
+        self, db_session, language_en, language_es, word_category
+    ):
+        other_native = Language(code="de", name="German")
+        db_session.add(other_native)
+        db_session.commit()
+        db_session.refresh(other_native)
+        upsert_canonical_rule(
+            db_session,
+            native_language_id=language_en.id,
+            target_language_id=language_es.id,
+            word_category_id=word_category.id,
+            slug="en-es-rule",
+            level="A1",
+            name="En-Es",
+            description="d",
+            position=1,
+        )
+        upsert_canonical_rule(
+            db_session,
+            native_language_id=other_native.id,
+            target_language_id=language_es.id,
+            word_category_id=word_category.id,
+            slug="de-es-rule",
+            level="A1",
+            name="De-Es",
+            description="d",
+            position=1,
+        )
+
+        rules = get_missing_canonical_rules_for_pair(
+            db_session, language_en.id, language_es.id
+        )
+
+        assert [r.slug for r in rules] == ["en-es-rule"]
 
 
 class TestUpsertCanonicalRule:

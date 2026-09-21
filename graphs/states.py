@@ -4,9 +4,13 @@ from sqlalchemy.orm import Session
 from graphs.models import TableData
 
 class RuleCreationAgentState(TypedDict):
+    db: Session
     native_language: str
     target_language: str
+    native_language_id: uuid.UUID
+    target_language_id: uuid.UUID
     proposed_rules: list[dict]
+    message: str
 
 class InitialRuleState(TypedDict):
     db: Session

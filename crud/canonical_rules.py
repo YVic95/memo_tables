@@ -1,14 +1,15 @@
 import uuid
 from sqlalchemy.orm import Session
 from models.canonical_rules import CanonicalRule
+from models.grammar_rules import GrammarRule
 
 
-def get_canonical_rules_for_pair(
+def _pair_active_rules_query(
     db: Session,
     native_language_id: uuid.UUID,
     target_language_id: uuid.UUID,
-) -> list[CanonicalRule]:
-    """Return the pair's active catalog entries, ordered by level then position."""
+):
+    """Base query over a pair's active catalog entries, ordered by level then position."""
     return (
         db.query(CanonicalRule)
         .filter(
@@ -20,6 +21,39 @@ def get_canonical_rules_for_pair(
             CanonicalRule.level.asc(),
             CanonicalRule.position.asc(),
         )
+    )
+
+
+def get_canonical_rules_for_pair(
+    db: Session,
+    native_language_id: uuid.UUID,
+    target_language_id: uuid.UUID,
+) -> list[CanonicalRule]:
+    """Return the pair's active catalog entries, ordered by level then position."""
+    return _pair_active_rules_query(
+        db,
+        native_language_id,
+        target_language_id,
+    ).all()
+
+
+def get_missing_canonical_rules_for_pair(
+    db: Session,
+    native_language_id: uuid.UUID,
+    target_language_id: uuid.UUID,
+) -> list[CanonicalRule]:
+    """Return the pair's active catalog entries not yet linked to a persisted rule.
+
+    An entry is missing when no grammar_rules row links to it. Ordered by level
+    then position so a proposal surfaced from this list is pedagogically ordered.
+    """
+    return (
+        _pair_active_rules_query(db, native_language_id, target_language_id)
+        .outerjoin(
+            GrammarRule,
+            GrammarRule.canonical_rule_id == CanonicalRule.id,
+        )
+        .filter(GrammarRule.id.is_(None))
         .all()
     )
 
