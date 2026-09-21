@@ -17,6 +17,7 @@ from crud.table_data import (
     create_word_form_sentence,
 )
 from models.grammar_rules import GrammarRule
+from models.canonical_rules import CanonicalRule
 from models.base_words import BaseWord
 from models.word_translations import WordTranslation
 from models.word_rule_assignments import WordRuleAssignment
@@ -473,11 +474,26 @@ class TestGetTableData:
         from crud.table_data import get_table_data
         from models.grammar_rules import GrammarRule
 
+        other_canon = CanonicalRule(
+            native_language_id=language_es.id,
+            target_language_id=language_es.id,
+            word_category_id=word_category.id,
+            level="A1",
+            name="Other",
+            description="Other",
+            position=1,
+            slug="other",
+            is_active=True,
+        )
+        db_session.add(other_canon)
+        db_session.commit()
+
         other_rule = GrammarRule(
             name="Other",
             description="Other",
             language_id=grammar_rule.language_id,
             word_category_id=word_category.id,
+            canonical_rule_id=other_canon.id,
         )
         db_session.add(other_rule)
         db_session.commit()
@@ -768,11 +784,26 @@ class TestCountSavedData:
         assert counts == {"sentences": 2, "word_forms": 2, "base_words": 1}
 
     def test_count_is_scoped_to_the_rule(self, db_session, language_es, word_category, grammar_rule):
+        other_canon = CanonicalRule(
+            native_language_id=language_es.id,
+            target_language_id=language_es.id,
+            word_category_id=word_category.id,
+            level="A1",
+            name="Other",
+            description="Other",
+            position=1,
+            slug="other",
+            is_active=True,
+        )
+        db_session.add(other_canon)
+        db_session.commit()
+
         other_rule = GrammarRule(
             name="Other",
             description="Other",
             language_id=grammar_rule.language_id,
             word_category_id=word_category.id,
+            canonical_rule_id=other_canon.id,
         )
         db_session.add(other_rule)
         db_session.commit()

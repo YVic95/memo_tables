@@ -5,6 +5,7 @@ from graphs.nodes.process_all_tables_node import process_all_tables_node
 from graphs.models import TranslationPair, Translations
 from crud.table_data import get_or_create_base_word, create_word_rule_assignment
 from models.word_categories import WordCategory
+from models.canonical_rules import CanonicalRule
 from models.grammar_rules import GrammarRule
 from models.grammar_rule_rows import GrammarRuleRow
 from models.grammar_rule_row_translations import GrammarRuleRowTranslation
@@ -27,11 +28,27 @@ def verb_category(db_session):
 
 @pytest.fixture()
 def verb_rule(db_session, language_es, verb_category):
+    canon = CanonicalRule(
+        native_language_id=language_es.id,
+        target_language_id=language_es.id,
+        word_category_id=verb_category.id,
+        level="A1",
+        name="Present Tense",
+        description="Regular -ar verbs",
+        position=1,
+        slug="present-tense",
+        is_active=True,
+    )
+    db_session.add(canon)
+    db_session.commit()
+    db_session.refresh(canon)
+
     rule = GrammarRule(
         name="Present Tense",
         description="Regular -ar verbs",
         language_id=language_es.id,
         word_category_id=verb_category.id,
+        canonical_rule_id=canon.id,
     )
     db_session.add(rule)
     db_session.commit()

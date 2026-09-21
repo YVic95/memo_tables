@@ -5,6 +5,7 @@ from graphs.models import DeducedBaseWords, DeducedBaseWord, TranslationPair, Tr
 from graphs.save_table_graph import graph
 from models.language_pairs import LanguagePair
 from models.word_categories import WordCategory
+from models.canonical_rules import CanonicalRule
 from models.grammar_rules import GrammarRule
 
 
@@ -60,11 +61,27 @@ def seeded_context(db_session, language_es, language_en, verb_category):
     db_session.commit()
     db_session.refresh(pair)
 
+    canon = CanonicalRule(
+        native_language_id=language_en.id,
+        target_language_id=language_es.id,
+        word_category_id=verb_category.id,
+        level="A1",
+        name="Present Tense",
+        description="Regular -ar verbs",
+        position=1,
+        slug="present-tense",
+        is_active=True,
+    )
+    db_session.add(canon)
+    db_session.commit()
+    db_session.refresh(canon)
+
     rule = GrammarRule(
         name="Present Tense",
         description="Regular -ar verbs",
         language_id=language_es.id,
         word_category_id=verb_category.id,
+        canonical_rule_id=canon.id,
     )
     db_session.add(rule)
     db_session.commit()

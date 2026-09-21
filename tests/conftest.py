@@ -6,6 +6,7 @@ from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 
 from database import Base
 from models.language import Language
+from models.canonical_rules import CanonicalRule
 from models.word_categories import WordCategory
 from models.grammar_rules import GrammarRule
 from models.base_words import BaseWord
@@ -77,12 +78,32 @@ def word_category(db_session):
 
 
 @pytest.fixture()
-def grammar_rule(db_session, language_es, word_category):
+def canonical_rule(db_session, language_es, language_en, word_category):
+    canon = CanonicalRule(
+        native_language_id=language_en.id,
+        target_language_id=language_es.id,
+        word_category_id=word_category.id,
+        level="A1",
+        name="Noun Gender",
+        description="Masculine vs feminine",
+        position=1,
+        slug="noun-gender",
+        is_active=True,
+    )
+    db_session.add(canon)
+    db_session.commit()
+    db_session.refresh(canon)
+    return canon
+
+
+@pytest.fixture()
+def grammar_rule(db_session, language_es, word_category, canonical_rule):
     rule = GrammarRule(
         name="Noun Gender",
         description="Masculine vs feminine",
         language_id=language_es.id,
         word_category_id=word_category.id,
+        canonical_rule_id=canonical_rule.id,
     )
     db_session.add(rule)
     db_session.commit()

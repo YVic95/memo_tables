@@ -9,6 +9,7 @@ from database import Base
 from models.language import Language
 from models.language_pairs import LanguagePair
 from models.word_categories import WordCategory
+from models.canonical_rules import CanonicalRule
 from models.grammar_rules import GrammarRule
 from graphs.models import SaveTablesRequest
 from routers.save_tables_agent import save_tables
@@ -61,11 +62,27 @@ def seed_data(db_session):
     db_session.commit()
     db_session.refresh(cat)
 
+    canon = CanonicalRule(
+        native_language_id=lang_en.id,
+        target_language_id=lang_es.id,
+        word_category_id=cat.id,
+        level="A1",
+        name="Noun Gender",
+        description="Masculine vs feminine",
+        position=1,
+        slug="noun-gender",
+        is_active=True,
+    )
+    db_session.add(canon)
+    db_session.commit()
+    db_session.refresh(canon)
+
     rule = GrammarRule(
         name="Noun Gender",
         description="Masculine vs feminine",
         language_id=lang_es.id,
         word_category_id=cat.id,
+        canonical_rule_id=canon.id,
     )
     db_session.add(rule)
     db_session.commit()
