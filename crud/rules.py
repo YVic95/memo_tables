@@ -13,6 +13,9 @@ def get_word_categories(db: Session):
 def get_word_category_by_id(db: Session, category_id: uuid.UUID) -> WordCategory | None:
     return db.query(WordCategory).filter(WordCategory.id == category_id).first()
 
+def get_word_category_by_slug(db: Session, slug: str) -> WordCategory | None:
+    return db.query(WordCategory).filter(WordCategory.slug == slug).first()
+
 def create_grammar_rule(
     db: Session,
     title: str,

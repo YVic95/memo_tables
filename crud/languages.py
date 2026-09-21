@@ -7,6 +7,9 @@ def get_languages(db: Session) -> list[dict]:
     rows = db.query(Language.id, Language.name, Language.code).all()
     return [{"id": r.id, "name": r.name, "code": r.code} for r in rows]
 
+def get_language_by_code(db: Session, code: str) -> Language | None:
+    return db.query(Language).filter(Language.code == code).first()
+
 # check if language exists
 def language_exists(db: Session, name: str) -> bool:
     return db.query(Language.id).filter(Language.name.ilike(name)).first() is not None
