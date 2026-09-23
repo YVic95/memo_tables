@@ -56,12 +56,12 @@ memo_tables/
 │   ├── models.py                #   Pydantic models for graph I/O
 │   ├── prompts.py               #   LangChain PromptTemplate definitions
 │   ├── suggest_rules_graph.py   #   Proposes 5 grammar rules
-│   ├── initial_rule_graph.py    #   Categorizes, persists, translates, generates content
+│   ├── initial_rule_graph.py    #   Copies catalog category, persists, translates, generates content
 │   ├── generate_table_graph.py  #   Generates grammar/conjugation tables
 │   ├── edit_tables_graph.py     #   Edits tables with conversation memory
 │   └── nodes/                   #   Graph node functions (one file per node)
 │       ├── propose_rules_node.py
-│       ├── attach_grammatical_category_to_rule_node.py
+│       ├── copy_canonical_category.py
 │       ├── persist_rule.py
 │       ├── translate_rule.py
 │       ├── persist_translation.py
@@ -177,6 +177,7 @@ class GrammarRule(Base):
     description = Column(Text, nullable=True)
     language_id = Column(UUID(as_uuid=True), ForeignKey("languages.id"), nullable=False)
     word_category_id = Column(UUID(as_uuid=True), ForeignKey("word_categories.id"), nullable=False)
+    canonical_rule_id = Column(UUID(as_uuid=True), ForeignKey("canonical_rules.id"), nullable=False)
 ```
 
 ### Example with cascade delete: `models/grammar_rule_translations.py`
@@ -224,6 +225,7 @@ class ExpressionTopic(Base):
 
 ```python
 from uuid import uuid4
+import uuid
 from sqlalchemy.orm import Session
 from models.grammar_rules import GrammarRule
 
@@ -231,22 +233,24 @@ def create_grammar_rule(
     db: Session,
     title: str,
     description: str,
-    language_id: str,
-    word_category_id: str,
+    language_id: uuid.UUID,
+    word_category_id: uuid.UUID,
+    canonical_rule_id: uuid.UUID,
 ) -> GrammarRule:
     rule = GrammarRule(
-        id=str(uuid4()),
+        id=uuid4(),
         name=title,
         description=description,
         language_id=language_id,
         word_category_id=word_category_id,
+        canonical_rule_id=canonical_rule_id,
     )
     db.add(rule)
     db.commit()
     db.refresh(rule)
     return rule
 
-def get_grammar_rule_by_id(db: Session, rule_id: str) -> GrammarRule | None:
+def get_grammar_rule_by_id(db: Session, rule_id: uuid.UUID) -> GrammarRule | None:
     return db.query(GrammarRule).filter(GrammarRule.id == rule_id).first()
 ```
 

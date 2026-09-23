@@ -33,9 +33,6 @@ class CatalogRule(BaseModel):
 class ProposedCatalogRules(BaseModel):
     rules: list[CatalogRule] = Field(description="Up to 5 rules chosen from the injected catalog candidates")
 
-class CategoryChoice(BaseModel):
-    word_category_id: uuid.UUID = Field(description="The id of the single best-fitting category")
-
 class RuleTranslation(BaseModel):
     name: str = Field(description="Name translated to the target language of user")
     description: str = Field(description="Description translated to the target language of user")

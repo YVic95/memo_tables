@@ -21,17 +21,6 @@ propose_missing_rules_prompt = PromptTemplate.from_template(
     """
 )
 
-attach_grammar_category_to_rule_prompt = PromptTemplate.from_template(
-    """
-        You are classifying a grammar rule into a grammatical category.
-        Rule title: {rule_title}
-        Rule explanation: {rule_explanation}
-
-        Choose exactly one category id from this list that best fits:
-        {categories}
-    """
-)
-
 translate_prompt = PromptTemplate.from_template(
     """
         Translate the following grammar rule name and description into {target_language} of the user.
