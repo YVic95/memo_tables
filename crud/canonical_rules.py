@@ -58,6 +58,13 @@ def get_missing_canonical_rules_for_pair(
     )
 
 
+def get_canonical_rule_by_id(
+    db: Session,
+    rule_id: uuid.UUID,
+) -> CanonicalRule | None:
+    return db.query(CanonicalRule).filter(CanonicalRule.id == rule_id).first()
+
+
 def get_canonical_rule_by_slug(
     db: Session,
     native_language_id: uuid.UUID,
