@@ -1,3 +1,5 @@
+import uuid
+
 import pytest
 from sqlalchemy import func
 
@@ -7,6 +9,7 @@ from models.language import Language
 from models.word_categories import WordCategory
 from crud.canonical_rules import (
     deactivate_canonical_rules_not_in,
+    get_canonical_rule_by_id,
     get_canonical_rules_for_pair,
     get_missing_canonical_rules_for_pair,
     upsert_canonical_rule,
@@ -120,6 +123,20 @@ class TestGetCanonicalRulesForPair:
         assert len(en_es_rules) == 1
         assert len(de_es_rules) == 1
         assert en_es_rules[0].id != de_es_rules[0].id
+
+
+class TestGetCanonicalRuleById:
+    def test_returns_the_catalog_entry_for_a_known_id(
+        self, db_session, canonical_rule
+    ):
+        rule = get_canonical_rule_by_id(db_session, canonical_rule.id)
+
+        assert rule is not None
+        assert rule.id == canonical_rule.id
+        assert rule.word_category_id == canonical_rule.word_category_id
+
+    def test_returns_none_for_an_unknown_id(self, db_session):
+        assert get_canonical_rule_by_id(db_session, uuid.uuid4()) is None
 
 
 class TestGetMissingCanonicalRulesForPair:

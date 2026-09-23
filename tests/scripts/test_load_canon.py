@@ -175,7 +175,7 @@ class TestDefaultCatalogFile:
 
         assert document["native_language"] == "en"
         assert document["target_language"] == "es"
-        assert len(document["rules"]) == 11
+        assert len(document["rules"]) == 12
         for entry in document["rules"]:
             assert entry["category"] == "verb"
             assert entry["level"] in {"A1", "A2", "B1", "B2", "C1", "C2"}
@@ -192,7 +192,7 @@ class TestDefaultCatalogFile:
         sync_catalog_from_document(db_session, document)
         sync_catalog_from_document(db_session, document)
 
-        assert _count_rules(db_session) == 11
+        assert _count_rules(db_session) == 12
 
         rules = db_session.query(CanonicalRule).all()
         assert all(rule.is_active for rule in rules)

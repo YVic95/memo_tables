@@ -2,6 +2,7 @@ import asyncio
 import uuid
 import pytest
 from fastapi import HTTPException
+from pydantic import ValidationError
 from unittest.mock import MagicMock
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
@@ -9,7 +10,11 @@ from sqlalchemy.orm import sessionmaker
 from database import Base
 from models.language import Language
 from models.language_pairs import LanguagePair
-from routers.create_rule_agent import AgentRequest, call_agent
+from routers.create_rule_agent import (
+    ProposeMissingRulesRequest,
+    InitialRuleRequest,
+    call_agent,
+)
 
 
 def _call_agent(body, db):
@@ -58,7 +63,7 @@ def pair(db_session):
 
 
 def _make_request(pair_id, type="propose_missing_rules"):
-    return AgentRequest(type=type, language_pair_id=pair_id)
+    return ProposeMissingRulesRequest(type="propose_missing_rules", language_pair_id=pair_id)
 
 
 class TestProposeMissingRules:
@@ -112,3 +117,74 @@ class TestProposeMissingRules:
 
         assert result["rules"] == []
         assert "already been created" in result["message"]
+
+
+async def _collect_events(response):
+    events = []
+    async for chunk in response.body_iterator:
+        if isinstance(chunk, bytes):
+            chunk = chunk.decode()
+        events.append(chunk)
+    return events
+
+
+class TestInitialRule:
+    @pytest.fixture()
+    def mock_graph(self, monkeypatch, db_session):
+        mock = MagicMock()
+        mock.stream.return_value = [
+            {"copy_canonical_category": {"word_category_id": uuid.uuid4()}},
+            {"persist_rule": {"grammar_rule_id": uuid.uuid4()}},
+            {"translate_rule": {}},
+            {"persist_translation": {}},
+            {"generate_content": {"grammar_rule_id": uuid.uuid4(), "full_content": "## Rule"}},
+        ]
+        monkeypatch.setattr("routers.create_rule_agent.initial_rule_graph", mock)
+        monkeypatch.setattr("routers.create_rule_agent.SessionLocal", lambda: db_session)
+        return mock
+
+    def _initial_request(self, pair_id, **overrides):
+        payload = {
+            "type": "initial_rule",
+            "language_pair_id": pair_id,
+            "title": "Present tense -ar",
+            "explanation": "Conjugate -ar verbs.",
+            "canonical_rule_id": uuid.uuid4(),
+        }
+        payload.update(overrides)
+        return InitialRuleRequest(**payload)
+
+    def test_unknown_language_pair_returns_404(self, db_session):
+        with pytest.raises(HTTPException) as exc_info:
+            _call_agent(self._initial_request(uuid.uuid4()), db_session)
+        assert exc_info.value.status_code == 404
+
+    def test_requires_canonical_rule_id(self, pair, db_session):
+        with pytest.raises(ValidationError):
+            self._initial_request(pair["pair_id"], canonical_rule_id=None)
+
+    def test_requires_title_and_explanation(self, pair, db_session):
+        with pytest.raises(ValidationError):
+            self._initial_request(pair["pair_id"], title=None)
+
+    def test_passes_canonical_rule_id_into_the_graph(
+        self, pair, mock_graph, db_session
+    ):
+        request = self._initial_request(pair["pair_id"])
+        response = _call_agent(request, db_session)
+        asyncio.run(_collect_events(response))
+
+        graph_input = mock_graph.stream.call_args.args[0]
+        assert graph_input["canonical_rule_id"] == request.canonical_rule_id
+
+    def test_streams_creation_progress_including_catalog_copy(
+        self, pair, mock_graph, db_session
+    ):
+        response = _call_agent(self._initial_request(pair["pair_id"]), db_session)
+        events = asyncio.run(_collect_events(response))
+        payload = "".join(events)
+
+        assert 'event: node_start' in payload
+        assert '"node": "copy_canonical_category"' in payload
+        assert '"node": "generate_content"' in payload
+        assert 'event: done' in payload
