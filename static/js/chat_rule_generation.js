@@ -24,6 +24,7 @@ async function onRuleSelected(item, list, rule) {
             type: 'initial_rule',
             title: rule.title,
             explanation: rule.explanation,
+            canonical_rule_id: rule.canonical_rule_id,
         }, (eventType, data) => {
             if (eventType === 'node_start') {
                 updateProgress(progressContainer, completedNodes, data.node);

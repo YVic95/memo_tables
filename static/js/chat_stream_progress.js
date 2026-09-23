@@ -1,12 +1,12 @@
 const NODE_LABELS = {
-    categorize: 'Categorizing rule',
+    copy_canonical_category: 'Attaching category',
     persist_rule: 'Saving rule card',
     translate_rule: 'Translating',
     persist_translation: 'Saving translation',
     generate_content: 'Generating content',
 };
 
-const NODE_ORDER = ['categorize', 'persist_rule', 'translate_rule', 'persist_translation', 'generate_content'];
+const NODE_ORDER = ['copy_canonical_category', 'persist_rule', 'translate_rule', 'persist_translation', 'generate_content'];
 
 async function callAgentStream(payload, onEvent) {
     const selectedPair = document.getElementById('language-pair-select')?.value;
