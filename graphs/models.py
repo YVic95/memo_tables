@@ -1,7 +1,7 @@
 import uuid
 from enum import StrEnum
 from pydantic import BaseModel, Field, field_validator
-from typing import Any
+from typing import Any, Literal
 
 class MessageRole(StrEnum):
     user = "user"
@@ -32,6 +32,17 @@ class CatalogRule(BaseModel):
 
 class ProposedCatalogRules(BaseModel):
     rules: list[CatalogRule] = Field(description="Up to 5 rules chosen from the injected catalog candidates")
+
+class ProposeMissingRulesRequest(BaseModel):
+    type: Literal["propose_missing_rules"]
+    language_pair_id: uuid.UUID
+
+class InitialRuleRequest(BaseModel):
+    type: Literal["initial_rule"]
+    language_pair_id: uuid.UUID
+    title: str
+    explanation: str
+    canonical_rule_id: uuid.UUID
 
 class RuleTranslation(BaseModel):
     name: str = Field(description="Name translated to the target language of user")

@@ -1,19 +1,20 @@
 import json
 import uuid
 import datetime
-from typing import Annotated, Optional
+from typing import Annotated, Union
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import Field
 from sqlalchemy.orm import Session
 from database import get_db, SessionLocal
 from crud.language_pairs import get_language_pair_by_id
 from graphs.suggest_rules_graph import graph as propose_rules_graph
 from graphs.initial_rule_graph import graph as initial_rule_graph
+from graphs.models import ProposeMissingRulesRequest, InitialRuleRequest
 
 router = APIRouter(tags=["create-rule-agent"])
 
-NODE_ORDER = ["categorize", "persist_rule", "translate_rule", "persist_translation", "generate_content"]
+NODE_ORDER = ["copy_canonical_category", "persist_rule", "translate_rule", "persist_translation", "generate_content"]
 
 def json_safe(obj):
     """Recursively convert non-JSON-serializable objects (UUID, datetime, date)
@@ -32,12 +33,7 @@ def sse_event(event_type: str, data: dict) -> str:
     """Format a single Server-Sent Event, ensuring the payload is JSON-safe."""
     return f"event: {event_type}\ndata: {json.dumps(json_safe(data))}\n\n"
 
-
-class AgentRequest(BaseModel):
-    type: str
-    language_pair_id: uuid.UUID
-    title: Optional[str] = None
-    explanation: Optional[str] = None
+AgentRequest = Annotated[Union[ProposeMissingRulesRequest, InitialRuleRequest], Field(discriminator="type")]
 
 @router.post("/api/create-rule-agent")
 async def call_agent(
@@ -55,7 +51,7 @@ async def call_agent(
         "target_language_id": pair["target_language_id"],
     }
 
-    if body.type == "propose_missing_rules":
+    if isinstance(body, ProposeMissingRulesRequest):
         result = propose_rules_graph.invoke({
             "db": db,
             **pair_data,
@@ -67,9 +63,8 @@ async def call_agent(
             "message": result.get("message", ""),
         }
 
-    if body.type == "initial_rule":
-        if not body.title or not body.explanation:
-            raise HTTPException(status_code=400, detail="title and explanation are required")
+    if isinstance(body, InitialRuleRequest):
+        # Pydantic validation ensures title, explanation, and canonical_rule_id are present
 
         def event_stream():
             session = SessionLocal()
@@ -78,6 +73,7 @@ async def call_agent(
                     "db": session,
                     "rule_title": body.title,
                     "rule_explanation": body.explanation,
+                    "canonical_rule_id": body.canonical_rule_id,
                     **pair_data,
                 }
 
