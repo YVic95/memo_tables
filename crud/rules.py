@@ -22,6 +22,7 @@ def create_grammar_rule(
     description: str,
     language_id: uuid.UUID,
     word_category_id: uuid.UUID,
+    canonical_rule_id: uuid.UUID,
 ) -> GrammarRule:
     rule = GrammarRule(
         id=uuid4(),
@@ -29,6 +30,7 @@ def create_grammar_rule(
         description=description,
         language_id=language_id,
         word_category_id=word_category_id,
+        canonical_rule_id=canonical_rule_id,
     )
     db.add(rule)
     db.commit()

@@ -8,6 +8,7 @@ def persist_rule_node(state: InitialRuleState) -> InitialRuleState:
         description=state["rule_explanation"],
         language_id=state["target_language_id"],
         word_category_id=state["word_category_id"],
+        canonical_rule_id=state["canonical_rule_id"],
     )
 
     return {
