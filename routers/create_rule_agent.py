@@ -8,9 +8,10 @@ from pydantic import Field
 from sqlalchemy.orm import Session
 from database import get_db, SessionLocal
 from crud.language_pairs import get_language_pair_by_id
+from crud.rule_similarity import check_similar_rules
 from graphs.suggest_rules_graph import graph as propose_rules_graph
 from graphs.initial_rule_graph import graph as initial_rule_graph
-from graphs.models import ProposeMissingRulesRequest, InitialRuleRequest
+from graphs.models import ProposeMissingRulesRequest, InitialRuleRequest, CheckSimilarRequest
 
 router = APIRouter(tags=["create-rule-agent"])
 
@@ -33,7 +34,7 @@ def sse_event(event_type: str, data: dict) -> str:
     """Format a single Server-Sent Event, ensuring the payload is JSON-safe."""
     return f"event: {event_type}\ndata: {json.dumps(json_safe(data))}\n\n"
 
-AgentRequest = Annotated[Union[ProposeMissingRulesRequest, InitialRuleRequest], Field(discriminator="type")]
+AgentRequest = Annotated[Union[ProposeMissingRulesRequest, InitialRuleRequest, CheckSimilarRequest], Field(discriminator="type")]
 
 @router.post("/api/create-rule-agent")
 async def call_agent(
@@ -62,6 +63,15 @@ async def call_agent(
             "rules": result["proposed_rules"],
             "message": result.get("message", ""),
         }
+
+    if isinstance(body, CheckSimilarRequest):
+        result = check_similar_rules(
+            db,
+            target_language_id=pair["target_language_id"],
+            proposed_title=body.title,
+            proposed_description=body.explanation,
+        )
+        return result.model_dump(mode="json")
 
     if isinstance(body, InitialRuleRequest):
         # Pydantic validation ensures title, explanation, and canonical_rule_id are present

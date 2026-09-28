@@ -44,6 +44,30 @@ class InitialRuleRequest(BaseModel):
     explanation: str
     canonical_rule_id: uuid.UUID
 
+class CheckSimilarRequest(BaseModel):
+    type: Literal["check_similar"]
+    language_pair_id: uuid.UUID
+    title: str
+    explanation: str
+
+class DuplicateJudgeResult(BaseModel):
+    similar: bool = Field(
+        description="Whether any existing rule teaches the same grammar rule as the proposed one"
+    )
+    best_match_id: uuid.UUID | None = Field(
+        default=None,
+        description="The id of the best-matching existing rule, or null when there is no match",
+    )
+
+class ExistingRule(BaseModel):
+    id: uuid.UUID
+    name: str
+    description: str | None = None
+
+class DuplicateCheckResult(BaseModel):
+    similar: bool
+    existing_rule: ExistingRule | None = None
+
 class RuleTranslation(BaseModel):
     name: str = Field(description="Name translated to the target language of user")
     description: str = Field(description="Description translated to the target language of user")

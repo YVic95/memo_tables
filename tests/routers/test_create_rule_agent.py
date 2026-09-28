@@ -2,7 +2,7 @@ import asyncio
 import uuid
 import pytest
 from fastapi import HTTPException
-from pydantic import ValidationError
+from pydantic import ValidationError, TypeAdapter
 from unittest.mock import MagicMock
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
@@ -10,9 +10,12 @@ from sqlalchemy.orm import sessionmaker
 from database import Base
 from models.language import Language
 from models.language_pairs import LanguagePair
+from graphs.models import DuplicateCheckResult, ExistingRule
 from routers.create_rule_agent import (
+    AgentRequest,
     ProposeMissingRulesRequest,
     InitialRuleRequest,
+    CheckSimilarRequest,
     call_agent,
 )
 
@@ -188,3 +191,82 @@ class TestInitialRule:
         assert '"node": "copy_canonical_category"' in payload
         assert '"node": "generate_content"' in payload
         assert 'event: done' in payload
+
+class TestCheckSimilar:
+    @pytest.fixture()
+    def mock_check(self, monkeypatch):
+        mock = MagicMock()
+        monkeypatch.setattr("routers.create_rule_agent.check_similar_rules", mock)
+        return mock
+
+    def _check_request(self, pair_id, **overrides):
+        payload = {
+            "type": "check_similar",
+            "language_pair_id": pair_id,
+            "title": "present tense ar verbs",
+            "explanation": "Conjugate -ar verbs in the present tense.",
+        }
+        payload.update(overrides)
+        return CheckSimilarRequest(**payload)
+
+    def test_unknown_language_pair_returns_404(self, db_session, mock_check):
+        with pytest.raises(HTTPException) as exc_info:
+            _call_agent(self._check_request(uuid.uuid4()), db_session)
+        assert exc_info.value.status_code == 404
+        mock_check.assert_not_called()
+
+    def test_requires_title_and_explanation(self, pair, db_session):
+        with pytest.raises(ValidationError):
+            self._check_request(pair["pair_id"], title=None)
+        with pytest.raises(ValidationError):
+            self._check_request(pair["pair_id"], explanation=None)
+
+    def test_check_similar_payload_is_accepted_by_the_request_union(self, pair, db_session):
+        payload = {
+            "type": "check_similar",
+            "language_pair_id": str(pair["pair_id"]),
+            "title": "present tense ar verbs",
+            "explanation": "Conjugate -ar verbs in the present tense.",
+        }
+
+        parsed = TypeAdapter(AgentRequest).validate_python(payload)
+
+        assert isinstance(parsed, CheckSimilarRequest)
+
+    def test_returns_the_duplicate_check_result(self, pair, mock_check, db_session):
+        mock_check.return_value = DuplicateCheckResult(
+            similar=True,
+            existing_rule=ExistingRule(
+                id=uuid.uuid4(),
+                name="present tense ar verbs",
+                description="Conjugate -ar verbs.",
+            ),
+        )
+
+        result = _call_agent(self._check_request(pair["pair_id"]), db_session)
+
+        assert result["similar"] is True
+        assert result["existing_rule"]["name"] == "present tense ar verbs"
+        assert isinstance(result["existing_rule"]["id"], str)
+        assert result["existing_rule"]["description"] == "Conjugate -ar verbs."
+
+    def test_returns_not_similar_with_no_existing_rule(self, pair, mock_check, db_session):
+        mock_check.return_value = DuplicateCheckResult(similar=False, existing_rule=None)
+
+        result = _call_agent(self._check_request(pair["pair_id"]), db_session)
+
+        assert result == {"similar": False, "existing_rule": None}
+
+    def test_passes_target_language_and_proposal_into_the_check(
+        self, pair, mock_check, db_session
+    ):
+        mock_check.return_value = DuplicateCheckResult(similar=False, existing_rule=None)
+        request = self._check_request(pair["pair_id"])
+
+        _call_agent(request, db_session)
+
+        kwargs = mock_check.call_args.kwargs
+        assert kwargs["target_language_id"] == pair["target_language_id"]
+        assert kwargs["proposed_title"] == request.title
+        assert kwargs["proposed_description"] == request.explanation
+        assert mock_check.call_args.args[0] is db_session

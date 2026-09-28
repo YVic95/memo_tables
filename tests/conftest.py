@@ -4,6 +4,20 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 
+
+def _trigram_similarity(a, b):
+    """Dice-coefficient trigram similarity used by the SQLite `similarity()` UDF.
+
+    A stand-in for Postgres pg_trgm so SQL predicates using `similarity()`
+    can run against the in-memory SQLite session in tests.
+    """
+    a, b = (a or '').lower(), (b or '').lower()
+    ta = {a[i:i + 3] for i in range(len(a) - 2)}
+    tb = {b[i:i + 3] for i in range(len(b) - 2)}
+    if not ta and not tb:
+        return 0.0
+    return 2.0 * len(ta & tb) / (len(ta) + len(tb))
+
 from database import Base
 from models.language import Language
 from models.canonical_rules import CanonicalRule
@@ -41,6 +55,7 @@ def db_session():
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.close()
+        dbapi_connection.create_function("similarity", 2, _trigram_similarity)
 
     Base.metadata.create_all(bind=engine)
     Session = sessionmaker(bind=engine)

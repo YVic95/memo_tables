@@ -29,6 +29,33 @@ translate_prompt = PromptTemplate.from_template(
     """
 )
 
+duplicate_check_prompt = PromptTemplate.from_template(
+    """
+        You are checking whether a proposed grammar rule duplicates a rule that
+        is already taught.
+
+        Below is the proposed rule's title and explanation, followed by existing
+        rules that are already persisted. Each existing rule is listed with its
+        id, its stored name, the name of the catalog entry it was created from,
+        and its description.
+
+        Always compare the proposed title against BOTH the existing rule's name
+        AND its catalog entry name before deciding.
+
+        Decide whether any existing rule teaches the SAME grammar rule as the
+        proposed one — the same underlying grammar concept, not merely a related
+        topic. If any candidate matches, choose the best match and return
+        similar=true with its id exactly as shown. Otherwise return
+        similar=false with no id.
+
+        Proposed title: {rule_title}
+        Proposed explanation: {rule_explanation}
+
+        Existing rules:
+        {candidates}
+    """
+)
+
 generate_table_prompt = PromptTemplate.from_template(
     """
     You are a language-learning content expert. Create a grammar or conjugation

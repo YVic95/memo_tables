@@ -1,0 +1,345 @@
+import uuid
+from unittest.mock import patch
+
+import pytest
+
+from models.canonical_rules import CanonicalRule
+from models.grammar_rules import GrammarRule
+from models.language import Language
+from graphs.models import DuplicateCheckResult, DuplicateJudgeResult, ExistingRule
+from crud.rule_similarity import get_similar_rule_candidates, check_similar_rules
+
+
+def _add_language(db_session, code, name):
+    lang = Language(code=code, name=name)
+    db_session.add(lang)
+    db_session.commit()
+    db_session.refresh(lang)
+    return lang
+
+
+def _add_rule(db_session, language_en, target_lang, word_category, *, name, catalog_name, slug):
+    canon = CanonicalRule(
+        native_language_id=language_en.id,
+        target_language_id=target_lang.id,
+        word_category_id=word_category.id,
+        level="B1",
+        name=catalog_name,
+        description=f"Catalog description for {slug}",
+        position=1,
+        slug=slug,
+        is_active=True,
+    )
+    db_session.add(canon)
+    db_session.flush()
+    rule = GrammarRule(
+        name=name,
+        description=f"Existing rule description for {slug}",
+        language_id=target_lang.id,
+        word_category_id=word_category.id,
+        canonical_rule_id=canon.id,
+    )
+    db_session.add(rule)
+    db_session.commit()
+    db_session.refresh(rule)
+    return rule, canon
+
+
+class TestGetSimilarRuleCandidates:
+    def test_returns_names_close_to_the_proposed_name(
+        self, db_session, language_en, language_es, word_category
+    ):
+        match = _add_rule(
+            db_session, language_en, language_es, word_category,
+            name="present tense ar verbs",
+            catalog_name="Present Tense -ar Verbs",
+            slug="present-ar",
+        )[0]
+        unrelated = _add_rule(
+            db_session, language_en, language_es, word_category,
+            name="the cat sat on the mat",
+            catalog_name="Nonsense",
+            slug="nonsense",
+        )[0]
+
+        result = get_similar_rule_candidates(
+            db_session, target_language_id=language_es.id, name="present tense ar verbs"
+        )
+
+        returned_ids = [candidate.id for candidate in result]
+        assert match.id in returned_ids
+        assert unrelated.id not in returned_ids
+
+    def test_no_candidates_when_nothing_is_similar(self, db_session, language_en, language_es, word_category):
+        _add_rule(
+            db_session, language_en, language_es, word_category,
+            name="the cat sat on the mat",
+            catalog_name="Nonsense",
+            slug="nonsense",
+        )
+
+        result = get_similar_rule_candidates(
+            db_session, target_language_id=language_es.id, name="present tense ar verbs"
+        )
+
+        assert result == []
+
+    def test_scopes_candidates_to_the_target_language(self, db_session, language_en, language_es, word_category):
+        es_match = _add_rule(
+            db_session, language_en, language_es, word_category,
+            name="present tense ar verbs",
+            catalog_name="Present Tense -ar Verbs",
+            slug="present-ar-es",
+        )[0]
+        language_fr = _add_language(db_session, "fr", "French")
+        _add_rule(
+            db_session, language_en, language_fr, word_category,
+            name="present tense ar verbs",
+            catalog_name="Present Tense -ar Verbs",
+            slug="present-ar-fr",
+        )
+
+        result = get_similar_rule_candidates(
+            db_session, target_language_id=language_es.id, name="present tense ar verbs"
+        )
+
+        assert [candidate.id for candidate in result] == [es_match.id]
+
+    def test_normalizes_case_and_punctuation_in_the_proposed_name(
+        self, db_session, language_en, language_es, word_category
+    ):
+        match = _add_rule(
+            db_session, language_en, language_es, word_category,
+            name="present tense ar verbs",
+            catalog_name="Present Tense -ar Verbs",
+            slug="present-ar",
+        )[0]
+
+        result = get_similar_rule_candidates(
+            db_session,
+            target_language_id=language_es.id,
+            name="  Present Tense   - AR verbs! ",
+        )
+
+        assert [candidate.id for candidate in result] == [match.id]
+
+    def test_drops_candidates_below_the_similarity_threshold(
+        self, db_session, language_en, language_es, word_category
+    ):
+        _add_rule(
+            db_session, language_en, language_es, word_category,
+            name="present subjunctive mood",
+            catalog_name="Present Subjunctive",
+            slug="present-subjunctive",
+        )
+
+        result = get_similar_rule_candidates(
+            db_session, target_language_id=language_es.id, name="present tense ar verbs"
+        )
+
+        assert result == []
+
+    def test_returns_up_to_five_candidates_ordered_by_similarity(
+        self, db_session, language_en, language_es, word_category
+    ):
+        names = [
+            "present subjunctive mood",
+            "present tense ar conjugation",
+            "preterite tense ar",
+            "past tense ar verbs",
+            "present tense",
+            "present tense er verbs",
+        ]
+        for index, name in enumerate(names):
+            _add_rule(
+                db_session, language_en, language_es, word_category,
+                name=name,
+                catalog_name=f"Catalog {name}",
+                slug=f"rule-{index}",
+            )
+
+        result = get_similar_rule_candidates(
+            db_session, target_language_id=language_es.id, name="present tense ar verbs"
+        )
+
+        assert [candidate.name for candidate in result] == [
+            "present tense er verbs",
+            "past tense ar verbs",
+            "present tense",
+            "present tense ar conjugation",
+            "preterite tense ar",
+        ]
+
+    def test_each_candidate_carries_its_catalog_entry_name(
+        self, db_session, language_en, language_es, word_category
+    ):
+        _, canon = _add_rule(
+            db_session, language_en, language_es, word_category,
+            name="present tense ar verbs",
+            catalog_name="Present Tense -ar Verbs",
+            slug="present-ar",
+        )
+
+        result = get_similar_rule_candidates(
+            db_session, target_language_id=language_es.id, name="present tense ar verbs"
+        )
+
+        assert result[0].catalog_name == canon.name
+
+class TestCheckSimilarRules:
+    @patch("crud.rule_similarity.judge_chain")
+    def test_no_similar_candidates_returns_not_similar_without_judging(
+        self, mock_judge, db_session, language_en, language_es, word_category
+    ):
+        _add_rule(
+            db_session, language_en, language_es, word_category,
+            name="the cat sat on the mat",
+            catalog_name="Nonsense",
+            slug="nonsense",
+        )
+
+        result = check_similar_rules(
+            db_session,
+            target_language_id=language_es.id,
+            proposed_title="present tense ar verbs",
+            proposed_description="Conjugate -ar verbs in the present tense.",
+        )
+
+        assert result is not None
+        assert result.similar is False
+        assert result.existing_rule is None
+        mock_judge.invoke.assert_not_called()
+
+    @patch("crud.rule_similarity.judge_chain")
+    def test_judge_match_returns_the_existing_rule(
+        self, mock_judge, db_session, language_en, language_es, word_category
+    ):
+        rule = _add_rule(
+            db_session, language_en, language_es, word_category,
+            name="present tense ar verbs",
+            catalog_name="Present Tense -ar Verbs",
+            slug="present-ar",
+        )[0]
+        mock_judge.invoke.return_value = DuplicateJudgeResult(
+            similar=True, best_match_id=rule.id
+        )
+
+        result = check_similar_rules(
+            db_session,
+            target_language_id=language_es.id,
+            proposed_title="present tense ar verbs",
+            proposed_description="Conjugate -ar verbs in the present tense.",
+        )
+
+        assert result.similar is True
+        assert result.existing_rule is not None
+        assert result.existing_rule.id == rule.id
+        assert result.existing_rule.name == rule.name
+        assert result.existing_rule.description == rule.description
+
+    @patch("crud.rule_similarity.judge_chain")
+    def test_judge_selecting_no_match_returns_not_similar(
+        self, mock_judge, db_session, language_en, language_es, word_category
+    ):
+        _add_rule(
+            db_session, language_en, language_es, word_category,
+            name="present tense ar verbs",
+            catalog_name="Present Tense -ar Verbs",
+            slug="present-ar",
+        )[0]
+        mock_judge.invoke.return_value = DuplicateJudgeResult(
+            similar=False, best_match_id=None
+        )
+
+        result = check_similar_rules(
+            db_session,
+            target_language_id=language_es.id,
+            proposed_title="present tense ar verbs",
+            proposed_description="Conjugate -ar verbs in the present tense.",
+        )
+
+        assert result.similar is False
+        assert result.existing_rule is None
+
+    @patch("crud.rule_similarity.judge_chain")
+    def test_judge_id_outside_the_candidate_set_is_rejected(
+        self, mock_judge, db_session, language_en, language_es, word_category
+    ):
+        _add_rule(
+            db_session, language_en, language_es, word_category,
+            name="present tense ar verbs",
+            catalog_name="Present Tense -ar Verbs",
+            slug="present-ar",
+        )[0]
+        mock_judge.invoke.return_value = DuplicateJudgeResult(
+            similar=True, best_match_id=uuid.uuid4()
+        )
+
+        result = check_similar_rules(
+            db_session,
+            target_language_id=language_es.id,
+            proposed_title="present tense ar verbs",
+            proposed_description="Conjugate -ar verbs in the present tense.",
+        )
+
+        assert result.similar is False
+        assert result.existing_rule is None
+
+    @patch("crud.rule_similarity.judge_chain")
+    def test_judge_receives_the_proposal_and_each_catalog_entry_name(
+        self, mock_judge, db_session, language_en, language_es, word_category
+    ):
+        rule, canon = _add_rule(
+            db_session, language_en, language_es, word_category,
+            name="present tense ar verbs",
+            catalog_name="Present Tense -ar Verbs",
+            slug="present-ar",
+        )
+        mock_judge.invoke.return_value = DuplicateJudgeResult(
+            similar=False, best_match_id=None
+        )
+
+        check_similar_rules(
+            db_session,
+            target_language_id=language_es.id,
+            proposed_title="present tense ar verbs",
+            proposed_description="Conjugate -ar verbs in the present tense.",
+        )
+
+        prompt_inputs = mock_judge.invoke.call_args[0][0]
+        assert prompt_inputs["rule_title"] == "present tense ar verbs"
+        assert prompt_inputs["rule_explanation"] == (
+            "Conjugate -ar verbs in the present tense."
+        )
+        assert str(rule.id) in prompt_inputs["candidates"]
+        assert rule.name in prompt_inputs["candidates"]
+        assert canon.name in prompt_inputs["candidates"]
+        assert rule.description in prompt_inputs["candidates"]
+
+    @patch("crud.rule_similarity.judge_chain")
+    def test_check_persists_no_rows(
+        self, mock_judge, db_session, language_en, language_es, word_category
+    ):
+        rule = _add_rule(
+            db_session, language_en, language_es, word_category,
+            name="present tense ar verbs",
+            catalog_name="Present Tense -ar Verbs",
+            slug="present-ar",
+        )[0]
+        mock_judge.invoke.return_value = DuplicateJudgeResult(
+            similar=True, best_match_id=rule.id
+        )
+        rules_before = db_session.query(GrammarRule).count()
+        catalogs_before = db_session.query(CanonicalRule).count()
+        new_object_count_before = len(db_session.new)
+
+        check_similar_rules(
+            db_session,
+            target_language_id=language_es.id,
+            proposed_title="present tense ar verbs",
+            proposed_description="Conjugate -ar verbs in the present tense.",
+        )
+
+        assert db_session.query(GrammarRule).count() == rules_before
+        assert db_session.query(CanonicalRule).count() == catalogs_before
+        assert len(db_session.new) == new_object_count_before
