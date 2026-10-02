@@ -856,6 +856,67 @@ button[type="submit"]#save-language-selection:hover,
 }
 /* rule generation chat styles ends */
 
+/* Duplicate rule warning */
+.duplicate-warning {
+    border: 1px solid #e0c98a;
+    border-left: 4px solid #8A6D3B;
+    border-radius: 8px;
+    background: #fdf8ec;
+    padding: 12px 16px;
+}
+
+.duplicate-warning-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    color: #8A6D3B;
+}
+
+.duplicate-warning-text {
+    margin: 8px 0 0;
+    color: #333;
+}
+
+.duplicate-warning-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.duplicate-warning-actions .save-button,
+.duplicate-warning-cancel {
+    padding: 8px 16px;
+    font-size: 14px;
+}
+
+.duplicate-warning-cancel {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: none;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    color: #555;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.duplicate-warning-cancel:hover {
+    background: #f1ede3;
+}
+
+.duplicate-warning-resolved {
+    border-color: #ddd;
+    border-left-color: #4A5D3A;
+    background: #f9f8f4;
+}
+
+.duplicate-warning-resolved .duplicate-warning-header {
+    color: #4A5D3A;
+}
+
 /* Full rule content */
 .full-rule-content {
     background: #f9f8f4;
