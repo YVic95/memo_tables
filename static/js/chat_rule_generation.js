@@ -5,13 +5,29 @@ async function onRuleSelected(item, list, rule) {
 
     item.classList.add('proposed-rule-selected');
 
-    dismissOtherRules(list, item);
-
     persistUserRuleSelectedMessage(rule);
 
     const languagePairId = document.getElementById('language-pair-select')?.value;
     if (languagePairId) setChatSessionTitle(languagePairId, rule.title);
 
+    const existingRule = await findDuplicateRule(rule);
+    if (existingRule) {
+        // The other suggestions stay put so Cancel leaves the list usable.
+        appendDuplicateWarning(rule, existingRule, {
+            onProceed: () => {
+                dismissOtherRules(list, item);
+                startRuleCreation(rule);
+            },
+            onCancel: () => item.classList.remove('proposed-rule-selected'),
+        });
+        return;
+    }
+
+    dismissOtherRules(list, item);
+    startRuleCreation(rule);
+}
+
+async function startRuleCreation(rule) {
     const progressContainer = createProgressContainer();
     appendToChat(progressContainer);
 
@@ -126,4 +142,8 @@ function appendStreamError(message) {
     errorEl.textContent = message;
     appendToChat(errorEl);
     persistTextMessage('assistant', message);
+}
+
+if (typeof module === 'object' && module.exports) {
+    module.exports = { onRuleSelected };
 }
