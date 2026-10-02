@@ -5,10 +5,14 @@
 # - description (text, nullable)
 # - language_id (UUID, foreign key to languages.id, not null)
 # - word_category_id (UUID, foreign key to word_categories.id, not null)
-# - canonical_rule_id (UUID, foreign key to canonical_rules.id, not null, unique)
+# - canonical_rule_id (UUID, foreign key to canonical_rules.id, not null)
+#
+# The relation is many-to-one: one catalog entry can back several rules, at
+# different levels of detail. The duplicate warning is what guards against
+# creating the same rule twice.
 
 import uuid
-from sqlalchemy import Column, String, Text, ForeignKey, Index, UniqueConstraint
+from sqlalchemy import Column, String, Text, ForeignKey, Index
 from sqlalchemy.dialects.postgresql import UUID
 from database import Base
 
@@ -23,10 +27,6 @@ class GrammarRule(Base):
     canonical_rule_id = Column(UUID(as_uuid=True), ForeignKey("canonical_rules.id"), nullable=False)
 
     __table_args__ = (
-        UniqueConstraint(
-            "canonical_rule_id",
-            name="uq_grammar_rules_canonical_rule_id",
-        ),
         Index(
             "ix_grammar_rules_name_trgm",
             "name",

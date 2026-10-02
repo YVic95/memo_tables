@@ -139,7 +139,10 @@ memo_tables/
 ## 2. Language & Runtime
 
 - **Python 3.13** managed with **uv** (see `.python-version`)
-- No lint, typecheck, or test commands are configured
+- Tests: `uv run pytest` (in-memory SQLite; never touches your dev database).
+  Two live-Postgres checks are gated behind `PG_TRGM_LIVE_CHECK=1` and
+  `ALEMBIC_LIVE_CHECK=1` because they need Supabase running.
+- No lint or typecheck commands are configured
 - Run the backend: `uv run uvicorn serve:app --reload` (port 8080)
 - Run the full stack: `./scripts/start.sh`
 

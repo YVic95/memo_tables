@@ -14,6 +14,7 @@ from crud.canonical_rules import (
     get_missing_canonical_rules_for_pair,
     upsert_canonical_rule,
 )
+from crud.rules import create_grammar_rule
 
 
 @pytest.fixture()
@@ -164,6 +165,35 @@ class TestGetMissingCanonicalRulesForPair:
     def test_excludes_entry_linked_to_a_persisted_rule(
         self, db_session, language_en, language_es, word_category, canonical_rule, grammar_rule
     ):
+        upsert_canonical_rule(
+            db_session,
+            native_language_id=language_en.id,
+            target_language_id=language_es.id,
+            word_category_id=word_category.id,
+            slug="still-missing",
+            level="A1",
+            name="Still Missing",
+            description="d",
+            position=2,
+        )
+
+        rules = get_missing_canonical_rules_for_pair(
+            db_session, language_en.id, language_es.id
+        )
+
+        assert [r.slug for r in rules] == ["still-missing"]
+
+    def test_excludes_entry_linked_to_several_persisted_rules(
+        self, db_session, language_en, language_es, word_category, canonical_rule, grammar_rule
+    ):
+        create_grammar_rule(
+            db=db_session,
+            title="Noun Gender, in detail",
+            description="The same contrast, at greater length.",
+            language_id=language_es.id,
+            word_category_id=word_category.id,
+            canonical_rule_id=canonical_rule.id,
+        )
         upsert_canonical_rule(
             db_session,
             native_language_id=language_en.id,

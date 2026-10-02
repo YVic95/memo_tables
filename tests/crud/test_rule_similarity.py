@@ -18,6 +18,20 @@ def _add_language(db_session, code, name):
     return lang
 
 
+def _add_grammar_rule(db_session, target_lang, word_category, canon, *, name, description):
+    rule = GrammarRule(
+        name=name,
+        description=description,
+        language_id=target_lang.id,
+        word_category_id=word_category.id,
+        canonical_rule_id=canon.id,
+    )
+    db_session.add(rule)
+    db_session.commit()
+    db_session.refresh(rule)
+    return rule
+
+
 def _add_rule(db_session, language_en, target_lang, word_category, *, name, catalog_name, slug):
     canon = CanonicalRule(
         native_language_id=language_en.id,
@@ -32,16 +46,14 @@ def _add_rule(db_session, language_en, target_lang, word_category, *, name, cata
     )
     db_session.add(canon)
     db_session.flush()
-    rule = GrammarRule(
+    rule = _add_grammar_rule(
+        db_session,
+        target_lang,
+        word_category,
+        canon,
         name=name,
         description=f"Existing rule description for {slug}",
-        language_id=target_lang.id,
-        word_category_id=word_category.id,
-        canonical_rule_id=canon.id,
     )
-    db_session.add(rule)
-    db_session.commit()
-    db_session.refresh(rule)
     return rule, canon
 
 
@@ -302,6 +314,37 @@ class TestCheckSimilarRules:
         assert result.existing_rule.id == rule.id
         assert result.existing_rule.name == rule.name
         assert result.existing_rule.description == rule.description
+
+    @patch("crud.rule_similarity.judge_chain")
+    def test_a_second_rule_sharing_the_same_catalog_entry_is_still_offered(
+        self, mock_judge, db_session, language_en, language_es, word_category
+    ):
+        _, canon = _add_rule(
+            db_session, language_en, language_es, word_category,
+            name="present tense ar verbs",
+            catalog_name="Present Tense -ar Verbs",
+            slug="present-ar",
+        )
+        second = _add_grammar_rule(
+            db_session, language_es, word_category, canon,
+            name="present tense ar verbs in detail",
+            description="The same rule, at greater length.",
+        )
+        mock_judge.invoke.return_value = DuplicateJudgeResult(
+            similar=True, best_match_id=second.id
+        )
+
+        result = check_similar_rules(
+            db_session,
+            target_language_id=language_es.id,
+            proposed_title="present tense ar verbs",
+            proposed_description="Conjugate -ar verbs in the present tense.",
+        )
+
+        assert result.similar is True
+        assert result.existing_rule is not None
+        assert result.existing_rule.id == second.id
+        assert result.existing_rule.name == "present tense ar verbs in detail"
 
     @patch("crud.rule_similarity.judge_chain")
     def test_judge_selecting_no_match_returns_not_similar(

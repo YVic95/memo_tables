@@ -49,11 +49,25 @@ uv run langgraph dev
 uv run alembic revision --autogenerate -m "description"
 uv run alembic upgrade head
 
+# Tests
+uv run pytest
+
 # Add a dependency
 uv add package_name
 ```
 
-No lint, typecheck, or test commands are configured in this repo.
+The suite runs against in-memory SQLite, so it never touches your dev database.
+Two live-Postgres checks are gated because they need Supabase running:
+
+```sh
+# Cross-check the pg_trgm stand-in against the real extension
+PG_TRGM_LIVE_CHECK=1 uv run pytest tests/test_pg_trgm.py
+
+# Run the Alembic migrations against a disposable database
+ALEMBIC_LIVE_CHECK=1 uv run pytest tests/test_alembic_migrations.py
+```
+
+No lint or typecheck commands are configured in this repo.
 
 ## Two migration systems
 
