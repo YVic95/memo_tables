@@ -45,6 +45,15 @@ def _add_rule(db_session, language_en, target_lang, word_category, *, name, cata
     return rule, canon
 
 
+def _add_renamed_estar_rule(db_session, language_en, target_lang, word_category):
+    return _add_rule(
+        db_session, language_en, target_lang, word_category,
+        name="Usage of estar",
+        catalog_name="Present tense regular -ar conjugation",
+        slug="present-tense-ar-conjugation",
+    )[0]
+
+
 class TestGetSimilarRuleCandidates:
     def test_returns_names_close_to_the_proposed_name(
         self, db_session, language_en, language_es, word_category
@@ -123,21 +132,32 @@ class TestGetSimilarRuleCandidates:
 
         assert [candidate.id for candidate in result] == [match.id]
 
-    def test_drops_candidates_below_the_similarity_threshold(
+    def test_finds_a_duplicate_renamed_to_share_only_a_suffix_word(
         self, db_session, language_en, language_es, word_category
     ):
-        _add_rule(
-            db_session, language_en, language_es, word_category,
-            name="present subjunctive mood",
-            catalog_name="Present Subjunctive",
-            slug="present-subjunctive",
+        match = _add_renamed_estar_rule(db_session, language_en, language_es, word_category)
+
+        result = get_similar_rule_candidates(
+            db_session, target_language_id=language_es.id, name="Ser vs. estar"
         )
+
+        assert [candidate.id for candidate in result] == [match.id]
+
+    def test_weak_overlap_is_offered_to_the_judge_rather_than_filtered(
+        self, db_session, language_en, language_es, word_category
+    ):
+        weak_overlap_rule = _add_rule(
+            db_session, language_en, language_es, word_category,
+            name="preterite imperfect tense",
+            catalog_name="Preterite and Imperfect",
+            slug="preterite-imperfect",
+        )[0]
 
         result = get_similar_rule_candidates(
             db_session, target_language_id=language_es.id, name="present tense ar verbs"
         )
 
-        assert result == []
+        assert [candidate.id for candidate in result] == [weak_overlap_rule.id]
 
     def test_returns_up_to_five_candidates_ordered_by_similarity(
         self, db_session, language_en, language_es, word_category
@@ -187,6 +207,27 @@ class TestGetSimilarRuleCandidates:
         assert result[0].catalog_name == canon.name
 
 class TestCheckSimilarRules:
+    @patch("crud.rule_similarity.judge_chain")
+    def test_duplicate_renamed_to_share_only_a_suffix_word_reaches_the_judge(
+        self, mock_judge, db_session, language_en, language_es, word_category
+    ):
+        rule = _add_renamed_estar_rule(db_session, language_en, language_es, word_category)
+        mock_judge.invoke.return_value = DuplicateJudgeResult(
+            similar=True, best_match_id=rule.id
+        )
+
+        result = check_similar_rules(
+            db_session,
+            target_language_id=language_es.id,
+            proposed_title="Ser vs. estar",
+            proposed_description="Distinguish ser from estar.",
+        )
+
+        mock_judge.invoke.assert_called_once()
+        assert result.similar is True
+        assert result.existing_rule is not None
+        assert result.existing_rule.name == "Usage of estar"
+
     @patch("crud.rule_similarity.judge_chain")
     def test_no_similar_candidates_returns_not_similar_without_judging(
         self, mock_judge, db_session, language_en, language_es, word_category

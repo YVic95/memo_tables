@@ -14,7 +14,7 @@ from models.grammar_rules import GrammarRule
 
 logger = logging.getLogger(__name__)
 
-TRIGRAM_SIMILARITY_THRESHOLD = 0.35
+TRIGRAM_SIMILARITY_THRESHOLD = 0.2
 MAX_CANDIDATES = 5
 
 judge_llm = llm.with_structured_output(DuplicateJudgeResult)
