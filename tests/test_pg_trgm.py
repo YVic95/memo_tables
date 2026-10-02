@@ -1,11 +1,11 @@
-"""The `similarity()` stand-in must reproduce `pg_trgm`, not approximate it.
+"""The `similarity()` and `greatest()` stand-ins must reproduce Postgres, not approximate it.
 
 Every expected value here was measured against `pg_trgm` 1.6 running in the
-local Supabase Postgres. The stand-in exists so SQL predicates calling
-`similarity()` can run against the in-memory SQLite session in `conftest.py`;
-if it disagrees with `pg_trgm` then the tests it feeds can disagree with
-production while staying green. The one place `tests/pg_trgm.py` knowingly
-still diverges is documented on `_is_word_character` there.
+local Supabase Postgres. The stand-ins exist so SQL written against Postgres can
+run against the in-memory SQLite session in `conftest.py`; if they disagree with
+Postgres then the tests they feed can disagree with production while staying
+green. The one place `tests/pg_trgm.py` knowingly still diverges is documented on
+`_is_word_character` there.
 """
 
 import os
@@ -13,7 +13,8 @@ import os
 import pytest
 from sqlalchemy import text
 
-from tests.pg_trgm import similarity, trigrams
+from tests.catalog_text import REFLEXIVE_VERBS_DESCRIPTION, SER_VS_ESTAR_DESCRIPTION
+from tests.pg_trgm import greatest, similarity, trigrams
 
 # similarity() returns `real` in Postgres, so allow for float32 rounding.
 FLOAT32_TOLERANCE = 1e-6
@@ -26,6 +27,24 @@ PG_TRGM_SIMILARITIES = [
     ("Usage of estar", "Ser vs. estar", 0.272727),
     ("present subjunctive mood", "present tense ar verbs", 0.2),
     ("preterite imperfect tense", "present tense ar verbs", 0.225),
+    # #45: a rule's own name and its catalog entry name disagreeing, which is
+    # what let a stale catalog name veto a real duplicate.
+    ("Usage of estar", "Present tense regular -ar conjugation", 0.02),
+    # A rule renamed so far from the topic that only its description can find
+    # it again: the name clears nothing, the description matches outright.
+    ("Permanent vs. temporary descriptions", "Ser vs. estar", 0.0652174),
+    (SER_VS_ESTAR_DESCRIPTION, SER_VS_ESTAR_DESCRIPTION, 1.0),
+    # The noise floor for matching on description. Two descriptions of Spanish
+    # verbs share a lot of vocabulary, so this is the pair that decides whether
+    # the description is a useful signal or just floods the candidate list. It
+    # stays under the 0.20 retrieval threshold.
+    (REFLEXIVE_VERBS_DESCRIPTION, SER_VS_ESTAR_DESCRIPTION, 0.184211),
+    # How far the filler descriptions the tests generate score against a
+    # proposed explanation. Pinned because several tests rely on all of them
+    # staying under the threshold with only ~0.04 of headroom.
+    ("Existing rule description for present-ar", "Conjugate -ar verbs in the present tense.", 0.15942),
+    ("Existing rule description for present-ar-es", "Conjugate -ar verbs in the present tense.", 0.15493),
+    ("Existing rule description for nonsense", "Conjugate -ar verbs in the present tense.", 0.0547945),
     # Case, punctuation, whitespace and word order are all insignificant.
     ("Ser vs. estar", "SER VS. ESTAR", 1.0),
     ("Ser vs. estar", "Ser vs estar", 1.0),
@@ -179,9 +198,37 @@ class TestSimilarity:
         assert similarity("present tense ar verbs", "---") == 0.0
 
 
+class TestGreatest:
+    """`greatest()` as Postgres' `least`/`greatest` define it.
+
+    The candidate query picks the better of two similarity scores with it, so
+    the NULL handling matters more than the arithmetic: SQLite's two-argument
+    `max()` returns NULL when *either* argument is NULL, and would silently
+    filter every row out instead of ignoring the missing side.
+    """
+
+    def test_returns_the_largest_value(self):
+        assert greatest(0.3, 0.9) == 0.9
+
+    def test_ignores_none_rather_than_propagating_it(self):
+        assert greatest(0.3, None) == 0.3
+        assert greatest(None, 0.3) == 0.3
+
+    def test_returns_none_only_when_every_value_is_none(self):
+        assert greatest(None, None) is None
+        assert greatest() is None
+
+    def test_ignores_none_where_sqlite_max_does_not(self, db_session):
+        # The divergence this stand-in exists to bridge. If `greatest()` ever
+        # starts behaving like SQLite's `max()`, the candidate query silently
+        # filters every row out on any NULL description.
+        assert db_session.execute(text("select max(0.3, null)")).scalar() is None
+        assert greatest(0.3, None) == 0.3
+
+
 @pytest.fixture()
-def pg_trgm_similarity():
-    """Query `similarity()` from the local Supabase Postgres.
+def pg_trgm_connection():
+    """The local Supabase Postgres engine, once `pg_trgm` is known to be there.
 
     Opt in with PG_TRGM_LIVE_CHECK=1. Skips when that is unset, when Postgres
     is not running, or when the `pg_trgm` extension is missing.
@@ -197,8 +244,13 @@ def pg_trgm_similarity():
     except Exception as error:
         pytest.skip(f"local Postgres with pg_trgm is unavailable: {error}")
 
+    return engine
+
+
+@pytest.fixture()
+def pg_trgm_similarity(pg_trgm_connection):
     def query(left, right):
-        with engine.connect() as connection:
+        with pg_trgm_connection.connect() as connection:
             return connection.execute(
                 text("select similarity(:left, :right)"),
                 {"left": left, "right": right},
@@ -227,3 +279,22 @@ class TestAgainstLivePostgres:
     def test_returns_none_where_pg_trgm_returns_null(self, pg_trgm_similarity):
         assert pg_trgm_similarity(None, "present tense") is None
         assert similarity(None, "present tense") is None
+
+    def test_greatest_agrees_with_postgres(self, pg_trgm_connection):
+        # Cast to float8 so the comparison is against the same type the stand-in
+        # returns. Untyped literals come back as `numeric`, and the candidate
+        # query's own operands are float8 anyway, since `coalesce(similarity(...),
+        # 0.0)` is `real`.
+        pairs = [
+            ("select greatest(0.3::float8, 0.9::float8)", greatest(0.3, 0.9)),
+            ("select greatest(0.3::float8, null::float8)", greatest(0.3, None)),
+            ("select greatest(null::float8, 0.3::float8)", greatest(None, 0.3)),
+            ("select greatest(null::float8, null::float8)", greatest(None, None)),
+        ]
+        with pg_trgm_connection.connect() as connection:
+            for sql, stand_in in pairs:
+                live = connection.execute(text(sql)).scalar()
+                if live is None or stand_in is None:
+                    assert stand_in is live, sql
+                else:
+                    assert stand_in == pytest.approx(live, abs=FLOAT32_TOLERANCE), sql

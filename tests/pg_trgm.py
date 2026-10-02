@@ -1,8 +1,8 @@
-"""A faithful stand-in for Postgres `pg_trgm`'s `similarity()`, for SQLite.
+"""Faithful stand-ins for the Postgres builtins the similarity query uses.
 
-SQLite has no `similarity()`, so `tests/conftest.py` registers
-:func:`similarity` as a UDF and SQL predicates written against `pg_trgm` run
-unchanged against the in-memory SQLite session.
+SQLite has no `similarity()` and no `greatest()`, so `tests/conftest.py`
+registers both as UDFs and SQL written against Postgres runs unchanged against
+the in-memory SQLite session.
 
 `pg_trgm` lowercases, splits on every non-alphanumeric character, pads each
 word with two leading spaces and one trailing space, takes the 3-grams of each
@@ -88,3 +88,17 @@ def similarity(left: str | None, right: str | None) -> float | None:
     if not combined:
         return 0.0
     return len(left_trigrams & right_trigrams) / len(combined)
+
+
+def greatest(*values: float | None) -> float | None:
+    """The largest of `values`, ignoring NULLs, as Postgres' `greatest()` does.
+
+    This differs from SQLite's own two-argument `max()`, which returns NULL when
+    *either* argument is NULL. The candidate query relies on the Postgres
+    behaviour, so the difference is bridged here rather than avoided in the
+    query. Returns None only when every value is None.
+    """
+    present = [value for value in values if value is not None]
+    if not present:
+        return None
+    return max(present)

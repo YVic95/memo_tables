@@ -36,17 +36,18 @@ duplicate_check_prompt = PromptTemplate.from_template(
 
         Below is the proposed rule's title and explanation, followed by existing
         rules that are already persisted. Each existing rule is listed with its
-        id, its stored name, the name of the catalog entry it was created from,
-        and its description.
+        id, its stored name, and its description.
 
-        Always compare the proposed title against BOTH the existing rule's name
-        AND its catalog entry name before deciding.
+        Compare the proposal against each existing rule on BOTH its name and its
+        description. A rule whose name has been reworded is still a duplicate if
+        its description teaches the same thing, and the other way round.
 
         Decide whether any existing rule teaches the SAME grammar rule as the
         proposed one — the same underlying grammar concept, not merely a related
-        topic. If any candidate matches, choose the best match and return
-        similar=true with its id exactly as shown. Otherwise return
-        similar=false with no id.
+        topic. The wording does not have to match exactly; an overlap on either
+        the name or the description is enough to make a candidate a match. If any
+        candidate matches, choose the best match and return similar=true with its
+        id exactly as shown. Otherwise return similar=false with no id.
 
         Proposed title: {rule_title}
         Proposed explanation: {rule_explanation}

@@ -4,7 +4,7 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 
-from tests.pg_trgm import similarity
+from tests.pg_trgm import greatest, similarity
 
 from database import Base
 from models.language import Language
@@ -44,6 +44,7 @@ def db_session():
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.close()
         dbapi_connection.create_function("similarity", 2, similarity)
+        dbapi_connection.create_function("greatest", -1, greatest)
 
     Base.metadata.create_all(bind=engine)
     Session = sessionmaker(bind=engine)
