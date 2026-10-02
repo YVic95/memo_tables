@@ -1,7 +1,34 @@
 import uuid
-from sqlalchemy.orm import Session
+
+from sqlalchemy import and_, exists, func
+from sqlalchemy.orm import Session, aliased
+from sqlalchemy.sql.elements import ColumnElement
 from models.canonical_rules import CanonicalRule
 from models.grammar_rules import GrammarRule
+
+CANONICAL_COVERAGE_SIMILARITY_THRESHOLD = 0.3
+
+def _has_faithful_linked_rule() -> ColumnElement[bool]:
+    """Condition true for entries at least one linked rule actually teaches.
+
+    Relation is many-to-one, an entry can carry several rules that
+    between them cover only part of it — `ser-vs-estar` hanging off both
+    `Usage of verb estar` and `Usage of verb ser` teaches neither verb on its own —
+    so linkage alone is not enough to retire an entry.
+
+    The rule is matched through an alias so the subquery gets its own FROM entry
+    rather than binding to the outer query.
+    """
+    linked = aliased(GrammarRule)
+    name_similarity = func.coalesce(
+        func.similarity(linked.name, CanonicalRule.name), 0.0
+    )
+    return exists().where(
+        and_(
+            linked.canonical_rule_id == CanonicalRule.id,
+            name_similarity >= CANONICAL_COVERAGE_SIMILARITY_THRESHOLD,
+        )
+    ).correlate(CanonicalRule)
 
 
 def _pair_active_rules_query(
@@ -42,21 +69,18 @@ def get_missing_canonical_rules_for_pair(
     native_language_id: uuid.UUID,
     target_language_id: uuid.UUID,
 ) -> list[CanonicalRule]:
-    """Return the pair's active catalog entries not yet linked to a persisted rule.
+    """Return the pair's active catalog entries not yet taught by a rule.
 
-    An entry is missing when no grammar_rules row links to it. Ordered by level
-    then position so a proposal surfaced from this list is pedagogically ordered.
+    An entry is missing when no linked rule is a faithful copy of it, matched on
+    name alone for the reason given on `CANONICAL_COVERAGE_SIMILARITY_THRESHOLD`.
+    Ordered by level then position so a proposal surfaced from this list is
+    pedagogically ordered.
     """
     return (
         _pair_active_rules_query(db, native_language_id, target_language_id)
-        .outerjoin(
-            GrammarRule,
-            GrammarRule.canonical_rule_id == CanonicalRule.id,
-        )
-        .filter(GrammarRule.id.is_(None))
+        .filter(~_has_faithful_linked_rule())
         .all()
     )
-
 
 def get_canonical_rule_by_id(
     db: Session,
