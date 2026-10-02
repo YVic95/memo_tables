@@ -200,3 +200,37 @@ class TestChatMessagePersistence:
             and m["content"]["category"] == "verbs"
             for m in msgs
         )
+
+    def test_duplicate_warning_persists_and_roundtrips(self, db_session, open_session):
+        client = TestClient(app)
+        content = {
+            "proposed_rule": {
+                "title": "Masculine and feminine nouns",
+                "explanation": "Nouns change form depending on gender.",
+                "canonical_rule_id": str(uuid.uuid4()),
+            },
+            "existing_rule": {
+                "id": str(uuid.uuid4()),
+                "name": "Noun Gender",
+                "description": "Every Spanish noun has a gender.",
+            },
+        }
+        resp = client.post(
+            "/api/chat-messages",
+            json={
+                "session_id": str(open_session.id),
+                "role": "assistant",
+                "message_type": "duplicate_warning",
+                "content": content,
+            },
+        )
+        assert resp.status_code == 200
+        assert resp.json()["message_type"] == "duplicate_warning"
+        assert resp.json()["content"] == content
+
+        msgs = client.get(f"/api/chat-sessions/{open_session.id}/messages").json()
+        assert any(
+            m["message_type"] == "duplicate_warning"
+            and m["content"]["existing_rule"]["name"] == "Noun Gender"
+            for m in msgs
+        )
