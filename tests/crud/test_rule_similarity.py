@@ -159,6 +159,27 @@ class TestGetSimilarRuleCandidates:
 
         assert [candidate.id for candidate in result] == [weak_overlap_rule.id]
 
+    def test_candidate_just_below_the_threshold_is_filtered_out(
+        self, db_session, language_en, language_es, word_category
+    ):
+        # The same rule the test above keeps scores 0.195652 against this other
+        # proposed name, a hair under the 0.20 threshold. Both values are
+        # pinned in test_pg_trgm.py, so the threshold itself is pinned too.
+        filtered_rule = _add_rule(
+            db_session, language_en, language_es, word_category,
+            name="preterite imperfect tense",
+            catalog_name="Preterite and Imperfect",
+            slug="preterite-imperfect",
+        )[0]
+
+        result = get_similar_rule_candidates(
+            db_session,
+            target_language_id=language_es.id,
+            name="present tense ar conjugation",
+        )
+
+        assert filtered_rule.id not in [candidate.id for candidate in result]
+
     def test_returns_up_to_five_candidates_ordered_by_similarity(
         self, db_session, language_en, language_es, word_category
     ):
@@ -182,10 +203,14 @@ class TestGetSimilarRuleCandidates:
             db_session, target_language_id=language_es.id, name="present tense ar verbs"
         )
 
+        # pg_trgm scores these against "present tense ar verbs" as 0.7692,
+        # 0.6087, 0.5926, 0.4857, 0.4000 and 0.2000, so all six clear the 0.20
+        # threshold and the sixth is dropped by MAX_CANDIDATES. These values are
+        # pinned in test_pg_trgm.py.
         assert [candidate.name for candidate in result] == [
             "present tense er verbs",
-            "past tense ar verbs",
             "present tense",
+            "past tense ar verbs",
             "present tense ar conjugation",
             "preterite tense ar",
         ]
