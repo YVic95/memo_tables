@@ -104,15 +104,19 @@ function analyzeRestoreMessages(messages) {
         selectionEchoPositions: new Set(),
         selectedTitleByList: new Map(),
         restoredTablePositions: new Map(),
+        resolvedWarningPositions: new Set(),
     };
 
     const fullRulePositions = [];
+    const warningPositions = [];
     messages.forEach(msg => {
         if (msg.message_type === 'full_rule') {
             fullRulePositions.push(msg.position);
             if (msg.content && msg.content.grammar_rule_id) {
                 result.latestRuleId = msg.content.grammar_rule_id;
             }
+        } else if (msg.message_type === 'duplicate_warning') {
+            warningPositions.push(msg.position);
         } else if (msg.message_type === 'table_deleted' && msg.content && msg.content.table_id != null) {
             result.deletedTableIds.add(msg.content.table_id);
         } else if (msg.message_type === 'table' && msg.content) {
@@ -128,6 +132,16 @@ function analyzeRestoreMessages(messages) {
         }
     });
 
+    // A duplicate warning stops offering "Create anyway" once the rule it was
+    // blocking has actually been created further down the restored chat.
+    const isFollowedByFullRule = position =>
+        fullRulePositions.some(rulePosition => rulePosition > position);
+    warningPositions.forEach(position => {
+        if (isFollowedByFullRule(position)) {
+            result.resolvedWarningPositions.add(position);
+        }
+    });
+
     let pendingListPosition = null;
     let pendingTitles = null;
     let selectionRecorded = false;
@@ -140,7 +154,7 @@ function analyzeRestoreMessages(messages) {
             pendingListPosition = msg.position;
             pendingTitles = (content.rules || []).map(rule => rule.title);
             selectionRecorded = false;
-            if (fullRulePositions.some(pos => pos > msg.position)) {
+            if (isFollowedByFullRule(msg.position)) {
                 result.consumedLists.add(msg.position);
             }
         } else if (msg.message_type === 'text' && msg.role === 'user' && pendingListPosition !== null && !selectionRecorded) {
@@ -200,6 +214,11 @@ function renderRestoredMessage(msg, restored, ruleSaved, skeletonReplacements) {
             break;
         case 'skeleton_table_replacement':
             skeletonReplacements.push({ category: content.category, markdown: content.markdown });
+            break;
+        case 'duplicate_warning':
+            appendDuplicateWarning(content.proposed_rule, content.existing_rule, {
+                isResolved: restored.resolvedWarningPositions.has(msg.position),
+            });
             break;
         default:
             break;
@@ -286,4 +305,8 @@ function applyWorkflowButtonState(workflowStep, ruleId) {
     if (workflowStep === 'saved_tables' && closeBtn) {
         closeBtn.classList.remove('hidden-button');
     }
+}
+
+if (typeof module === 'object' && module.exports) {
+    module.exports = { analyzeRestoreMessages, renderRestoredMessage };
 }
