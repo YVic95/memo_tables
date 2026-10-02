@@ -878,6 +878,16 @@ button[type="submit"]#save-language-selection:hover,
     color: #333;
 }
 
+/* Sits inside .duplicate-warning-text, which is why that is a div and not a p. */
+.duplicate-warning-list {
+    margin: 4px 0 0;
+    padding-left: 20px;
+}
+
+.duplicate-warning-list li {
+    margin: 2px 0;
+}
+
 .duplicate-warning-actions {
     display: flex;
     flex-wrap: wrap;

@@ -2,6 +2,20 @@
 // whether a similar rule already exists; when it does, an inline warning card offers
 // "Create anyway" or "Cancel". The card is persisted as a chat message so the existing
 // chat restore path brings it back, in place, after a page refresh.
+//
+// check names up to three matching rules, best-fitting first, rather than
+// only the single best. Cards persisted before that stored one rule under
+// `existing_rule`, so both shapes are read — see readExistingRules.
+
+function readExistingRules(content) {
+    if (Array.isArray(content.existing_rules)) {
+        return content.existing_rules;
+    }
+    if (content.existing_rule) {
+        return [content.existing_rule];
+    }
+    return [];
+}
 
 async function findDuplicateRule(proposedRule) {
     let checkResult;
@@ -20,33 +34,30 @@ async function findDuplicateRule(proposedRule) {
     if (!checkResult || !checkResult.similar) {
         return null;
     }
-    return checkResult.existing_rule || null;
+    const matches = readExistingRules(checkResult);
+    return matches.length ? matches : null;
 }
 
-function buildDuplicateWarningContent(proposedRule, existingRule) {
+function buildDuplicateWarningContent(proposedRule, existingRules) {
     return {
         proposed_rule: {
             title: proposedRule.title,
             explanation: proposedRule.explanation,
             canonical_rule_id: proposedRule.canonical_rule_id,
         },
-        existing_rule: {
-            id: existingRule.id,
-            name: existingRule.name,
-            description: existingRule.description ?? null,
-        },
+        existing_rules: existingRules,
     };
 }
 
-function appendDuplicateWarning(proposedRule, existingRule, options) {
+function appendDuplicateWarning(proposedRule, existingRules, options) {
     const { isResolved = false, onProceed = null, onCancel = null } = options || {};
 
-    if (!proposedRule || !existingRule) {
-        console.warn('[duplicate-warning] skipping a warning without a proposed or existing rule');
+    if (!proposedRule || !existingRules || existingRules.length === 0) {
+        console.warn('[duplicate-warning] skipping a warning without a proposed rule or any matching rule');
         return;
     }
 
-    const content = buildDuplicateWarningContent(proposedRule, existingRule);
+    const content = buildDuplicateWarningContent(proposedRule, existingRules);
     const container = createRuleMessageContainer('assistant');
 
     const dismissCard = () => container.remove();
@@ -69,6 +80,9 @@ function appendDuplicateWarning(proposedRule, existingRule, options) {
 
 function createDuplicateWarningCard(content, handlers) {
     const { isResolved, onProceed, onCancel } = handlers;
+    // Read through the normaliser rather than off the key, so a card built from
+    // either persisted shape renders.
+    const existingRules = readExistingRules(content);
 
     const card = document.createElement('div');
     card.className = 'duplicate-warning';
@@ -80,11 +94,29 @@ function createDuplicateWarningCard(content, handlers) {
     header.className = 'duplicate-warning-header';
     header.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i><span>Possible duplicate</span>';
 
-    const message = document.createElement('p');
+    // A div rather than the p this used to be, because several matches render as a
+    // list inside it and a p may not contain one.
+    const message = document.createElement('div');
     message.className = 'duplicate-warning-text';
-    const existingRuleName = document.createElement('strong');
-    existingRuleName.textContent = content.existing_rule.name;
-    message.append('You already have a rule called ', existingRuleName, '.');
+
+    if (existingRules.length === 1) {
+        const existingRuleName = document.createElement('strong');
+        existingRuleName.textContent = existingRules[0].name;
+        message.append('You already have a rule called ', existingRuleName, '.');
+    } else {
+        message.append(
+            `You already have ${existingRules.length} rules that may cover the same ground:`
+        );
+        const list = document.createElement('ul');
+        list.className = 'duplicate-warning-list';
+        // Already ordered best-fit first by the check, so the order is kept as is.
+        for (const rule of existingRules) {
+            const item = document.createElement('li');
+            item.textContent = rule.name;
+            list.appendChild(item);
+        }
+        message.appendChild(list);
+    }
 
     card.append(header, message);
 
@@ -112,5 +144,10 @@ function createDuplicateWarningCard(content, handlers) {
 }
 
 if (typeof module === 'object' && module.exports) {
-    module.exports = { findDuplicateRule, buildDuplicateWarningContent, appendDuplicateWarning };
+    module.exports = {
+        findDuplicateRule,
+        buildDuplicateWarningContent,
+        appendDuplicateWarning,
+        readExistingRules,
+    };
 }

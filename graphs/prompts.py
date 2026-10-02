@@ -1,5 +1,7 @@
 from langchain_core.prompts import PromptTemplate
 
+from graphs.models import MAX_SIMILAR_RULES_SHOWN
+
 propose_missing_rules_prompt = PromptTemplate.from_template(
     """
         You are a language-learning content expert.
@@ -45,16 +47,26 @@ duplicate_check_prompt = PromptTemplate.from_template(
         Decide whether any existing rule teaches the SAME grammar rule as the
         proposed one — the same underlying grammar concept, not merely a related
         topic. The wording does not have to match exactly; an overlap on either
-        the name or the description is enough to make a candidate a match. If any
-        candidate matches, choose the best match and return similar=true with its
-        id exactly as shown. Otherwise return similar=false with no id.
+        the name or the description is enough to make a candidate a match. A rule
+        may match alongside others that also match, so name every candidate that
+        is a genuine duplicate, ordered best match first, and return similar=true
+        with their ids exactly as shown.
+
+        Name at most {max_matches}. Return fewer when fewer are genuine duplicates,
+        and return none when none are: a short list is the right answer whenever you
+        are unsure of a candidate, so do not pad the list with related rules to
+        fill it. A rule on an adjacent topic is not a duplicate just because it
+        overlaps in vocabulary.
+
+        Otherwise return similar=false with no ids.
 
         Proposed title: {rule_title}
         Proposed explanation: {rule_explanation}
 
         Existing rules:
         {candidates}
-    """
+    """,
+    partial_variables={"max_matches": MAX_SIMILAR_RULES_SHOWN},
 )
 
 generate_table_prompt = PromptTemplate.from_template(

@@ -216,7 +216,7 @@ function renderRestoredMessage(msg, restored, ruleSaved, skeletonReplacements) {
             skeletonReplacements.push({ category: content.category, markdown: content.markdown });
             break;
         case 'duplicate_warning':
-            appendDuplicateWarning(content.proposed_rule, content.existing_rule, {
+            appendDuplicateWarning(content.proposed_rule, readExistingRules(content), {
                 isResolved: restored.resolvedWarningPositions.has(msg.position),
             });
             break;

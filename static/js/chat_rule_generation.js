@@ -10,10 +10,10 @@ async function onRuleSelected(item, list, rule) {
     const languagePairId = document.getElementById('language-pair-select')?.value;
     if (languagePairId) setChatSessionTitle(languagePairId, rule.title);
 
-    const existingRule = await findDuplicateRule(rule);
-    if (existingRule) {
+    const existingRules = await findDuplicateRule(rule);
+    if (existingRules) {
         // The other suggestions stay put so Cancel leaves the list usable.
-        appendDuplicateWarning(rule, existingRule, {
+        appendDuplicateWarning(rule, existingRules, {
             onProceed: () => {
                 dismissOtherRules(list, item);
                 startRuleCreation(rule);

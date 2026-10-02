@@ -236,31 +236,33 @@ class TestCheckSimilar:
     def test_returns_the_duplicate_check_result(self, pair, mock_check, db_session):
         mock_check.return_value = DuplicateCheckResult(
             similar=True,
-            existing_rule=ExistingRule(
-                id=uuid.uuid4(),
-                name="present tense ar verbs",
-                description="Conjugate -ar verbs.",
-            ),
+            existing_rules=[
+                ExistingRule(
+                    id=uuid.uuid4(),
+                    name="present tense ar verbs",
+                    description="Conjugate -ar verbs.",
+                )
+            ],
         )
 
         result = _call_agent(self._check_request(pair["pair_id"]), db_session)
 
         assert result["similar"] is True
-        assert result["existing_rule"]["name"] == "present tense ar verbs"
-        assert isinstance(result["existing_rule"]["id"], str)
-        assert result["existing_rule"]["description"] == "Conjugate -ar verbs."
+        assert result["existing_rules"][0]["name"] == "present tense ar verbs"
+        assert isinstance(result["existing_rules"][0]["id"], str)
+        assert result["existing_rules"][0]["description"] == "Conjugate -ar verbs."
 
-    def test_returns_not_similar_with_no_existing_rule(self, pair, mock_check, db_session):
-        mock_check.return_value = DuplicateCheckResult(similar=False, existing_rule=None)
+    def test_returns_not_similar_with_no_existing_rules(self, pair, mock_check, db_session):
+        mock_check.return_value = DuplicateCheckResult(similar=False, existing_rules=[])
 
         result = _call_agent(self._check_request(pair["pair_id"]), db_session)
 
-        assert result == {"similar": False, "existing_rule": None}
+        assert result == {"similar": False, "existing_rules": []}
 
     def test_passes_target_language_and_proposal_into_the_check(
         self, pair, mock_check, db_session
     ):
-        mock_check.return_value = DuplicateCheckResult(similar=False, existing_rule=None)
+        mock_check.return_value = DuplicateCheckResult(similar=False, existing_rules=[])
         request = self._check_request(pair["pair_id"])
 
         _call_agent(request, db_session)

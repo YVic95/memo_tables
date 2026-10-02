@@ -4,6 +4,10 @@ const {
   analyzeRestoreMessages,
   renderRestoredMessage,
 } = require('../../static/js/chat_restore.js');
+// The restore path reads both persisted shapes through the real helper, the same
+// one the browser gets from the script tag, so the legacy branch is what is
+// under test rather than a stub that agrees with it.
+const { readExistingRules } = require('../../static/js/chat_duplicate_warning.js');
 
 const proposedRules = {
   position: 1,
@@ -23,7 +27,7 @@ const selectionEcho = {
   content: { text: 'Masculine and feminine nouns: Nouns change form.' },
 };
 
-function duplicateWarning(position, existingRuleName) {
+function duplicateWarning(position, existingRuleNames) {
   return {
     position,
     role: 'assistant',
@@ -34,6 +38,18 @@ function duplicateWarning(position, existingRuleName) {
         explanation: 'Nouns change form.',
         canonical_rule_id: 'canon-1',
       },
+      existing_rules: existingRuleNames.map((name, i) => ({ id: `rule-${i + 1}`, name, description: null })),
+    },
+  };
+}
+
+// Exactly the shape cards in chat_sessions carry from before #48.
+function legacyDuplicateWarning(position, existingRuleName) {
+  const message = duplicateWarning(position, [existingRuleName]);
+  return {
+    ...message,
+    content: {
+      proposed_rule: message.content.proposed_rule,
       existing_rule: { id: 'rule-1', name: existingRuleName, description: null },
     },
   };
@@ -51,7 +67,7 @@ describe('analyzeRestoreMessages', () => {
     const restored = analyzeRestoreMessages([
       proposedRules,
       selectionEcho,
-      duplicateWarning(3, 'Noun Gender'),
+      duplicateWarning(3, ['Noun Gender']),
     ]);
 
     assert.deepEqual(Array.from(restored.resolvedWarningPositions), []);
@@ -61,7 +77,7 @@ describe('analyzeRestoreMessages', () => {
     const restored = analyzeRestoreMessages([
       proposedRules,
       selectionEcho,
-      duplicateWarning(3, 'Noun Gender'),
+      duplicateWarning(3, ['Noun Gender']),
       fullRule,
     ]);
 
@@ -72,9 +88,9 @@ describe('analyzeRestoreMessages', () => {
     const restored = analyzeRestoreMessages([
       proposedRules,
       selectionEcho,
-      duplicateWarning(3, 'Noun Gender'),
+      duplicateWarning(3, ['Noun Gender']),
       fullRule,
-      duplicateWarning(6, 'Noun Gender'),
+      duplicateWarning(6, ['Noun Gender']),
     ]);
 
     assert.deepEqual(Array.from(restored.resolvedWarningPositions), [3]);
@@ -84,7 +100,7 @@ describe('analyzeRestoreMessages', () => {
     const restored = analyzeRestoreMessages([
       proposedRules,
       selectionEcho,
-      duplicateWarning(3, 'Noun Gender'),
+      duplicateWarning(3, ['Noun Gender']),
       fullRule,
     ]);
 
@@ -100,7 +116,7 @@ describe('analyzeRestoreMessages', () => {
     const restored = analyzeRestoreMessages([
       proposedRules,
       selectionEcho,
-      duplicateWarning(3, 'Noun Gender'),
+      duplicateWarning(3, ['Noun Gender']),
     ]);
 
     assert.deepEqual(Array.from(restored.consumedLists), []);
@@ -112,17 +128,20 @@ describe('renderRestoredMessage', () => {
   let originalAppendDuplicateWarning;
   let originalDocument;
   let renderedWarnings;
+  let originalReadExistingRules;
 
   beforeEach(() => {
     originalAppendDuplicateWarning = globalThis.appendDuplicateWarning;
     originalDocument = globalThis.document;
+    originalReadExistingRules = globalThis.readExistingRules;
 
     renderedWarnings = [];
-    globalThis.appendDuplicateWarning = (proposedRule, existingRule, options) => {
-      renderedWarnings.push({ proposedRule, existingRule, options });
+    globalThis.appendDuplicateWarning = (proposedRule, existingRules, options) => {
+      renderedWarnings.push({ proposedRule, existingRules, options });
     };
+    globalThis.readExistingRules = readExistingRules;
     globalThis.document = {
-      createElement: () => makeFakeElement('div'),
+      createElement: (tag) => makeFakeElement(tag),
       getElementById: () => makeFakeElement('div'),
     };
   });
@@ -130,6 +149,7 @@ describe('renderRestoredMessage', () => {
   afterEach(() => {
     globalThis.appendDuplicateWarning = originalAppendDuplicateWarning;
     globalThis.document = originalDocument;
+    globalThis.readExistingRules = originalReadExistingRules;
   });
 
   function makeFakeElement(tagName) {
@@ -149,18 +169,44 @@ describe('renderRestoredMessage', () => {
   }
 
   it('renders the warning from its persisted content', () => {
-    const message = duplicateWarning(3, 'Noun Gender');
+    const message = duplicateWarning(3, ['Noun Gender']);
     const restored = analyzeRestoreMessages([message]);
 
     renderRestoredMessage(message, restored, false, []);
 
     assert.equal(renderedWarnings.length, 1);
     assert.equal(renderedWarnings[0].proposedRule.title, 'Masculine and feminine nouns');
-    assert.equal(renderedWarnings[0].existingRule.name, 'Noun Gender');
+    assert.deepEqual(renderedWarnings[0].existingRules, [{ id: 'rule-1', name: 'Noun Gender', description: null }]);
+  });
+
+  it('renders a warning stored with the singular key from before #48', () => {
+    // Without this, chat_restore.js could read `content.existing_rules` directly
+    // and every card already in the database would restore empty. Asserting the
+    // normaliser's own behaviour elsewhere is not the same as pinning the branch
+    // that is only reachable from here.
+    const message = legacyDuplicateWarning(3, 'Noun Gender');
+    const restored = analyzeRestoreMessages([message]);
+
+    renderRestoredMessage(message, restored, false, []);
+
+    assert.equal(renderedWarnings.length, 1);
+    assert.deepEqual(renderedWarnings[0].existingRules, [{ id: 'rule-1', name: 'Noun Gender', description: null }]);
+  });
+
+  it('renders a stored warning naming several rules in order', () => {
+    const message = duplicateWarning(3, ['Usage of verb estar', 'Usage of verb ser']);
+    const restored = analyzeRestoreMessages([message]);
+
+    renderRestoredMessage(message, restored, false, []);
+
+    assert.deepEqual(
+      renderedWarnings[0].existingRules.map(rule => rule.name),
+      ['Usage of verb estar', 'Usage of verb ser']
+    );
   });
 
   it('marks a warning as resolved when the rule was created anyway', () => {
-    const warning = duplicateWarning(3, 'Noun Gender');
+    const warning = duplicateWarning(3, ['Noun Gender']);
     const restored = analyzeRestoreMessages([warning, fullRule]);
 
     renderRestoredMessage(warning, restored, false, []);
@@ -169,7 +215,7 @@ describe('renderRestoredMessage', () => {
   });
 
   it('leaves a warning actionable when the creation never happened', () => {
-    const warning = duplicateWarning(3, 'Noun Gender');
+    const warning = duplicateWarning(3, ['Noun Gender']);
     const restored = analyzeRestoreMessages([warning]);
 
     renderRestoredMessage(warning, restored, false, []);

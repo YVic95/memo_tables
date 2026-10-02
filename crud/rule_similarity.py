@@ -7,7 +7,12 @@ from sqlalchemy import func, literal
 from sqlalchemy.orm import Session
 
 from graphs.llm import llm
-from graphs.models import DuplicateCheckResult, DuplicateJudgeResult, ExistingRule
+from graphs.models import (
+    MAX_SIMILAR_RULES_SHOWN,
+    DuplicateCheckResult,
+    DuplicateJudgeResult,
+    ExistingRule,
+)
 from graphs.prompts import duplicate_check_prompt
 from models.grammar_rules import GrammarRule
 
@@ -15,6 +20,11 @@ logger = logging.getLogger(__name__)
 
 TRIGRAM_SIMILARITY_THRESHOLD = 0.2
 MAX_CANDIDATES = 5
+
+# MAX_SIMILAR_RULES_SHOWN lives in graphs.models, next to the judge contract that
+# states it, and is applied here as well as asked for in the prompt: retrieval
+# already supplies more candidates than that, and what an admin sees should not
+# depend on the judge keeping to an instruction.
 
 judge_llm = llm.with_structured_output(DuplicateJudgeResult)
 judge_chain = duplicate_check_prompt | judge_llm
@@ -118,7 +128,7 @@ def check_similar_rules(
     proposed_title: str,
     proposed_description: str,
 ) -> DuplicateCheckResult:
-    not_similar = DuplicateCheckResult(similar=False, existing_rule=None)
+    not_similar = DuplicateCheckResult(similar=False, existing_rules=[])
 
     candidates = get_similar_rule_candidates(
         db,
@@ -149,33 +159,51 @@ def check_similar_rules(
         logger.exception("Duplicate check LLM call failed")
         return not_similar
 
-    logger.info(
-        "Duplicate check for %r against %d candidate(s) [%s]: similar=%s best_match_id=%s",
-        proposed_title,
-        len(candidates),
-        ", ".join(f"{candidate.name!r} ({candidate.id})" for candidate in candidates),
-        verdict.similar,
-        verdict.best_match_id,
-    )
-
-    if not verdict.similar or verdict.best_match_id is None:
-        return not_similar
-
-    match = next(
-        (candidate for candidate in candidates if candidate.id == verdict.best_match_id),
-        None,
-    )
-    if match is None:
-        logger.warning(
-            "Judge returned unknown best_match_id: %s", verdict.best_match_id
+    if not verdict.similar or not verdict.matched_ids:
+        logger.info(
+            "Duplicate check for %r against %d candidate(s) [%s]: similar=False",
+            proposed_title,
+            len(candidates),
+            ", ".join(f"{candidate.name!r} ({candidate.id})" for candidate in candidates),
         )
         return not_similar
 
+    # The judge's order is the ranking: it weighs meaning, while retrieval ordered
+    # by trigram score. Keep what it asked for, in the order it asked for it.
+    # A repeated id is dropped rather than listed twice, because the card counts
+    # its entries and naming one rule twice would overstate what the admin has.
+    by_id = {candidate.id: candidate for candidate in candidates}
+    matched, never_offered = [], []
+    for rule_id in verdict.matched_ids:
+        (matched if rule_id in by_id else never_offered).append(rule_id)
+
+    if never_offered:
+        logger.warning(
+            "Duplicate check for %r: judge named %d id(s) that were not offered: %s",
+            proposed_title,
+            len(never_offered),
+            ", ".join(str(rule_id) for rule_id in never_offered),
+        )
+
+    matches = [
+        by_id[rule_id]
+        for rule_id in list(dict.fromkeys(matched))[:MAX_SIMILAR_RULES_SHOWN]
+    ]
+    if not matches:
+        return not_similar
+
+    logger.info(
+        "Duplicate check for %r against %d candidate(s) [%s]: similar=True naming %s",
+        proposed_title,
+        len(candidates),
+        ", ".join(f"{candidate.name!r} ({candidate.id})" for candidate in candidates),
+        ", ".join(f"{match.name!r} ({match.id})" for match in matches),
+    )
+
     return DuplicateCheckResult(
         similar=True,
-        existing_rule=ExistingRule(
-            id=match.id,
-            name=match.name,
-            description=match.description,
-        ),
+        existing_rules=[
+            ExistingRule(id=match.id, name=match.name, description=match.description)
+            for match in matches
+        ],
     )

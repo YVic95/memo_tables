@@ -14,6 +14,13 @@ from crud.rule_similarity import (
     get_similar_rule_candidates,
 )
 from tests.catalog_text import REFLEXIVE_VERBS_DESCRIPTION, SER_VS_ESTAR_DESCRIPTION
+
+# How many matches the judge names. Deliberately not production's
+# MAX_SIMILAR_RULES_SHOWN: the double has to be able to disagree with what
+# production enforces, or a cap that regressed would be invisible here.
+# test_more_than_three_matches_are_capped_here_not_only_in_the_prompt pins the gap
+# by handing production five matches.
+MAX_RULES_THE_JUDGE_NAMES = 3
 from tests.pg_trgm import similarity
 
 
@@ -583,10 +590,16 @@ class LabelContradictionJudge:
                 matches.append((score, candidate["id"]))
 
         if not matches:
-            return DuplicateJudgeResult(similar=False, best_match_id=None)
-        _, best_match_id = max(matches, key=lambda match: match[0])
+            return DuplicateJudgeResult(similar=False, matched_ids=[])
+        ranked = [
+            match_id
+            for _score, match_id in sorted(matches, key=lambda match: -match[0])
+        ]
         return DuplicateJudgeResult(
-            similar=True, best_match_id=uuid.UUID(best_match_id)
+            similar=True,
+            matched_ids=[
+                uuid.UUID(match_id) for match_id in ranked[:MAX_RULES_THE_JUDGE_NAMES]
+            ],
         )
 
 
@@ -634,7 +647,7 @@ class TestLabelContradictionJudge:
         )
 
         assert verdict.similar is True
-        assert verdict.best_match_id == uuid.UUID(self.RULE_ID)
+        assert verdict.matched_ids == [uuid.UUID(self.RULE_ID)]
 
     def test_reports_no_match_for_an_unrelated_candidate(self):
         verdict = LabelContradictionJudge().invoke(
@@ -653,6 +666,131 @@ class TestLabelContradictionJudge:
 
 
 class TestCheckSimilarRules:
+    def test_names_every_matching_rule_best_first(
+        self, db_session, language_en, language_es, word_category
+    ):
+        """All three ser/estar rules, ordered by how well each fits.
+
+        The two rules the admin already has both teach part of what the proposal
+        teaches, and retrieval already surfaces both — only the singular judge
+        contract stood between that and a card naming them. Scores against the
+        proposal: 1.0 on the name, 0.3563 on the description, 0.3333 on a reworded
+        name.
+        """
+        judge = LabelContradictionJudge()
+        exact = _add_rule(
+            db_session, language_en, language_es, word_category,
+            name="Ser vs. estar", catalog_name="Ser vs. estar", slug="ser-vs-estar",
+        )[0]
+        by_description = _add_rule(
+            db_session, language_en, language_es, word_category,
+            name="Usage of verb estar", catalog_name="Ser vs. estar",
+            slug="ser-vs-estar-estar", description=SER_VS_ESTAR_DESCRIPTION,
+        )[0]
+        reworded = _add_rule(
+            db_session, language_en, language_es, word_category,
+            name="Ser and estar: which to use", catalog_name="Ser vs. estar",
+            slug="ser-vs-estar-which",
+        )[0]
+
+        with patch("crud.rule_similarity.judge_chain", judge):
+            result = check_similar_rules(
+                db_session,
+                target_language_id=language_es.id,
+                proposed_title="Ser vs. estar",
+                proposed_description=SER_VS_ESTAR_DESCRIPTION,
+            )
+
+        assert result.similar is True
+        assert [rule.id for rule in result.existing_rules] == [
+            exact.id, by_description.id, reworded.id,
+        ]
+
+    def test_the_filed_estar_rule_is_named_but_the_ser_rule_misses_the_gate_here(
+        self, db_session, language_en, language_es, word_category
+    ):
+        """The rows #48 was filed against, and a gap in the evidence filed with it.
+
+        #48 quotes real pg_trgm 1.6 scoring `Usage of verb ser` at 0.2342 against
+        the proposal — over the 0.20 gate, and recorded as retrieved. The SQLite
+        stand-in computes 0.1923 for the same pair, so under pytest that rule is
+        filtered before the judge ever sees it and only `Usage of verb estar` comes
+        back. Nothing in this change decides that; retrieval's gate is unchanged and
+        its scores are pinned in test_pg_trgm.py, but the two disagree for this pair.
+
+        Both facts are asserted rather than papered over with a fixture tuned to
+        agree, because if the stand-in is the wrong one, the tests above it are
+        resting on a similarity function that does not match production.
+        """
+        estar = _add_rule(
+            db_session, language_en, language_es, word_category,
+            name="Usage of verb estar", catalog_name="Ser vs. estar",
+            slug="ser-vs-estar-estar", description=SER_VS_ESTAR_DESCRIPTION,
+        )[0]
+        ser = _add_rule(
+            db_session, language_en, language_es, word_category,
+            name="Usage of verb ser", catalog_name="Ser vs. estar",
+            slug="ser-vs-estar-ser", description=None,
+        )[0]
+
+        with patch("crud.rule_similarity.judge_chain", LabelContradictionJudge()):
+            result = check_similar_rules(
+                db_session,
+                target_language_id=language_es.id,
+                proposed_title="Ser vs. estar",
+                proposed_description=SER_VS_ESTAR_DESCRIPTION,
+            )
+
+        assert result.similar is True
+        assert [rule.id for rule in result.existing_rules] == [estar.id]
+        assert ser.id not in [rule.id for rule in result.existing_rules]
+        assert similarity("Usage of verb ser", "Ser vs. estar") < (
+            TRIGRAM_SIMILARITY_THRESHOLD
+        )
+
+    @patch("crud.rule_similarity.judge_chain")
+    def test_both_stored_ser_estar_rules_reach_the_card_together(
+        self, mock_judge, db_session, language_en, language_es, word_category
+    ):
+        """The card #48 asked for: both of the admin's ser/estar rules, named.
+
+        `ser` carries the shared description here so the SQLite stand-in retrieves
+        it; the filed row's description is NULL and its name scores 0.1923, so
+        without that the rule never reaches the judge under pytest at all. What is
+        under test is the card, so the fixture has to make the collision real.
+
+        Which of the two leads is the real judge's call, weighing meaning rather
+        than trigrams. That ranking is pinned by
+        `test_names_every_matching_rule_best_first` above, where the double scores
+        the candidates itself; asserting estar first here would only be asserting
+        the order this mock was written in.
+        """
+        estar = _add_rule(
+            db_session, language_en, language_es, word_category,
+            name="Usage of verb estar", catalog_name="Ser vs. estar",
+            slug="ser-vs-estar-estar", description=SER_VS_ESTAR_DESCRIPTION,
+        )[0]
+        ser = _add_rule(
+            db_session, language_en, language_es, word_category,
+            name="Usage of verb ser", catalog_name="Ser vs. estar",
+            slug="ser-vs-estar-ser", description=SER_VS_ESTAR_DESCRIPTION,
+        )[0]
+        mock_judge.invoke.return_value = DuplicateJudgeResult(
+            similar=True, matched_ids=[estar.id, ser.id]
+        )
+
+        result = check_similar_rules(
+            db_session,
+            target_language_id=language_es.id,
+            proposed_title="Ser vs. estar",
+            proposed_description=SER_VS_ESTAR_DESCRIPTION,
+        )
+
+        assert result.similar is True
+        assert [rule.name for rule in result.existing_rules] == [
+            "Usage of verb estar", "Usage of verb ser",
+        ]
+
     def test_a_rule_renamed_away_from_its_catalog_entry_is_still_flagged(
         self, db_session, language_en, language_es, word_category
     ):
@@ -671,9 +809,8 @@ class TestCheckSimilarRules:
             )
 
         assert result.similar is True
-        assert result.existing_rule is not None
-        assert result.existing_rule.id == rule.id
-        assert result.existing_rule.name == "Usage of estar"
+        assert [found.id for found in result.existing_rules] == [rule.id]
+        assert result.existing_rules[0].name == "Usage of estar"
 
     def test_a_duplicate_whose_name_says_nothing_about_the_topic_is_still_flagged(
         self, db_session, language_en, language_es, word_category
@@ -696,8 +833,7 @@ class TestCheckSimilarRules:
             )
 
         assert result.similar is True
-        assert result.existing_rule is not None
-        assert result.existing_rule.id == rule.id
+        assert [found.id for found in result.existing_rules] == [rule.id]
 
     def test_the_judge_is_never_handed_the_catalog_entrys_name(
         self, db_session, language_en, language_es, word_category
@@ -770,11 +906,11 @@ class TestCheckSimilarRules:
 
         assert result is not None
         assert result.similar is False
-        assert result.existing_rule is None
+        assert result.existing_rules == []
         mock_judge.invoke.assert_not_called()
 
     @patch("crud.rule_similarity.judge_chain")
-    def test_judge_match_returns_the_existing_rule(
+    def test_judge_match_returns_the_existing_rule_in_a_list(
         self, mock_judge, db_session, language_en, language_es, word_category
     ):
         rule = _add_rule(
@@ -784,7 +920,7 @@ class TestCheckSimilarRules:
             slug="present-ar",
         )[0]
         mock_judge.invoke.return_value = DuplicateJudgeResult(
-            similar=True, best_match_id=rule.id
+            similar=True, matched_ids=[rule.id]
         )
 
         result = check_similar_rules(
@@ -795,10 +931,9 @@ class TestCheckSimilarRules:
         )
 
         assert result.similar is True
-        assert result.existing_rule is not None
-        assert result.existing_rule.id == rule.id
-        assert result.existing_rule.name == rule.name
-        assert result.existing_rule.description == rule.description
+        assert [found.id for found in result.existing_rules] == [rule.id]
+        assert result.existing_rules[0].name == rule.name
+        assert result.existing_rules[0].description == rule.description
 
     @patch("crud.rule_similarity.judge_chain")
     def test_a_second_rule_sharing_the_same_catalog_entry_is_still_offered(
@@ -816,7 +951,7 @@ class TestCheckSimilarRules:
             description="The same rule, at greater length.",
         )
         mock_judge.invoke.return_value = DuplicateJudgeResult(
-            similar=True, best_match_id=second.id
+            similar=True, matched_ids=[second.id]
         )
 
         result = check_similar_rules(
@@ -827,9 +962,8 @@ class TestCheckSimilarRules:
         )
 
         assert result.similar is True
-        assert result.existing_rule is not None
-        assert result.existing_rule.id == second.id
-        assert result.existing_rule.name == "present tense ar verbs in detail"
+        assert [found.id for found in result.existing_rules] == [second.id]
+        assert result.existing_rules[0].name == "present tense ar verbs in detail"
 
     @patch("crud.rule_similarity.judge_chain")
     def test_judge_selecting_no_match_returns_not_similar(
@@ -842,7 +976,7 @@ class TestCheckSimilarRules:
             slug="present-ar",
         )[0]
         mock_judge.invoke.return_value = DuplicateJudgeResult(
-            similar=False, best_match_id=None
+            similar=False, matched_ids=[]
         )
 
         result = check_similar_rules(
@@ -853,7 +987,7 @@ class TestCheckSimilarRules:
         )
 
         assert result.similar is False
-        assert result.existing_rule is None
+        assert result.existing_rules == []
 
     @patch("crud.rule_similarity.judge_chain")
     def test_judge_id_outside_the_candidate_set_is_rejected(
@@ -866,7 +1000,7 @@ class TestCheckSimilarRules:
             slug="present-ar",
         )[0]
         mock_judge.invoke.return_value = DuplicateJudgeResult(
-            similar=True, best_match_id=uuid.uuid4()
+            similar=True, matched_ids=[uuid.uuid4()]
         )
 
         result = check_similar_rules(
@@ -877,7 +1011,144 @@ class TestCheckSimilarRules:
         )
 
         assert result.similar is False
-        assert result.existing_rule is None
+        assert result.existing_rules == []
+
+    @patch("crud.rule_similarity.judge_chain")
+    def test_more_than_three_matches_are_capped_here_not_only_in_the_prompt(
+        self, mock_judge, db_session, language_en, language_es, word_category
+    ):
+        """The card names at most three, whatever the judge asks for.
+
+        Retrieval offers up to five candidates and the prompt asks for three, so a
+        judge returning five is disobeying an instruction. The cap still applies:
+        what an admin sees should not rest on the judge keeping to the request.
+        """
+        names = [
+            "present subjunctive mood",
+            "present tense ar conjugation",
+            "preterite tense ar",
+            "past tense ar verbs",
+            "present tense",
+        ]
+        rules = [
+            _add_rule(
+                db_session, language_en, language_es, word_category,
+                name=name, catalog_name=f"Catalog {name}", slug=f"rule-{index}",
+            )[0]
+            for index, name in enumerate(names)
+        ]
+        mock_judge.invoke.return_value = DuplicateJudgeResult(
+            similar=True, matched_ids=[rule.id for rule in rules]
+        )
+
+        result = check_similar_rules(
+            db_session,
+            target_language_id=language_es.id,
+            proposed_title="present tense ar verbs",
+            proposed_description="Conjugate -ar verbs in the present tense.",
+        )
+
+        assert result.similar is True
+        assert [rule.name for rule in result.existing_rules] == names[:3]
+
+    @patch("crud.rule_similarity.judge_chain")
+    def test_one_match_among_several_candidates_is_not_padded(
+        self, mock_judge, db_session, language_en, language_es, word_category
+    ):
+        """The judge endorsed one rule, so the card names one.
+
+        Retrieval offers everything that clears the threshold and says nothing about
+        which of them are duplicates. Padding the card out to three with the rest
+        would claim the admin already has rules the judge judged to be different.
+        """
+        rules = [
+            _add_rule(
+                db_session, language_en, language_es, word_category,
+                name=name, catalog_name=f"Catalog {name}", slug=f"rule-{index}",
+            )[0]
+            for index, name in enumerate([
+                "present tense ar verbs",
+                "present tense er verbs",
+                "past tense ar verbs",
+            ])
+        ]
+        mock_judge.invoke.return_value = DuplicateJudgeResult(
+            similar=True, matched_ids=[rules[0].id]
+        )
+
+        result = check_similar_rules(
+            db_session,
+            target_language_id=language_es.id,
+            proposed_title="present tense ar verbs",
+            proposed_description="Conjugate -ar verbs in the present tense.",
+        )
+
+        assert result.similar is True
+        assert [rule.name for rule in result.existing_rules] == [
+            "present tense ar verbs",
+        ]
+
+    @patch("crud.rule_similarity.judge_chain")
+    def test_a_repeated_id_is_named_once(
+        self, mock_judge, db_session, language_en, language_es, word_category
+    ):
+        """A judge that names the same rule twice still gets one entry on the card.
+
+        The card counts its entries, so a repeat would read as "3 rules" when the
+        admin has two.
+        """
+        rule = _add_rule(
+            db_session, language_en, language_es, word_category,
+            name="present tense ar verbs",
+            catalog_name="Present Tense -ar Verbs",
+            slug="present-ar",
+        )[0]
+        mock_judge.invoke.return_value = DuplicateJudgeResult(
+            similar=True, matched_ids=[rule.id, rule.id]
+        )
+
+        result = check_similar_rules(
+            db_session,
+            target_language_id=language_es.id,
+            proposed_title="present tense ar verbs",
+            proposed_description="Conjugate -ar verbs in the present tense.",
+        )
+
+        assert result.similar is True
+        assert [rule.name for rule in result.existing_rules] == [
+            "present tense ar verbs",
+        ]
+
+    @patch("crud.rule_similarity.judge_chain")
+    def test_a_known_id_alongside_an_invented_one_still_names_the_known_rule(
+        self, mock_judge, db_session, language_en, language_es, word_category
+    ):
+        """An id that was never offered is dropped, not treated as losing the match.
+
+        The judge is naming from free text, so one hallucinated id alongside a real
+        one should cost only the invented one. Only when nothing survives does the
+        result fall back to not similar, which is the case the neighbouring test
+        pins.
+        """
+        rule = _add_rule(
+            db_session, language_en, language_es, word_category,
+            name="present tense ar verbs",
+            catalog_name="Present Tense -ar Verbs",
+            slug="present-ar",
+        )[0]
+        mock_judge.invoke.return_value = DuplicateJudgeResult(
+            similar=True, matched_ids=[uuid.uuid4(), rule.id]
+        )
+
+        result = check_similar_rules(
+            db_session,
+            target_language_id=language_es.id,
+            proposed_title="present tense ar verbs",
+            proposed_description="Conjugate -ar verbs in the present tense.",
+        )
+
+        assert result.similar is True
+        assert [rule.id for rule in result.existing_rules] == [rule.id]
 
     @patch("crud.rule_similarity.judge_chain")
     def test_check_persists_no_rows(
@@ -890,7 +1161,7 @@ class TestCheckSimilarRules:
             slug="present-ar",
         )[0]
         mock_judge.invoke.return_value = DuplicateJudgeResult(
-            similar=True, best_match_id=rule.id
+            similar=True, matched_ids=[rule.id]
         )
         rules_before = db_session.query(GrammarRule).count()
         catalogs_before = db_session.query(CanonicalRule).count()
@@ -952,7 +1223,7 @@ class TestCheckSimilarRules:
                 )
 
         assert result.similar is False
-        assert result.existing_rule is None
+        assert result.existing_rules == []
         logged_failures = [
             record
             for record in caplog.records

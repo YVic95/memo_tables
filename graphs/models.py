@@ -3,6 +3,12 @@ from enum import StrEnum
 from pydantic import BaseModel, Field, field_validator
 from typing import Any, Literal
 
+# How many similar rules the duplicate card names, and therefore how many the judge
+# is asked for. One value, because it is written into the judge's instructions, into
+# its output schema, and into the code that caps the result: three copies of "three"
+# would drift apart the first time any of them changed.
+MAX_SIMILAR_RULES_SHOWN = 3
+
 class MessageRole(StrEnum):
     user = "user"
     assistant = "assistant"
@@ -55,9 +61,14 @@ class DuplicateJudgeResult(BaseModel):
     similar: bool = Field(
         description="Whether any existing rule teaches the same grammar rule as the proposed one"
     )
-    best_match_id: uuid.UUID | None = Field(
-        default=None,
-        description="The id of the best-matching existing rule, or null when there is no match",
+    matched_ids: list[uuid.UUID] = Field(
+        default_factory=list,
+        description=(
+            f"Ids of the existing rules that teach the same grammar rule, best match "
+            f"first and no more than {MAX_SIMILAR_RULES_SHOWN}. Fewer than "
+            f"{MAX_SIMILAR_RULES_SHOWN} when only fewer are genuine duplicates; never "
+            f"pad the list to fill it."
+        ),
     )
 
 class ExistingRule(BaseModel):
@@ -66,8 +77,17 @@ class ExistingRule(BaseModel):
     description: str | None = None
 
 class DuplicateCheckResult(BaseModel):
-    similar: bool
-    existing_rule: ExistingRule | None = None
+    similar: bool = Field(
+        description="Whether any existing rule teaches the same grammar rule as the proposed one"
+    )
+    existing_rules: list[ExistingRule] = Field(
+        default_factory=list,
+        description=(
+            "The matching rules the card names, best-fitting first and capped at "
+            f"{MAX_SIMILAR_RULES_SHOWN}. Fewer than {MAX_SIMILAR_RULES_SHOWN} when "
+            "only fewer rules genuinely match; never padded."
+        ),
+    )
 
 class RuleTranslation(BaseModel):
     name: str = Field(description="Name translated to the target language of user")
