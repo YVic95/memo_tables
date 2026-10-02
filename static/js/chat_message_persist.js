@@ -85,3 +85,7 @@ function persistSaveConfirmationMessage(reply) {
 function persistSkeletonTableReplacement(category, markdown) {
     persistChatMessage('assistant', 'skeleton_table_replacement', { category, markdown });
 }
+
+function persistDuplicateWarningMessage(content) {
+    persistChatMessage('assistant', 'duplicate_warning', content);
+}
