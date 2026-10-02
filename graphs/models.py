@@ -15,6 +15,7 @@ class MessageType(StrEnum):
     save_confirmation = "save_confirmation"
     skeleton_table_replacement = "skeleton_table_replacement"
     table_deleted = "table_deleted"
+    duplicate_warning = "duplicate_warning"
     info = "info"
 
 class CatalogRule(BaseModel):
