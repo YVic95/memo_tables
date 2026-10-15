@@ -9,10 +9,28 @@ native_language: en
 target_language: es
 
 rules:
+  - slug: gender-of-noun
+    category: noun
+    level: A1
+    position: 1
+    name: Gender of nouns
+    description: >-
+      Unlike English, nouns in Spanish have two genders: masculine and feminine. 
+      Only two, but you need to respect their choice. You should remember if a noun 
+      is masculine or feminine.
+  - slug: number-of-noun
+    category: noun
+    level: A1
+    position: 2
+    name: Singular and Plural of nouns
+    description: >-
+      Nouns in Spanish can be singular or plural. 
+      There are different ways of making a noun plural in Spanish, 
+      depending the noun`s ending.
   - slug: present-tense-ar-conjugation
     category: verb
     level: A1
-    position: 1
+    position: 3
     name: Present tense regular -ar conjugation
     description: >-
       Regular Spanish verbs ending in -ar (hablar, trabajar, estudiar) drop the
@@ -20,7 +38,7 @@ rules:
   - slug: present-tense-er-conjugation
     category: verb
     level: A1
-    position: 2
+    position: 4
     name: Present tense regular -er conjugation
     description: >-
       Regular Spanish verbs ending in -er (comer, beber, aprender) drop the -er
@@ -28,7 +46,7 @@ rules:
   - slug: present-tense-ir-conjugation
     category: verb
     level: A1
-    position: 3
+    position: 5
     name: Present tense regular -ir conjugation
     description: >-
       Regular Spanish verbs ending in -ir (vivir, escribir, abrir) drop the -ir
@@ -36,7 +54,7 @@ rules:
   - slug: ser-vs-estar
     category: verb
     level: A1
-    position: 4
+    position: 6
     name: Ser vs. estar
     description: >-
       Spanish uses ser for permanent or essential qualities, origin, and
@@ -46,7 +64,7 @@ rules:
   - slug: tener-present-tense
     category: verb
     level: A1
-    position: 5
+    position: 7
     name: "Irregular verbs: tener (Present tense)"
     description: >-
       The verb tener (to have) is irregular in the present tense: tengo, tienes,
@@ -56,7 +74,7 @@ rules:
   - slug: ir-present-tense
     category: verb
     level: A1
-    position: 6
+    position: 8
     name: "Irregular verbs: ir (Present tense)"
     description: >-
       The verb ir (to go) is irregular in the present tense: voy, vas, va,
@@ -65,12 +83,14 @@ rules:
   - slug: basic-negation
     category: verb
     level: A1
-    position: 7
+    position: 9
     name: Basic negation
     description: >-
       Place the word no directly before the Spanish verb to negate a sentence:
       no quiero, no hablo. Negative words such as nada (nothing), nadie (nobody),
       and nunca (never) can follow or replace the negative part of the sentence.
+  
+    # A2 level rules (position counts for each level)
   - slug: reflexive-verbs
     category: verb
     level: A2
