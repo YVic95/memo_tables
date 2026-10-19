@@ -11,6 +11,7 @@ from routers.languages import router as languages_router
 from routers.admin_dashboard import router as admin_dashboard_router
 from routers.language_pairs import router as language_pairs_router
 from routers.grammar_rules import router as grammar_rules_router
+from routers.canonical_rules import router as canonical_rules_router
 from routers.legal_pages import router as legal_pages_router
 from routers.user_login import router as user_login_router
 from routers.create_rule_agent import router as create_rule_agent_router
@@ -43,6 +44,7 @@ app.include_router(languages_router)
 app.include_router(admin_dashboard_router)
 app.include_router(language_pairs_router)
 app.include_router(grammar_rules_router)
+app.include_router(canonical_rules_router)
 app.include_router(legal_pages_router)
 app.include_router(user_login_router)
 app.include_router(create_rule_agent_router)
