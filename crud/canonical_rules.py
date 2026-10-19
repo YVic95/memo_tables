@@ -1,3 +1,4 @@
+import re
 import uuid
 
 from sqlalchemy import and_, exists, func
@@ -8,6 +9,10 @@ from models.grammar_rules import GrammarRule
 from models.word_categories import WordCategory
 
 CANONICAL_COVERAGE_SIMILARITY_THRESHOLD = 0.3
+
+CEFR_LEVELS = ("A1", "A2", "B1", "B2", "C1", "C2")
+
+CANONICAL_RULE_SLUG_PATTERN = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
 def _has_faithful_linked_rule() -> ColumnElement[bool]:
     """Condition true for entries at least one linked rule actually teaches.
@@ -101,6 +106,68 @@ def get_all_canonical_rules_for_pair(
         for rule, category_name in rows
     ]
 
+def create_canonical_rule(
+    db: Session,
+    *,
+    native_language_id: uuid.UUID,
+    target_language_id: uuid.UUID,
+    word_category_id: uuid.UUID,
+    level: str,
+    name: str,
+    description: str,
+    slug: str,
+) -> CanonicalRule:
+    """
+        Create an active catalog entry for the pair
+    """
+    level = level.strip()
+    if level not in CEFR_LEVELS:
+        raise ValueError("Level must be one of A1, A2, B1, B2, C1, C2")
+
+    slug = slug.strip().lower()
+    if not CANONICAL_RULE_SLUG_PATTERN.match(slug):
+        raise ValueError(
+            "Slug must contain only lowercase letters, digits, and single "
+            "hyphens between them (e.g. present-tense)"
+        )
+
+    if get_canonical_rule_by_slug(db, native_language_id, target_language_id, slug):
+        raise ValueError("A rule with this slug already exists for this language pair")
+
+    category_exists = (
+        db.query(WordCategory.id)
+        .filter(WordCategory.id == word_category_id)
+        .first()
+        is not None
+    )
+    if not category_exists:
+        raise ValueError("Selected word category does not exist")
+
+    last_position = (
+        db.query(func.max(CanonicalRule.position))
+        .filter(
+            CanonicalRule.native_language_id == native_language_id,
+            CanonicalRule.target_language_id == target_language_id,
+            CanonicalRule.level == level,
+        )
+        .scalar()
+    )
+
+    rule = CanonicalRule(
+        native_language_id=native_language_id,
+        target_language_id=target_language_id,
+        word_category_id=word_category_id,
+        level=level,
+        name=name.strip(),
+        description=description.strip(),
+        position=(last_position or 0) + 1,
+        slug=slug,
+        is_active=True,
+    )
+    db.add(rule)
+    db.commit()
+    db.refresh(rule)
+    return rule
 
 def get_missing_canonical_rules_for_pair(
     db: Session,
