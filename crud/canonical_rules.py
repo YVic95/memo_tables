@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session, aliased
 from sqlalchemy.sql.elements import ColumnElement
 from models.canonical_rules import CanonicalRule
 from models.grammar_rules import GrammarRule
+from models.word_categories import WordCategory
 
 CANONICAL_COVERAGE_SIMILARITY_THRESHOLD = 0.3
 
@@ -62,6 +63,43 @@ def get_canonical_rules_for_pair(
         native_language_id,
         target_language_id,
     ).all()
+
+
+def get_all_canonical_rules_for_pair(
+    db: Session,
+    native_language_id: uuid.UUID,
+    target_language_id: uuid.UUID,
+) -> list[dict]:
+    """Return the pair's full catalog — active and inactive — ordered by level then position.
+
+    Each entry carries its word-category name so the admin list can render
+    without extra lookups.
+    """
+    rows = (
+        db.query(CanonicalRule, WordCategory.name)
+        .join(WordCategory, WordCategory.id == CanonicalRule.word_category_id)
+        .filter(
+            CanonicalRule.native_language_id == native_language_id,
+            CanonicalRule.target_language_id == target_language_id,
+        )
+        .order_by(
+            CanonicalRule.level.asc(),
+            CanonicalRule.position.asc(),
+        )
+        .all()
+    )
+    return [
+        {
+            "id": rule.id,
+            "name": rule.name,
+            "slug": rule.slug,
+            "level": rule.level,
+            "position": rule.position,
+            "category_name": category_name,
+            "is_active": rule.is_active,
+        }
+        for rule, category_name in rows
+    ]
 
 
 def get_missing_canonical_rules_for_pair(
