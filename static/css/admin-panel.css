@@ -215,6 +215,28 @@ body.admin-panel-body {
     border-color: #4A5D3A;
 }
 
+.form-input, .form-textarea {
+    width: 100%;
+    padding: 12px 16px;
+    background-color: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 16px;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+
+.form-input:focus, .form-textarea:focus {
+    outline: none;
+    border-color: #4A5D3A;
+}
+
+.error-message {
+    color: #E05555;
+    font-size: 14px;
+    margin: 0 0 16px;
+}
+
 .save-button, .panel-button {
     background-color: #4A5D3A; /* dark olive green */
     color: white;
