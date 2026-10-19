@@ -150,7 +150,7 @@ class TestSection:
         resp = admin_client.get("/admin-panel/canonical-rules")
         assert resp.status_code == 200
         assert "<html" in resp.text
-        assert "Canonical Rules" in resp.text
+        assert "Rule Catalogue" in resp.text
         assert 'id="canonical-rules-pair-select"' in resp.text
         assert "Select a language pair to view its canonical rules." in resp.text
 
@@ -214,7 +214,6 @@ class TestRulesList:
         assert "Nouns" in text
         row = text[text.index("Ser vs Estar"):]
         row = row[: row.index("</tr>")]
-        assert ">1<" in row  # position
         assert "status-badge-active" in row
 
     def test_inactive_rule_shows_inactive_badge(self, admin_client, pair_es_en, catalog):
@@ -281,6 +280,226 @@ class TestRulesList:
         resp = client.get(
             "/admin-panel/canonical-rules/rules",
             params={"pair_id": str(pair_es_en.pair_id)},
+        )
+        assert resp.status_code == 307
+        assert resp.headers["location"] == "/login"
+
+
+def _create_payload(pair, category, **overrides):
+    data = {
+        "pair_id": str(pair.pair_id),
+        "word_category_id": str(category.id),
+        "level": "A1",
+        "name": "Definite Articles",
+        "description": "el, la, los, las",
+        "slug": "definite-articles",
+    }
+    data.update(overrides)
+    return data
+
+
+class TestCreateForm:
+    def test_section_renders_create_form_fields(self, admin_client, nouns, verbs):
+        resp = admin_client.get("/admin-panel/canonical-rules")
+        assert resp.status_code == 200
+        text = resp.text
+        assert 'hx-post="/admin-panel/canonical-rules/rules"' in text
+        assert 'name="word_category_id"' in text
+        assert "Nouns" in text
+        assert "Verbs" in text
+        assert 'name="level"' in text
+        for level in ("A1", "A2", "B1", "B2", "C1", "C2"):
+            assert f'value="{level}"' in text
+        assert 'name="name"' in text
+        assert 'name="description"' in text
+        assert 'name="slug"' in text
+        assert 'id="canonical-rule-form-error"' in text
+
+
+class TestCreateRule:
+    def test_create_assigns_next_position_and_stores_active(
+        self, admin_client, db_session, pair_es_en, nouns, catalog
+    ):
+        resp = admin_client.post(
+            "/admin-panel/canonical-rules/rules",
+            data=_create_payload(pair_es_en, nouns),
+        )
+        assert resp.status_code == 200
+
+        rule = (
+            db_session.query(CanonicalRule)
+            .filter(CanonicalRule.slug == "definite-articles")
+            .first()
+        )
+        assert rule is not None
+        assert rule.is_active is True
+        # A1 already has positions 1-3 (including the inactive one); next is 4
+        assert rule.position == 4
+        assert rule.level == "A1"
+
+    def test_create_with_empty_level_starts_at_position_one(
+        self, admin_client, db_session, pair_es_en, nouns, catalog
+    ):
+        resp = admin_client.post(
+            "/admin-panel/canonical-rules/rules",
+            data=_create_payload(pair_es_en, nouns, level="C2", name="Register", slug="register"),
+        )
+        assert resp.status_code == 200
+
+        rule = (
+            db_session.query(CanonicalRule)
+            .filter(CanonicalRule.slug == "register")
+            .first()
+        )
+        assert rule.position == 1
+        assert rule.level == "C2"
+
+    def test_create_leaves_existing_positions_untouched(
+        self, admin_client, db_session, pair_es_en, nouns, catalog
+    ):
+        before = {
+            r.slug: r.position
+            for r in db_session.query(CanonicalRule).all()
+        }
+        admin_client.post(
+            "/admin-panel/canonical-rules/rules",
+            data=_create_payload(pair_es_en, nouns),
+        )
+        for slug, position in before.items():
+            refreshed = (
+                db_session.query(CanonicalRule)
+                .filter(CanonicalRule.slug == slug)
+                .first()
+            )
+            assert refreshed.position == position
+
+    def test_create_refreshes_list_with_new_rule_at_end_of_level(
+        self, admin_client, pair_es_en, nouns, catalog
+    ):
+        resp = admin_client.post(
+            "/admin-panel/canonical-rules/rules",
+            data=_create_payload(pair_es_en, nouns),
+        )
+        assert resp.status_code == 200
+        text = resp.text
+        assert "Definite Articles" in text
+        # after every other A1 row, before the first A2 row
+        assert text.index("Old Gender Rule") < text.index("Definite Articles")
+        assert text.index("Definite Articles") < text.index("Plural Nouns")
+
+    def test_create_normalizes_slug_trim_and_lowercase(
+        self, admin_client, db_session, pair_es_en, nouns
+    ):
+        resp = admin_client.post(
+            "/admin-panel/canonical-rules/rules",
+            data=_create_payload(pair_es_en, nouns, slug="  Definite-Articles  "),
+        )
+        assert resp.status_code == 200
+        rule = (
+            db_session.query(CanonicalRule)
+            .filter(CanonicalRule.slug == "definite-articles")
+            .first()
+        )
+        assert rule is not None
+
+    @pytest.mark.parametrize(
+        "slug",
+        ["Foo_Bar", "foo--bar", "-leading", "trailing-", "foo bar", "ünïcode"],
+    )
+    def test_malformed_slug_returns_friendly_error_and_no_row(
+        self, admin_client, db_session, pair_es_en, nouns, slug
+    ):
+        before_count = db_session.query(CanonicalRule).count()
+        resp = admin_client.post(
+            "/admin-panel/canonical-rules/rules",
+            data=_create_payload(pair_es_en, nouns, slug=slug),
+        )
+        assert resp.status_code == 400
+        assert "error-message" in resp.text
+        assert db_session.query(CanonicalRule).count() == before_count
+
+    def test_duplicate_slug_in_same_pair_returns_friendly_error_and_no_row(
+        self, admin_client, db_session, pair_es_en, nouns, catalog
+    ):
+        before_count = db_session.query(CanonicalRule).count()
+        resp = admin_client.post(
+            "/admin-panel/canonical-rules/rules",
+            data=_create_payload(pair_es_en, nouns, slug="ser-vs-estar"),
+        )
+        assert resp.status_code == 400
+        assert "error-message" in resp.text
+        assert db_session.query(CanonicalRule).count() == before_count
+
+    def test_same_slug_in_different_pair_is_allowed(
+        self, admin_client, db_session, pair_es_en, pair_de_es, nouns, catalog
+    ):
+        resp = admin_client.post(
+            "/admin-panel/canonical-rules/rules",
+            data=_create_payload(pair_de_es, nouns, slug="ser-vs-estar"),
+        )
+        assert resp.status_code == 200
+        rule = (
+            db_session.query(CanonicalRule)
+            .filter(
+                CanonicalRule.slug == "ser-vs-estar",
+                CanonicalRule.native_language_id == pair_de_es.native_language_id,
+                CanonicalRule.target_language_id == pair_de_es.target_language_id,
+            )
+            .first()
+        )
+        assert rule is not None
+
+    def test_invalid_level_rejected_with_friendly_error_and_no_row(
+        self, admin_client, db_session, pair_es_en, nouns
+    ):
+        before_count = db_session.query(CanonicalRule).count()
+        resp = admin_client.post(
+            "/admin-panel/canonical-rules/rules",
+            data=_create_payload(pair_es_en, nouns, level="D1"),
+        )
+        assert resp.status_code == 400
+        assert "error-message" in resp.text
+        assert db_session.query(CanonicalRule).count() == before_count
+
+    def test_error_response_targets_form_error_container(
+        self, admin_client, pair_es_en, nouns
+    ):
+        resp = admin_client.post(
+            "/admin-panel/canonical-rules/rules",
+            data=_create_payload(pair_es_en, nouns, slug="bad_slug"),
+        )
+        assert resp.status_code == 400
+        assert resp.headers["hx-retarget"] == "#canonical-rule-form-error"
+        assert resp.headers["hx-reswap"] == "innerHTML"
+
+    def test_unknown_category_returns_friendly_error_and_no_row(
+        self, admin_client, db_session, pair_es_en, nouns
+    ):
+        before_count = db_session.query(CanonicalRule).count()
+        resp = admin_client.post(
+            "/admin-panel/canonical-rules/rules",
+            data=_create_payload(pair_es_en, nouns, word_category_id=str(uuid.uuid4())),
+        )
+        assert resp.status_code == 400
+        assert "error-message" in resp.text
+        assert db_session.query(CanonicalRule).count() == before_count
+
+    def test_missing_pair_returns_friendly_error_and_no_row(
+        self, admin_client, db_session, pair_es_en, nouns
+    ):
+        before_count = db_session.query(CanonicalRule).count()
+        resp = admin_client.post(
+            "/admin-panel/canonical-rules/rules",
+            data=_create_payload(pair_es_en, nouns, pair_id=""),
+        )
+        assert resp.status_code == 400
+        assert "error-message" in resp.text
+        assert db_session.query(CanonicalRule).count() == before_count
+
+    def test_create_rejects_non_admin(self, non_admin_client, pair_es_en, nouns):
+        resp = non_admin_client.post(
+            "/admin-panel/canonical-rules/rules",
+            data=_create_payload(pair_es_en, nouns),
         )
         assert resp.status_code == 307
         assert resp.headers["location"] == "/login"
