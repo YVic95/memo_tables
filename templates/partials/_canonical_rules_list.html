@@ -11,6 +11,7 @@
                 {# <th>Position</th> #}
                 <th>Category</th>
                 <th>Status</th>
+                <th>Actions</th>
             </tr>
         </thead>
         <tbody>
@@ -25,6 +26,14 @@
                     <span class="status-badge {{ 'status-badge-active' if rule.is_active else 'status-badge-inactive' }}">
                         {{ 'Active' if rule.is_active else 'Inactive' }}
                     </span>
+                </td>
+                <td>
+                    <button type="button" class="edit-button" title="Edit" aria-label="Edit"
+                            hx-get="/admin-panel/canonical-rules/rules/{{ rule.id }}/edit"
+                            hx-target="#canonical-rule-edit-modal-container"
+                            hx-indicator="#loader">
+                        Edit
+                    </button>
                 </td>
             </tr>
             {% endfor %}

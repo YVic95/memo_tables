@@ -1,0 +1,68 @@
+<div class="modal-overlay" id="canonical-rule-edit-modal-overlay">
+    <div class="modal" id="canonical-rule-edit-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Edit rule</h3>
+                <button type="button" class="close-button" id="close-canonical-rule-edit-modal" aria-label="Close">&times;</button>
+            </div>
+
+            <form id="canonical-rule-edit-form"
+                  action="/admin-panel/canonical-rules/rules/{{ rule.id }}" method="post"
+                  hx-patch="/admin-panel/canonical-rules/rules/{{ rule.id }}"
+                  hx-target="#canonical-rules-list"
+                  hx-swap="outerHTML"
+                  hx-indicator="#loader"
+                  hx-on:htmx:after-request="if(event.detail.successful) { closeEditRuleModal(); }"
+            >
+                <div id="canonical-rule-edit-error"></div>
+
+                <div class="language-form-row">
+                    <div class="form-group">
+                        <label for="edit-canonical-rule-category">Word category</label>
+                        <select id="edit-canonical-rule-category" name="word_category_id" class="form-select" required>
+                            <option value=""></option>
+                            {% for category in word_categories %}
+                            <option value="{{ category.id }}"{{ ' selected' if rule.word_category_id == category.id else '' }}>{{ category.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="edit-canonical-rule-level">CEFR level</label>
+                        <select id="edit-canonical-rule-level" name="level" class="form-select" required>
+                            <option value=""></option>
+                            {% for level in cefr_levels %}
+                            <option value="{{ level }}"{{ ' selected' if rule.level == level else '' }}>{{ level }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="language-form-row">
+                    <div class="form-group">
+                        <label for="edit-canonical-rule-name">Name</label>
+                        <input type="text" id="edit-canonical-rule-name" name="name" class="form-input" required
+                               value="{{ rule.name }}">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="edit-canonical-rule-slug">Slug</label>
+                        <input type="text" id="edit-canonical-rule-slug" name="slug" class="form-input" required
+                               placeholder="e.g. present-tense"
+                               value="{{ rule.slug }}">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-canonical-rule-description">Description</label>
+                    <textarea id="edit-canonical-rule-description" name="description" class="form-textarea" rows="4" required>{{ rule.description }}</textarea>
+                </div>
+
+                <div class="modal-buttons">
+                    <button type="button" id="cancel-canonical-rule-edit" onclick="closeEditRuleModal()">Cancel</button>
+                    <button type="submit">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

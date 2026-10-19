@@ -315,6 +315,23 @@ body.admin-panel-body {
     background-color: #fbc5c5;
 }
 
+.edit-button {
+    background-color: #EAF0E4;
+    color: #4A5D3A;
+    border: none;
+    border-radius: 6px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.edit-button:hover {
+    background-color: #D8DEC5;
+}
+
 /* Canonical rules table */
 .canonical-rules-table {
     width: 100%;
