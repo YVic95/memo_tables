@@ -1,0 +1,58 @@
+<form id="canonical-rule-form" class="language-form hidden"
+          action="/admin-panel/canonical-rules/rules" method="post"
+          hx-post="/admin-panel/canonical-rules/rules"
+          hx-include="#canonical-rules-pair-select"
+          hx-target="#canonical-rules-list"
+          hx-swap="outerHTML"
+          hx-indicator="#loader"
+          hx-on:htmx:after-request="if(event.detail.successful) { this.reset(); this.classList.add('hidden'); document.getElementById('canonical-rule-form-error').innerHTML = ''; document.getElementById('create-canonical-rule').disabled = !document.getElementById('canonical-rules-pair-select').value; }"
+    >
+    <div id="canonical-rule-form-error"></div>
+
+    <div class="language-form-row">
+        <div class="form-group">
+            <label for="canonical-rule-category">Word category</label>
+            <select id="canonical-rule-category" name="word_category_id" class="form-select" required>
+                <option value=""></option>
+                {% for category in word_categories %}
+                <option value="{{ category.id }}">{{ category.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="canonical-rule-level">CEFR level</label>
+            <select id="canonical-rule-level" name="level" class="form-select" required>
+                <option value=""></option>
+                {% for level in cefr_levels %}
+                <option value="{{ level }}">{{ level }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+
+    <div class="language-form-row">
+        <div class="form-group">
+            <label for="canonical-rule-name">Name</label>
+            <input type="text" id="canonical-rule-name" name="name" class="form-input" required>
+        </div>
+
+        <div class="form-group">
+            <label for="canonical-rule-slug">Slug</label>
+            <input type="text" id="canonical-rule-slug" name="slug" class="form-input" required
+                    placeholder="e.g. present-tense">
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label for="canonical-rule-description">Description</label>
+        <textarea id="canonical-rule-description" name="description" class="form-textarea" rows="4" required></textarea>
+    </div>
+
+    <div>
+        <button type="submit" class="save-button">
+            <i class="fa-solid fa-floppy-disk"></i>
+            Save
+        </button>
+    </div>
+</form>
