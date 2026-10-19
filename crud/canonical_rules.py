@@ -106,6 +106,50 @@ def get_all_canonical_rules_for_pair(
         for rule, category_name in rows
     ]
 
+def _validate_rule_fields(
+    db: Session,
+    *,
+    native_language_id: uuid.UUID,
+    target_language_id: uuid.UUID,
+    word_category_id: uuid.UUID,
+    level: str,
+    slug: str,
+    exclude_rule_id: uuid.UUID | None = None,
+) -> tuple[str, str]:
+    """
+        Validate editable rule fields, returning the normalized (level, slug).
+    """
+    level = level.strip()
+    if level not in CEFR_LEVELS:
+        raise ValueError("Level must be one of A1, A2, B1, B2, C1, C2")
+
+    slug = slug.strip().lower()
+    if not CANONICAL_RULE_SLUG_PATTERN.match(slug):
+        raise ValueError(
+            "Slug must contain only lowercase letters, digits, and single "
+            "hyphens between them (e.g. present-tense)"
+        )
+
+    existing = get_canonical_rule_by_slug(
+        db, native_language_id, target_language_id, slug
+    )
+    if existing is not None and existing.id != exclude_rule_id:
+        raise ValueError(
+            "A rule with this slug already exists for this language pair"
+        )
+
+    category_exists = (
+        db.query(WordCategory.id)
+        .filter(WordCategory.id == word_category_id)
+        .first()
+        is not None
+    )
+    if not category_exists:
+        raise ValueError("Selected word category does not exist")
+
+    return level, slug
+
+
 def create_canonical_rule(
     db: Session,
     *,
@@ -120,28 +164,14 @@ def create_canonical_rule(
     """
         Create an active catalog entry for the pair
     """
-    level = level.strip()
-    if level not in CEFR_LEVELS:
-        raise ValueError("Level must be one of A1, A2, B1, B2, C1, C2")
-
-    slug = slug.strip().lower()
-    if not CANONICAL_RULE_SLUG_PATTERN.match(slug):
-        raise ValueError(
-            "Slug must contain only lowercase letters, digits, and single "
-            "hyphens between them (e.g. present-tense)"
-        )
-
-    if get_canonical_rule_by_slug(db, native_language_id, target_language_id, slug):
-        raise ValueError("A rule with this slug already exists for this language pair")
-
-    category_exists = (
-        db.query(WordCategory.id)
-        .filter(WordCategory.id == word_category_id)
-        .first()
-        is not None
+    level, slug = _validate_rule_fields(
+        db,
+        native_language_id=native_language_id,
+        target_language_id=target_language_id,
+        word_category_id=word_category_id,
+        level=level,
+        slug=slug,
     )
-    if not category_exists:
-        raise ValueError("Selected word category does not exist")
 
     last_position = (
         db.query(func.max(CanonicalRule.position))
@@ -192,6 +222,41 @@ def get_canonical_rule_by_id(
     rule_id: uuid.UUID,
 ) -> CanonicalRule | None:
     return db.query(CanonicalRule).filter(CanonicalRule.id == rule_id).first()
+
+
+def update_canonical_rule(
+    db: Session,
+    *,
+    rule_id: uuid.UUID,
+    word_category_id: uuid.UUID,
+    level: str,
+    name: str,
+    description: str,
+    slug: str,
+) -> CanonicalRule | None:
+
+    rule = get_canonical_rule_by_id(db, rule_id)
+    if rule is None:
+        return None
+
+    level, slug = _validate_rule_fields(
+        db,
+        native_language_id=rule.native_language_id,
+        target_language_id=rule.target_language_id,
+        word_category_id=word_category_id,
+        level=level,
+        slug=slug,
+        exclude_rule_id=rule.id,
+    )
+
+    rule.word_category_id = word_category_id
+    rule.level = level
+    rule.name = name.strip()
+    rule.description = description.strip()
+    rule.slug = slug
+    db.commit()
+    db.refresh(rule)
+    return rule
 
 
 def get_canonical_rule_by_slug(

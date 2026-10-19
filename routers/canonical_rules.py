@@ -7,17 +7,32 @@ from routers.auth import require_admin
 from core.render import render_section
 from core.templates import templates
 from core.menu import menu_sections
-from graphs.prompts import correction_prompt
 from crud.canonical_rules import (
     CEFR_LEVELS,
     create_canonical_rule,
     get_all_canonical_rules_for_pair,
+    get_canonical_rule_by_id,
+    update_canonical_rule,
 )
 from crud.language_pairs import get_language_pair_by_id, get_language_pairs
 from crud.rules import get_word_categories
+from models.canonical_rules import CanonicalRule
 
 router = APIRouter(prefix="/admin-panel/canonical-rules", tags=["canonical-rules"])
 RULES_LIST_LOCATION = "partials/_canonical_rules_list.html"
+RULE_EDIT_MODAL_LOCATION = "partials/_canonical_rule_edit_modal.html"
+RULE_ERROR_LOCATION = "partials/_canonical_rule_error.html"
+RULE_FORM_ERROR_TARGET = "#canonical-rule-form-error"
+RULE_EDIT_ERROR_TARGET = "#canonical-rule-edit-error"
+
+def _rule_form_context(
+    db: Session, rule: CanonicalRule | None = None
+) -> dict:
+    return {
+        "rule": rule,
+        "word_categories": get_word_categories(db),
+        "cefr_levels": CEFR_LEVELS,
+    }
 
 def _rules_list_context(db: Session, pair: dict) -> dict:
     return {
@@ -29,14 +44,14 @@ def _rules_list_context(db: Session, pair: dict) -> dict:
         ),
     }
 
-def _form_error_response(request: Request, message: str):
+def _form_error_response(request: Request, message: str, target: str):
     return templates.TemplateResponse(
         request=request,
-        name="partials/_canonical_rule_error.html",
+        name=RULE_ERROR_LOCATION,
         context={"error": message},
         status_code=400,
         headers={
-            "HX-Retarget": "#canonical-rule-form-error",
+            "HX-Retarget": target,
             "HX-Reswap": "innerHTML",
         },
     )
@@ -54,10 +69,8 @@ async def canonical_rules_section(
         context={
             "user": user,
             "menu_sections": menu_sections,
-            "correction_prompt": correction_prompt,
             "language_pairs": get_language_pairs(db),
-            "word_categories": get_word_categories(db),
-            "cefr_levels": CEFR_LEVELS,
+            **_rule_form_context(db),
         },
     )
 
@@ -81,6 +94,67 @@ async def canonical_rules_list(
         context=_rules_list_context(db, pair),
     )
 
+@router.patch("/rules/{rule_id}")
+async def update_canonical_rule_route(
+    request: Request,
+    rule_id: uuid.UUID,
+    word_category_id: Annotated[uuid.UUID, Form()],
+    level: Annotated[str, Form()],
+    name: Annotated[str, Form()],
+    description: Annotated[str, Form()],
+    slug: Annotated[str, Form()],
+    user: Annotated[dict, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    try:
+        rule = update_canonical_rule(
+            db,
+            rule_id=rule_id,
+            word_category_id=word_category_id,
+            level=level,
+            name=name,
+            description=description,
+            slug=slug,
+        )
+    except ValueError as e:
+        return _form_error_response(request, str(e), RULE_EDIT_ERROR_TARGET)
+
+    if rule is None:
+        return _form_error_response(request, "Rule not found.", RULE_EDIT_ERROR_TARGET)
+
+    # Re-render the rule's own pair list; the rule carries that pair's ids.
+    pair = {
+        "native_language_id": rule.native_language_id,
+        "target_language_id": rule.target_language_id,
+    }
+
+    return templates.TemplateResponse(
+        request=request,
+        name=RULES_LIST_LOCATION,
+        context=_rules_list_context(db, pair),
+    )
+
+@router.get("/rules/{rule_id}/edit")
+async def edit_canonical_rule_form(
+    request: Request,
+    rule_id: uuid.UUID,
+    user: Annotated[dict, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    rule = get_canonical_rule_by_id(db, rule_id)
+    if rule is None:
+        return templates.TemplateResponse(
+            request=request,
+            name=RULE_ERROR_LOCATION,
+            context={"error": "Rule not found."},
+            status_code=404,
+        )
+    return templates.TemplateResponse(
+        request=request,
+        name=RULE_EDIT_MODAL_LOCATION,
+        context=_rule_form_context(db, rule),
+    )
+
 @router.post("/rules")
 async def create_canonical_rule_route(
     request: Request,
@@ -96,11 +170,11 @@ async def create_canonical_rule_route(
     try:
         pair_uuid = uuid.UUID(pair_id)
     except ValueError:
-        return _form_error_response(request, "Select a language pair.")
+        return _form_error_response(request, "Select a language pair.", RULE_FORM_ERROR_TARGET)
 
     pair = get_language_pair_by_id(db, pair_uuid)
     if pair is None:
-        return _form_error_response(request, "Language pair not found.")
+        return _form_error_response(request, "Language pair not found.", RULE_FORM_ERROR_TARGET)
 
     try:
         create_canonical_rule(
@@ -114,7 +188,7 @@ async def create_canonical_rule_route(
             slug=slug,
         )
     except ValueError as e:
-        return _form_error_response(request, str(e))
+        return _form_error_response(request, str(e), RULE_FORM_ERROR_TARGET)
 
     return templates.TemplateResponse(
         request=request,
