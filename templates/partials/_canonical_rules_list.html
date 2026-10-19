@@ -1,0 +1,36 @@
+<div id="canonical-rules-list">
+    {% if not pair %}
+    <p>Language pair not found.</p>
+    {% elif rules %}
+    <table class="canonical-rules-table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Slug</th>
+                <th>Level</th>
+                <th>Position</th>
+                <th>Category</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for rule in rules %}
+            <tr id="canonical-rule-{{ rule.id }}">
+                <td>{{ rule.name }}</td>
+                <td>{{ rule.slug }}</td>
+                <td>{{ rule.level }}</td>
+                <td>{{ rule.position }}</td>
+                <td>{{ rule.category_name }}</td>
+                <td>
+                    <span class="status-badge {{ 'status-badge-active' if rule.is_active else 'status-badge-inactive' }}">
+                        {{ 'Active' if rule.is_active else 'Inactive' }}
+                    </span>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No canonical rules for this pair yet.</p>
+    {% endif %}
+</div>

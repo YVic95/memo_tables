@@ -293,6 +293,49 @@ body.admin-panel-body {
     background-color: #fbc5c5;
 }
 
+/* Canonical rules table */
+.canonical-rules-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.canonical-rules-table th {
+    color: #2A2A2A;
+    font-weight: bold;
+    text-align: left;
+    padding: 12px 16px;
+    border-bottom: 1px solid #ddd;
+}
+
+.canonical-rules-table td {
+    padding: 16px;
+    border-bottom: 1px solid #eee;
+}
+
+.canonical-rules-table tr:last-child td {
+    border-bottom: none;
+}
+
+/* Status badge */
+.status-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+.status-badge-active {
+    background-color: #D8DEC5;
+    color: #4A5D3A;
+}
+
+.status-badge-inactive {
+    background-color: #EEEEEE;
+    color: #777;
+}
+
 /* Utility classes */
 .hidden {
     display: none;

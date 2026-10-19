@@ -1,0 +1,46 @@
+<h1 id="content-heading">Canonical Rules</h1>
+<p class="page-subtext">Here you can browse the canonical grammar-rule catalog for a language pair</p>
+<div class="divider"></div>
+
+<!-- Card 1: Language pair selector -->
+<div class="card">
+    <div class="card-header">
+        <div class="icon-badge">
+            <i class="fa-solid fa-filter"></i>
+        </div>
+        <h2 class="card-title">Select a language pair</h2>
+    </div>
+
+    <div class="form-group">
+        <label for="canonical-rules-pair-select">Language pair</label>
+        <select id="canonical-rules-pair-select" class="form-select"
+                hx-get="/admin-panel/canonical-rules/rules"
+                hx-trigger="change[value!='']"
+                hx-vals="js:{pair_id: this.value}"
+                hx-target="#canonical-rules-list"
+                hx-swap="outerHTML"
+                hx-indicator="#loader"
+        >
+            <option value="">Select a language pair...</option>
+            {% for pair in language_pairs %}
+            <option value="{{ pair.pair_id }}">
+                {{ pair.native_code|flag }} {{ pair.native_name }} → {{ pair.target_code|flag }} {{ pair.target_name }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+</div>
+
+<!-- Card 2: Rules list -->
+<div class="card">
+    <div class="card-header">
+        <div class="icon-badge">
+            <i class="fa-solid fa-list"></i>
+        </div>
+        <h2 class="card-title">Canonical rules</h2>
+    </div>
+
+    <div id="canonical-rules-list">
+        <p class="page-subtext">Select a language pair to view its canonical rules.</p>
+    </div>
+</div>
