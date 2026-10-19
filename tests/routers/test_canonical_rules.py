@@ -285,6 +285,412 @@ class TestRulesList:
         assert resp.headers["location"] == "/login"
 
 
+class TestEditModal:
+    def test_list_rows_have_edit_button_targeting_modal_container(
+        self, admin_client, pair_es_en, catalog
+    ):
+        rule = next(r for r in catalog if r.slug == "ser-vs-estar")
+        resp = admin_client.get(
+            "/admin-panel/canonical-rules/rules",
+            params={"pair_id": str(pair_es_en.pair_id)},
+        )
+        assert resp.status_code == 200
+        assert (
+            f'hx-get="/admin-panel/canonical-rules/rules/{rule.id}/edit"'
+            in resp.text
+        )
+        assert 'hx-target="#canonical-rule-edit-modal-container"' in resp.text
+
+        section = admin_client.get("/admin-panel/canonical-rules")
+        assert 'id="canonical-rule-edit-modal-container"' in section.text
+
+    def test_edit_get_prefills_modal_form(
+        self, admin_client, pair_es_en, verbs, catalog
+    ):
+        rule = next(r for r in catalog if r.slug == "ser-vs-estar")
+        resp = admin_client.get(
+            f"/admin-panel/canonical-rules/rules/{rule.id}/edit"
+        )
+        assert resp.status_code == 200
+        text = resp.text
+        assert 'id="canonical-rule-edit-modal-overlay"' in text
+        assert 'class="modal-overlay"' in text
+        assert f'hx-patch="/admin-panel/canonical-rules/rules/{rule.id}"' in text
+        assert 'value="Ser vs Estar"' in text
+        assert 'value="ser-vs-estar"' in text
+        assert "Description of Ser vs Estar" in text
+        assert 'value="A1" selected' in text
+        assert f'value="{verbs.id}" selected' in text
+        assert 'id="canonical-rule-edit-error"' in text
+        assert "Save" in text
+        assert "Cancel" in text
+
+    def test_edit_modal_is_a_separate_form_from_create(
+        self, admin_client, catalog
+    ):
+        rule = next(r for r in catalog if r.slug == "ser-vs-estar")
+
+        section = admin_client.get("/admin-panel/canonical-rules")
+        assert 'hx-post="/admin-panel/canonical-rules/rules"' in section.text
+        assert 'id="canonical-rule-edit-modal-overlay"' not in section.text
+
+        modal = admin_client.get(
+            f"/admin-panel/canonical-rules/rules/{rule.id}/edit"
+        )
+        assert modal.status_code == 200
+        assert 'hx-post="/admin-panel/canonical-rules/rules"' not in modal.text
+        assert 'id="canonical-rule-form"' not in modal.text
+        assert 'id="canonical-rule-form-error"' not in modal.text
+        assert 'id="canonical-rule-edit-form"' in modal.text
+
+    def test_edit_modal_has_no_pair_selector_and_no_position_field(
+        self, admin_client, catalog
+    ):
+        rule = next(r for r in catalog if r.slug == "ser-vs-estar")
+        resp = admin_client.get(
+            f"/admin-panel/canonical-rules/rules/{rule.id}/edit"
+        )
+        assert resp.status_code == 200
+        text = resp.text
+        assert 'id="canonical-rules-pair-select"' not in text
+        assert 'name="pair_id"' not in text
+        assert "hx-include" not in text
+        assert 'name="position"' not in text
+
+    def test_edit_modal_fragment_carries_its_own_overlay(
+        self, admin_client, catalog
+    ):
+        """The overlay must live inside the fragment swapped into the modal
+        container so the modal JS can show it once the request settles."""
+        rule = next(r for r in catalog if r.slug == "ser-vs-estar")
+        resp = admin_client.get(
+            f"/admin-panel/canonical-rules/rules/{rule.id}/edit"
+        )
+        assert resp.status_code == 200
+        assert 'id="canonical-rule-edit-modal-overlay"' in resp.text
+
+    def test_unknown_rule_edit_returns_404(self, admin_client):
+        resp = admin_client.get(
+            f"/admin-panel/canonical-rules/rules/{uuid.uuid4()}/edit"
+        )
+        assert resp.status_code == 404
+
+
+def _edit_payload(category, **overrides):
+    data = {
+        "word_category_id": str(category.id),
+        "level": "A2",
+        "name": "Ser or Estar",
+        "description": "revised description",
+        "slug": "ser-or-estar",
+    }
+    data.update(overrides)
+    return data
+
+
+class TestEditRule:
+    def test_edit_save_updates_fields_preserving_position_pair_and_status(
+        self, admin_client, db_session, pair_es_en, nouns, catalog
+    ):
+        rule = next(r for r in catalog if r.slug == "ser-vs-estar")
+        original_position = rule.position
+        resp = admin_client.patch(
+            f"/admin-panel/canonical-rules/rules/{rule.id}",
+            data=_edit_payload(nouns),
+        )
+        assert resp.status_code == 200
+
+        db_session.expire_all()
+        updated = (
+            db_session.query(CanonicalRule)
+            .filter(CanonicalRule.id == rule.id)
+            .first()
+        )
+        assert updated.level == "A2"
+        assert updated.name == "Ser or Estar"
+        assert updated.description == "revised description"
+        assert updated.slug == "ser-or-estar"
+        assert updated.word_category_id == nouns.id
+        assert updated.position == original_position
+        assert updated.native_language_id == pair_es_en.native_language_id
+        assert updated.target_language_id == pair_es_en.target_language_id
+        assert updated.is_active is True
+
+    def test_edit_ignores_pair_id_sent_in_payload(
+        self, admin_client, db_session, pair_es_en, pair_de_es, nouns, catalog
+    ):
+        rule = next(r for r in catalog if r.slug == "ser-vs-estar")
+        data = _edit_payload(nouns)
+        data["pair_id"] = str(pair_de_es.pair_id)
+        resp = admin_client.patch(
+            f"/admin-panel/canonical-rules/rules/{rule.id}",
+            data=data,
+        )
+        assert resp.status_code == 200
+
+        db_session.expire_all()
+        updated = (
+            db_session.query(CanonicalRule)
+            .filter(CanonicalRule.id == rule.id)
+            .first()
+        )
+        assert updated.native_language_id == pair_es_en.native_language_id
+        assert updated.target_language_id == pair_es_en.target_language_id
+        de_rules = (
+            db_session.query(CanonicalRule)
+            .filter(
+                CanonicalRule.native_language_id == pair_de_es.native_language_id,
+                CanonicalRule.target_language_id == pair_de_es.target_language_id,
+            )
+            .count()
+        )
+        assert de_rules == 0
+
+    def test_edit_refreshes_list_in_place_with_updated_row(
+        self, admin_client, pair_es_en, verbs, catalog
+    ):
+        rule = next(r for r in catalog if r.slug == "ser-vs-estar")
+        resp = admin_client.patch(
+            f"/admin-panel/canonical-rules/rules/{rule.id}",
+            data=_edit_payload(verbs),
+        )
+        assert resp.status_code == 200
+        text = resp.text
+        assert 'id="canonical-rules-list"' in text
+        assert f'id="canonical-rule-{rule.id}"' in text
+        assert "Ser or Estar" in text
+        assert 'hx-get="/admin-panel/canonical-rules/rules/' in text
+
+
+class TestEditPosition:
+    """An edit never renumbers a rule, whatever field it changes."""
+
+    def test_edit_changing_only_level_keeps_position(
+        self, admin_client, db_session, pair_es_en, nouns, catalog
+    ):
+        rule = next(r for r in catalog if r.slug == "articles")
+        assert rule.position == 2
+
+        resp = admin_client.patch(
+            f"/admin-panel/canonical-rules/rules/{rule.id}",
+            data=_edit_payload(nouns, level="B2"),
+        )
+        assert resp.status_code == 200
+
+        db_session.expire_all()
+        updated = (
+            db_session.query(CanonicalRule)
+            .filter(CanonicalRule.id == rule.id)
+            .first()
+        )
+        assert updated.level == "B2"
+        assert updated.position == 2
+
+    def test_edit_changing_only_name_keeps_position(
+        self, admin_client, db_session, pair_es_en, nouns, catalog
+    ):
+        rule = next(r for r in catalog if r.slug == "articles")
+        original_position = rule.position
+
+        resp = admin_client.patch(
+            f"/admin-panel/canonical-rules/rules/{rule.id}",
+            data=_edit_payload(nouns, level="A1"),
+        )
+        assert resp.status_code == 200
+
+        db_session.expire_all()
+        updated = (
+            db_session.query(CanonicalRule)
+            .filter(CanonicalRule.id == rule.id)
+            .first()
+        )
+        assert updated.name == "Ser or Estar"
+        assert updated.position == original_position
+
+
+class TestEditRuleValidation:
+    def test_edit_with_unchanged_slug_is_allowed(
+        self, admin_client, db_session, pair_es_en, verbs, catalog
+    ):
+        rule = next(r for r in catalog if r.slug == "ser-vs-estar")
+        resp = admin_client.patch(
+            f"/admin-panel/canonical-rules/rules/{rule.id}",
+            data=_edit_payload(verbs, slug="ser-vs-estar"),
+        )
+        assert resp.status_code == 200
+
+    def test_edit_duplicate_slug_of_other_rule_rejected_and_nothing_changes(
+        self, admin_client, db_session, pair_es_en, nouns, catalog
+    ):
+        rule = next(r for r in catalog if r.slug == "articles")
+        resp = admin_client.patch(
+            f"/admin-panel/canonical-rules/rules/{rule.id}",
+            data=_edit_payload(nouns, slug="ser-vs-estar"),
+        )
+        assert resp.status_code == 400
+        assert "error-message" in resp.text
+        assert resp.headers["hx-retarget"] == "#canonical-rule-edit-error"
+        assert resp.headers["hx-reswap"] == "innerHTML"
+
+        db_session.expire_all()
+        unchanged = (
+            db_session.query(CanonicalRule)
+            .filter(CanonicalRule.id == rule.id)
+            .first()
+        )
+        assert unchanged.slug == "articles"
+        assert unchanged.name == "Articles"
+        assert unchanged.level == "A1"
+        assert unchanged.description == "Description of Articles"
+
+    @pytest.mark.parametrize(
+        "slug",
+        ["Foo_Bar", "foo--bar", "-leading", "trailing-", "foo bar", "ünïcode"],
+    )
+    def test_edit_malformed_slug_rejected_and_nothing_changes(
+        self, admin_client, db_session, pair_es_en, nouns, catalog, slug
+    ):
+        rule = next(r for r in catalog if r.slug == "ser-vs-estar")
+        resp = admin_client.patch(
+            f"/admin-panel/canonical-rules/rules/{rule.id}",
+            data=_edit_payload(nouns, slug=slug),
+        )
+        assert resp.status_code == 400
+        assert "error-message" in resp.text
+
+        db_session.expire_all()
+        unchanged = (
+            db_session.query(CanonicalRule)
+            .filter(CanonicalRule.id == rule.id)
+            .first()
+        )
+        assert unchanged.slug == "ser-vs-estar"
+
+    def test_edit_invalid_level_rejected_and_nothing_changes(
+        self, admin_client, db_session, pair_es_en, nouns, catalog
+    ):
+        rule = next(r for r in catalog if r.slug == "ser-vs-estar")
+        resp = admin_client.patch(
+            f"/admin-panel/canonical-rules/rules/{rule.id}",
+            data=_edit_payload(nouns, level="D1"),
+        )
+        assert resp.status_code == 400
+        assert "error-message" in resp.text
+
+        db_session.expire_all()
+        unchanged = (
+            db_session.query(CanonicalRule)
+            .filter(CanonicalRule.id == rule.id)
+            .first()
+        )
+        assert unchanged.level == "A1"
+
+    def test_edit_unknown_category_rejected_and_nothing_changes(
+        self, admin_client, db_session, pair_es_en, nouns, catalog
+    ):
+        rule = next(r for r in catalog if r.slug == "ser-vs-estar")
+        resp = admin_client.patch(
+            f"/admin-panel/canonical-rules/rules/{rule.id}",
+            data=_edit_payload(nouns, word_category_id=str(uuid.uuid4())),
+        )
+        assert resp.status_code == 400
+        assert "error-message" in resp.text
+
+        db_session.expire_all()
+        unchanged = (
+            db_session.query(CanonicalRule)
+            .filter(CanonicalRule.id == rule.id)
+            .first()
+        )
+        assert unchanged.word_category_id == rule.word_category_id
+
+    def test_edit_normalizes_slug_trim_and_lowercase(
+        self, admin_client, db_session, pair_es_en, nouns, catalog
+    ):
+        rule = next(r for r in catalog if r.slug == "ser-vs-estar")
+        resp = admin_client.patch(
+            f"/admin-panel/canonical-rules/rules/{rule.id}",
+            data=_edit_payload(nouns, slug="  Ser-Oder-Estar  "),
+        )
+        assert resp.status_code == 200
+
+        db_session.expire_all()
+        updated = (
+            db_session.query(CanonicalRule)
+            .filter(CanonicalRule.id == rule.id)
+            .first()
+        )
+        assert updated.slug == "ser-oder-estar"
+
+    def test_edit_unknown_rule_patch_returns_friendly_error(
+        self, admin_client, nouns
+    ):
+        resp = admin_client.patch(
+            f"/admin-panel/canonical-rules/rules/{uuid.uuid4()}",
+            data=_edit_payload(nouns),
+        )
+        assert resp.status_code == 400
+        assert "error-message" in resp.text
+        assert "Rule not found." in resp.text
+
+    def test_edit_rejects_non_admin(
+        self, non_admin_client, pair_es_en, nouns, catalog
+    ):
+        rule = next(r for r in catalog if r.slug == "ser-vs-estar")
+
+        resp = non_admin_client.get(
+            f"/admin-panel/canonical-rules/rules/{rule.id}/edit"
+        )
+        assert resp.status_code == 307
+        assert resp.headers["location"] == "/login"
+
+        resp = non_admin_client.patch(
+            f"/admin-panel/canonical-rules/rules/{rule.id}",
+            data=_edit_payload(nouns),
+        )
+        assert resp.status_code == 307
+        assert resp.headers["location"] == "/login"
+
+
+class TestCancelEdit:
+    def test_edit_modal_cancel_closes_without_saving(
+        self, admin_client, db_session, catalog
+    ):
+        rule = next(r for r in catalog if r.slug == "ser-vs-estar")
+        resp = admin_client.get(
+            f"/admin-panel/canonical-rules/rules/{rule.id}/edit"
+        )
+        assert resp.status_code == 200
+        text = resp.text
+        assert 'onclick="closeEditRuleModal()"' in text
+        assert 'id="close-canonical-rule-edit-modal"' in text
+
+        db_session.expire_all()
+        unchanged = (
+            db_session.query(CanonicalRule)
+            .filter(CanonicalRule.id == rule.id)
+            .first()
+        )
+        assert unchanged.name == "Ser vs Estar"
+        assert unchanged.slug == "ser-vs-estar"
+        assert unchanged.level == "A1"
+        assert unchanged.description == "Description of Ser vs Estar"
+
+    def test_edit_modal_offers_category_and_level_options(
+        self, admin_client, catalog
+    ):
+        rule = next(r for r in catalog if r.slug == "ser-vs-estar")
+        resp = admin_client.get(
+            f"/admin-panel/canonical-rules/rules/{rule.id}/edit"
+        )
+        assert resp.status_code == 200
+        text = resp.text
+        assert "Nouns" in text
+        assert "Verbs" in text
+        for level in ("A1", "A2", "B1", "B2", "C1", "C2"):
+            assert f'value="{level}"' in text
+
+
 def _create_payload(pair, category, **overrides):
     data = {
         "pair_id": str(pair.pair_id),
