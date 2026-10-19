@@ -8,7 +8,7 @@
                 <th>Name</th>
                 <th>Slug</th>
                 <th>Level</th>
-                <th>Position</th>
+                {# <th>Position</th> #}
                 <th>Category</th>
                 <th>Status</th>
             </tr>
@@ -19,7 +19,7 @@
                 <td>{{ rule.name }}</td>
                 <td>{{ rule.slug }}</td>
                 <td>{{ rule.level }}</td>
-                <td>{{ rule.position }}</td>
+                {# <td>{{ rule.position }}</td> #}
                 <td>{{ rule.category_name }}</td>
                 <td>
                     <span class="status-badge {{ 'status-badge-active' if rule.is_active else 'status-badge-inactive' }}">
