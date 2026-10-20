@@ -337,6 +337,47 @@ body.admin-panel-body {
     background-color: #D8DEC5;
 }
 
+.rule-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.deactivate-button {
+    background-color: #FDE8E8;
+    color: #E05555;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.deactivate-button:hover {
+    background-color: #fbc5c5;
+}
+
+.reactivate-button {
+    background-color: #E4F0E4;
+    color: #4A5D3A;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.reactivate-button:hover {
+    background-color: #D8DEC5;
+}
+
 /* Canonical rules table */
 .canonical-rules-table {
     width: 100%;
