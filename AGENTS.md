@@ -95,7 +95,7 @@ graphs/               ← LangGraph agents
   llm.py              ← OpenRouter ChatOpenAI client
   suggest_rules_graph.py   ← Proposes 5 grammar rules
   initial_rule_graph.py    ← Categorizes, persists, translates, generates content
-data/canonical_rules/ ← Canonical rule catalog source of truth (retired; admin panel is the single authoring path)
+data/canonical_rules/ ← Retired; admin panel is the single authoring path
 templates/            ← Jinja2 HTML templates (HTMX admin panel)
 static/               ← CSS, FontAwesome icons
 supabase/             ← Supabase config + SQL migrations

@@ -1,11 +1,8 @@
 """Catalog text the matching tests measure against.
 
-These are the names and descriptions the English->Spanish catalog ships in
-`data/canonical_rules/en-es.yaml`, copied verbatim rather than read from the
-file. The tests are about the matching pipeline, not the catalog's contents, so
-they need text that does not move when the curriculum is edited — but the copy
-means a divergence from the YAML would go unnoticed, so keep these in step with
-it.
+These names and descriptions describe canonical rules used by the matching
+pipeline tests. The tests are about the matching pipeline, not the catalog's
+contents, so they need text that does not move when the curriculum is edited.
 
 Trigram scores for the description pairs are pinned against `pg_trgm` 1.6 in
 `tests/test_pg_trgm.py`. The name-versus-description scores that

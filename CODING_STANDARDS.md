@@ -95,7 +95,7 @@ memo_tables/
 │   └── checkpointer.py          #   PostgresSaver for LangGraph
 │
 ├── data/                        # Authoring data
-│   └── canonical_rules/         #   Canonical rule catalog (one YAML file per language pair)
+│   └── canonical_rules/         #   Directory retired (YAML workflow removed; admin panel is the single authoring path)
 ├── templates/                   # Jinja2 HTML templates
 │   ├── admin-panel.html         #   Base layout (sidebar + header + content)
 │   ├── admin-panel-languages.html
