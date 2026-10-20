@@ -7,6 +7,7 @@ from sqlalchemy.pool import StaticPool
 
 from database import Base, get_db
 from models.canonical_rules import CanonicalRule
+from crud.canonical_rules import get_canonical_rules_for_pair
 from models.language import Language
 from models.language_pairs import LanguagePair
 from models.word_categories import WordCategory
@@ -1001,3 +1002,111 @@ class TestCanonicalRuleToggle:
         db_session.expire_all()
         rule = db_session.get(CanonicalRule, rule.id)
         assert rule.is_active is True
+
+    def test_deactivate_linked_rule_succeeds(
+        self, admin_client, db_session, pair_es_en, verbs, language_en, language_es
+    ):
+        from models.grammar_rules import GrammarRule
+
+        rule = CanonicalRule(
+            native_language_id=pair_es_en.native_language_id,
+            target_language_id=pair_es_en.target_language_id,
+            word_category_id=verbs.id,
+            level="A1",
+            name="Linked Rule",
+            description="desc",
+            position=1,
+            slug="linked-rule",
+            is_active=True,
+        )
+        db_session.add(rule)
+        db_session.commit()
+        db_session.refresh(rule)
+
+        gr = GrammarRule(
+            name="Linked usage",
+            description="desc",
+            language_id=language_es.id,
+            word_category_id=verbs.id,
+            canonical_rule_id=rule.id,
+        )
+        db_session.add(gr)
+        db_session.commit()
+
+        resp = admin_client.post(
+            f"/admin-panel/canonical-rules/rules/{rule.id}/deactivate"
+        )
+        assert resp.status_code == 200
+        assert "status-badge-inactive" in resp.text
+        assert "linked" in resp.text
+
+        db_session.expire_all()
+        rule = db_session.get(CanonicalRule, rule.id)
+        assert rule.is_active is False
+
+    def test_inactive_rule_excluded_from_active_only_reads(
+        self, db_session, pair_es_en, verbs
+    ):
+        active_rule = CanonicalRule(
+            native_language_id=pair_es_en.native_language_id,
+            target_language_id=pair_es_en.target_language_id,
+            word_category_id=verbs.id,
+            level="A1",
+            name="Active Rule",
+            description="desc",
+            position=1,
+            slug="active-rule",
+            is_active=True,
+        )
+        inactive_rule = CanonicalRule(
+            native_language_id=pair_es_en.native_language_id,
+            target_language_id=pair_es_en.target_language_id,
+            word_category_id=verbs.id,
+            level="A1",
+            name="Inactive Rule",
+            description="desc",
+            position=2,
+            slug="inactive-rule",
+            is_active=False,
+        )
+        db_session.add_all([active_rule, inactive_rule])
+        db_session.commit()
+
+        active = get_canonical_rules_for_pair(
+            db_session,
+            native_language_id=pair_es_en.native_language_id,
+            target_language_id=pair_es_en.target_language_id,
+        )
+        slugs = {r.slug for r in active}
+        assert "active-rule" in slugs
+        assert "inactive-rule" not in slugs
+
+    def test_toggle_rejects_non_admin(
+        self, non_admin_client, db_session, pair_es_en, verbs
+    ):
+        rule = CanonicalRule(
+            native_language_id=pair_es_en.native_language_id,
+            target_language_id=pair_es_en.target_language_id,
+            word_category_id=verbs.id,
+            level="A1",
+            name="Toggle Rule",
+            description="desc",
+            position=1,
+            slug="toggle-rule",
+            is_active=True,
+        )
+        db_session.add(rule)
+        db_session.commit()
+        db_session.refresh(rule)
+
+        deactivate_resp = non_admin_client.post(
+            f"/admin-panel/canonical-rules/rules/{rule.id}/deactivate"
+        )
+        assert deactivate_resp.status_code == 307
+        assert deactivate_resp.headers["location"] == "/login"
+
+        activate_resp = non_admin_client.post(
+            f"/admin-panel/canonical-rules/rules/{rule.id}/activate"
+        )
+        assert activate_resp.status_code == 307
+        assert activate_resp.headers["location"] == "/login"
