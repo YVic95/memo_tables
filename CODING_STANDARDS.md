@@ -122,8 +122,7 @@ memo_tables/
 │   ├── start.sh
 │   ├── stop.sh
 │   ├── migrate.sh
-│   ├── create_admin_user.py
-│   └── load_canon.py
+│   └── create_admin_user.py
 │
 └── docs/                        # Documentation
     ├── agents/

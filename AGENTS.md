@@ -95,13 +95,12 @@ graphs/               ← LangGraph agents
   llm.py              ← OpenRouter ChatOpenAI client
   suggest_rules_graph.py   ← Proposes 5 grammar rules
   initial_rule_graph.py    ← Categorizes, persists, translates, generates content
-data/canonical_rules/ ← Canonical rule catalog (one YAML file per language pair)
+data/canonical_rules/ ← Canonical rule catalog source of truth (retired; admin panel is the single authoring path)
 templates/            ← Jinja2 HTML templates (HTMX admin panel)
 static/               ← CSS, FontAwesome icons
 supabase/             ← Supabase config + SQL migrations
 alembic/              ← Alembic migration scripts
 scripts/              ← Shell scripts for dev workflow
-  load_canon.py       ← Syncs data/canonical_rules/*.yaml into canonical_rules table
 ```
 
 ## Auth model
