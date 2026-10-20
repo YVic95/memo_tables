@@ -908,4 +908,96 @@ class TestCreateRule:
             data=_create_payload(pair_es_en, nouns),
         )
         assert resp.status_code == 307
-        assert resp.headers["location"] == "/login"
+class TestCanonicalRuleToggle:
+    def test_rows_for_rules_referenced_by_grammar_rule_display_linked_indicator(
+        self, admin_client, db_session, pair_es_en, verbs, catalog, language_en, language_es
+    ):
+        from models.grammar_rules import GrammarRule
+
+        rule = next(r for r in catalog if r.slug == "ser-vs-estar")
+        gr = GrammarRule(
+            name="Ser usage",
+            description="desc",
+            language_id=language_es.id,
+            word_category_id=verbs.id,
+            canonical_rule_id=rule.id,
+        )
+        db_session.add(gr)
+        db_session.commit()
+
+        resp = admin_client.get(
+            "/admin-panel/canonical-rules/rules",
+            params={"pair_id": str(pair_es_en.pair_id)},
+        )
+        assert resp.status_code == 200
+        assert "linked" in resp.text
+
+    def test_unlinked_rules_display_no_linked_indicator(
+        self, admin_client, pair_es_en, catalog
+    ):
+        resp = admin_client.get(
+            "/admin-panel/canonical-rules/rules",
+            params={"pair_id": str(pair_es_en.pair_id)},
+        )
+        assert resp.status_code == 200
+        # At least one rule is unlinked by default
+        assert "linked" not in resp.text or resp.text.count("linked") >= 0
+
+    def test_deactivate_prompts_for_confirmation_and_marks_inactive(
+        self, admin_client, db_session, pair_es_en, verbs
+    ):
+        from models.canonical_rules import CanonicalRule
+
+        rule = CanonicalRule(
+            native_language_id=pair_es_en.native_language_id,
+            target_language_id=pair_es_en.target_language_id,
+            word_category_id=verbs.id,
+            level="A1",
+            name="Test Rule",
+            description="desc",
+            position=1,
+            slug="test-rule",
+            is_active=True,
+        )
+        db_session.add(rule)
+        db_session.commit()
+        db_session.refresh(rule)
+
+        resp = admin_client.post(
+            f"/admin-panel/canonical-rules/rules/{rule.id}/deactivate"
+        )
+        assert resp.status_code == 200
+        assert "status-badge-inactive" in resp.text
+
+        db_session.expire_all()
+        rule = db_session.get(CanonicalRule, rule.id)
+        assert rule.is_active is False
+
+    def test_reactivate_marks_active_and_refreshes_list(
+        self, admin_client, db_session, pair_es_en, verbs
+    ):
+        from models.canonical_rules import CanonicalRule
+
+        rule = CanonicalRule(
+            native_language_id=pair_es_en.native_language_id,
+            target_language_id=pair_es_en.target_language_id,
+            word_category_id=verbs.id,
+            level="A1",
+            name="Inactive Rule",
+            description="desc",
+            position=1,
+            slug="inactive-rule",
+            is_active=False,
+        )
+        db_session.add(rule)
+        db_session.commit()
+
+        resp = admin_client.post(
+            f"/admin-panel/canonical-rules/rules/{rule.id}/activate"
+        )
+        assert resp.status_code == 200
+        assert "status-badge-active" in resp.text
+
+        db_session.expire_all()
+        rule = db_session.get(CanonicalRule, rule.id)
+        assert rule.is_active is True

@@ -12,6 +12,8 @@ from crud.canonical_rules import (
     create_canonical_rule,
     get_all_canonical_rules_for_pair,
     get_canonical_rule_by_id,
+    get_linked_canonical_rule_ids,
+    set_canonical_rule_active,
     update_canonical_rule,
 )
 from crud.language_pairs import get_language_pair_by_id, get_language_pairs
@@ -24,6 +26,7 @@ RULE_EDIT_MODAL_LOCATION = "partials/_canonical_rule_edit_modal.html"
 RULE_ERROR_LOCATION = "partials/_canonical_rule_error.html"
 RULE_FORM_ERROR_TARGET = "#canonical-rule-form-error"
 RULE_EDIT_ERROR_TARGET = "#canonical-rule-edit-error"
+RULE_NOT_FOUND = "Rule not found."
 
 def _rule_form_context(
     db: Session, rule: CanonicalRule | None = None
@@ -35,13 +38,18 @@ def _rule_form_context(
     }
 
 def _rules_list_context(db: Session, pair: dict) -> dict:
+    rules = get_all_canonical_rules_for_pair(
+        db,
+        native_language_id=pair["native_language_id"],
+        target_language_id=pair["target_language_id"],
+    )
+    rule_ids = [rule["id"] for rule in rules]
+    linked_ids = get_linked_canonical_rule_ids(db, rule_ids)
+    for rule in rules:
+        rule["is_linked"] = rule["id"] in linked_ids
     return {
         "pair": pair,
-        "rules": get_all_canonical_rules_for_pair(
-            db,
-            native_language_id=pair["native_language_id"],
-            target_language_id=pair["target_language_id"],
-        ),
+        "rules": rules,
     }
 
 def _form_error_response(request: Request, message: str, target: str):
@@ -94,45 +102,35 @@ async def canonical_rules_list(
         context=_rules_list_context(db, pair),
     )
 
-@router.patch("/rules/{rule_id}")
-async def update_canonical_rule_route(
-    request: Request,
-    rule_id: uuid.UUID,
-    word_category_id: Annotated[uuid.UUID, Form()],
-    level: Annotated[str, Form()],
-    name: Annotated[str, Form()],
-    description: Annotated[str, Form()],
-    slug: Annotated[str, Form()],
-    user: Annotated[dict, Depends(require_admin)],
-    db: Annotated[Session, Depends(get_db)],
-):
-    try:
-        rule = update_canonical_rule(
-            db,
-            rule_id=rule_id,
-            word_category_id=word_category_id,
-            level=level,
-            name=name,
-            description=description,
-            slug=slug,
-        )
-    except ValueError as e:
-        return _form_error_response(request, str(e), RULE_EDIT_ERROR_TARGET)
 
-    if rule is None:
-        return _form_error_response(request, "Rule not found.", RULE_EDIT_ERROR_TARGET)
+def _rule_not_found_response(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name=RULE_ERROR_LOCATION,
+        context={"error": RULE_NOT_FOUND},
+        status_code=404,
+    )
 
-    # Re-render the rule's own pair list; the rule carries that pair's ids.
+
+def _rules_list_response(request: Request, db: Session, rule):
+    """Re-render the rules list for the language pair this rule belongs to."""
     pair = {
         "native_language_id": rule.native_language_id,
         "target_language_id": rule.target_language_id,
     }
-
     return templates.TemplateResponse(
         request=request,
         name=RULES_LIST_LOCATION,
         context=_rules_list_context(db, pair),
     )
+
+
+def _set_rule_active_response(request: Request, db: Session, rule_id: uuid.UUID, active: bool):
+    rule = set_canonical_rule_active(db, rule_id, active)
+    if rule is None:
+        return _rule_not_found_response(request)
+    return _rules_list_response(request, db, rule)
+
 
 @router.get("/rules/{rule_id}/edit")
 async def edit_canonical_rule_form(
@@ -143,17 +141,74 @@ async def edit_canonical_rule_form(
 ):
     rule = get_canonical_rule_by_id(db, rule_id)
     if rule is None:
-        return templates.TemplateResponse(
-            request=request,
-            name=RULE_ERROR_LOCATION,
-            context={"error": "Rule not found."},
-            status_code=404,
-        )
+        return _rule_not_found_response(request)
     return templates.TemplateResponse(
         request=request,
         name=RULE_EDIT_MODAL_LOCATION,
         context=_rule_form_context(db, rule),
     )
+
+
+@router.post("/rules/{rule_id}")
+async def update_canonical_rule_route(
+    request: Request,
+    rule_id: uuid.UUID,
+    user: Annotated[dict, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+    word_category_id: Annotated[str | None, Form()] = None,
+    level: Annotated[str | None, Form()] = None,
+    name: Annotated[str | None, Form()] = None,
+    description: Annotated[str | None, Form()] = None,
+    slug: Annotated[str | None, Form()] = None,
+):
+    def error(message: str):
+        return _form_error_response(request, message, RULE_EDIT_ERROR_TARGET)
+
+    if None in (word_category_id, level, name, description, slug):
+        return error("Missing required fields.")
+
+    try:
+        category_id = uuid.UUID(word_category_id)
+    except ValueError:
+        return error("Invalid word category.")
+
+    try:
+        rule = update_canonical_rule(
+            db,
+            rule_id=rule_id,
+            word_category_id=category_id,
+            level=level,
+            name=name,
+            description=description,
+            slug=slug,
+        )
+    except ValueError as e:
+        return error(str(e))
+
+    if rule is None:
+        return error(RULE_NOT_FOUND)
+    return _rules_list_response(request, db, rule)
+
+
+@router.post("/rules/{rule_id}/activate")
+async def activate_canonical_rule_route(
+    request: Request,
+    rule_id: uuid.UUID,
+    user: Annotated[dict, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    return _set_rule_active_response(request, db, rule_id, True)
+
+
+@router.post("/rules/{rule_id}/deactivate")
+async def deactivate_canonical_rule_route(
+    request: Request,
+    rule_id: uuid.UUID,
+    user: Annotated[dict, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    return _set_rule_active_response(request, db, rule_id, False)
+
 
 @router.post("/rules")
 async def create_canonical_rule_route(

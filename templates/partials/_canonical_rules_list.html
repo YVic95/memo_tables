@@ -17,7 +17,12 @@
         <tbody>
             {% for rule in rules %}
             <tr id="canonical-rule-{{ rule.id }}">
-                <td>{{ rule.name }}</td>
+                <td>
+                    {{ rule.name }}
+                    {% if rule.is_linked %}
+                    <span class="linked-indicator" title="Linked to a grammar rule">(linked)</span>
+                    {% endif %}
+                </td>
                 <td>{{ rule.slug }}</td>
                 <td>{{ rule.level }}</td>
                 {# <td>{{ rule.position }}</td> #}
@@ -34,6 +39,22 @@
                             hx-indicator="#loader">
                         Edit
                     </button>
+                    {% if rule.is_active %}
+                    <button type="button" class="deactivate-button" title="Deactivate" aria-label="Deactivate"
+                            hx-post="/admin-panel/canonical-rules/rules/{{ rule.id }}/deactivate"
+                            hx-target="#canonical-rules-list"
+                            hx-swap="outerHTML"
+                            hx-confirm="Deactivate this canonical rule?">
+                        Deactivate
+                    </button>
+                    {% else %}
+                    <button type="button" class="reactivate-button" title="Reactivate" aria-label="Reactivate"
+                            hx-post="/admin-panel/canonical-rules/rules/{{ rule.id }}/activate"
+                            hx-target="#canonical-rules-list"
+                            hx-swap="outerHTML">
+                        Reactivate
+                    </button>
+                    {% endif %}
                 </td>
             </tr>
             {% endfor %}

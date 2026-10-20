@@ -75,10 +75,8 @@ def get_all_canonical_rules_for_pair(
     native_language_id: uuid.UUID,
     target_language_id: uuid.UUID,
 ) -> list[dict]:
-    """Return the pair's full catalog — active and inactive — ordered by level then position.
-
-    Each entry carries its word-category name so the admin list can render
-    without extra lookups.
+    """
+        Return the pair's full catalog — active and inactive — ordered by level then position.
     """
     rows = (
         db.query(CanonicalRule, WordCategory.name)
@@ -222,6 +220,42 @@ def get_canonical_rule_by_id(
     rule_id: uuid.UUID,
 ) -> CanonicalRule | None:
     return db.query(CanonicalRule).filter(CanonicalRule.id == rule_id).first()
+
+
+def is_canonical_rule_linked(db: Session, rule_id: uuid.UUID) -> bool:
+    """Return True if any grammar rule references this canonical rule."""
+    return (
+        db.query(GrammarRule.id)
+        .filter(GrammarRule.canonical_rule_id == rule_id)
+        .first()
+        is not None
+    )
+
+
+def get_linked_canonical_rule_ids(
+    db: Session, rule_ids: list[uuid.UUID]
+) -> set[uuid.UUID]:
+    if not rule_ids:
+        return set()
+    rows = (
+        db.query(GrammarRule.canonical_rule_id)
+        .filter(GrammarRule.canonical_rule_id.in_(rule_ids))
+        .distinct()
+        .all()
+    )
+    return {row[0] for row in rows}
+
+
+def set_canonical_rule_active(
+    db: Session, rule_id: uuid.UUID, is_active: bool
+) -> CanonicalRule | None:
+    rule = get_canonical_rule_by_id(db, rule_id)
+    if rule is None:
+        return None
+    rule.is_active = bool(is_active)
+    db.commit()
+    db.refresh(rule)
+    return rule
 
 
 def update_canonical_rule(
