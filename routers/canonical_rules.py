@@ -22,6 +22,7 @@ from models.canonical_rules import CanonicalRule
 
 router = APIRouter(prefix="/admin-panel/canonical-rules", tags=["canonical-rules"])
 RULES_LIST_LOCATION = "partials/_canonical_rules_list.html"
+RULES_PANEL_LOCATION = "partials/_canonical_rules_panel.html"
 RULE_EDIT_MODAL_LOCATION = "partials/_canonical_rule_edit_modal.html"
 RULE_ERROR_LOCATION = "partials/_canonical_rule_error.html"
 RULE_FORM_ERROR_TARGET = "#canonical-rule-form-error"
@@ -52,6 +53,16 @@ def _rules_list_context(db: Session, pair: dict) -> dict:
         "rules": rules,
     }
 
+def _resolve_language_pair(db: Session, pair_id: str) -> dict | None:
+    if not pair_id:
+        return None
+    try:
+        pair_uuid = uuid.UUID(pair_id)
+    except ValueError:
+        return None
+    return get_language_pair_by_id(db, pair_uuid)
+
+
 def _form_error_response(request: Request, message: str, target: str):
     return templates.TemplateResponse(
         request=request,
@@ -78,9 +89,29 @@ async def canonical_rules_section(
             "user": user,
             "menu_sections": menu_sections,
             "language_pairs": get_language_pairs(db),
-            **_rule_form_context(db),
+            "pair": None,
         },
     )
+
+@router.get("/panel")
+async def canonical_rules_panel(
+    request: Request,
+    user: Annotated[dict, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+    pair_id: str = "",
+):
+    pair = _resolve_language_pair(db, pair_id)
+    panel_context = (
+        _rules_list_context(db, pair)
+        if pair is not None
+        else {"pair": None, "rules": None}
+    )
+    return templates.TemplateResponse(
+        request=request,
+        name=RULES_PANEL_LOCATION,
+        context={**panel_context, **_rule_form_context(db)},
+    )
+
 
 @router.get("/rules")
 async def canonical_rules_list(

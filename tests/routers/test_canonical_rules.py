@@ -327,13 +327,16 @@ class TestEditModal:
         assert "Cancel" in text
 
     def test_edit_modal_is_a_separate_form_from_create(
-        self, admin_client, catalog
+        self, admin_client, pair_es_en, catalog
     ):
         rule = next(r for r in catalog if r.slug == "ser-vs-estar")
 
-        section = admin_client.get("/admin-panel/canonical-rules")
-        assert 'hx-post="/admin-panel/canonical-rules/rules"' in section.text
-        assert 'id="canonical-rule-edit-modal-overlay"' not in section.text
+        panel = admin_client.get(
+            "/admin-panel/canonical-rules/panel",
+            params={"pair_id": str(pair_es_en.pair_id)},
+        )
+        assert 'hx-post="/admin-panel/canonical-rules/rules"' in panel.text
+        assert 'id="canonical-rule-edit-modal-overlay"' not in panel.text
 
         modal = admin_client.get(
             f"/admin-panel/canonical-rules/rules/{rule.id}/edit"
@@ -705,9 +708,92 @@ def _create_payload(pair, category, **overrides):
     return data
 
 
-class TestCreateForm:
-    def test_section_renders_create_form_fields(self, admin_client, nouns, verbs):
+class TestCreateCardVisibility:
+    def test_section_hides_create_card_until_a_pair_is_selected(
+        self, admin_client, pair_es_en
+    ):
         resp = admin_client.get("/admin-panel/canonical-rules")
+        assert resp.status_code == 200
+        assert "Create Rule for Catalogue" not in resp.text
+        assert 'id="create-canonical-rule"' not in resp.text
+        assert 'id="canonical-rule-form"' not in resp.text
+
+    def test_panel_shows_create_card_for_the_selected_pair(
+        self, admin_client, pair_es_en
+    ):
+        resp = admin_client.get(
+            "/admin-panel/canonical-rules/panel",
+            params={"pair_id": str(pair_es_en.pair_id)},
+        )
+        assert resp.status_code == 200
+        assert "Create Rule for Catalogue" in resp.text
+        assert 'id="create-canonical-rule"' in resp.text
+        assert 'id="canonical-rule-form"' in resp.text
+
+    def test_panel_create_button_is_ready_for_the_selected_pair(
+        self, admin_client, pair_es_en
+    ):
+        resp = admin_client.get(
+            "/admin-panel/canonical-rules/panel",
+            params={"pair_id": str(pair_es_en.pair_id)},
+        )
+        assert resp.status_code == 200
+        assert '<button id="create-canonical-rule" class="save-button">' in resp.text
+
+    def test_panel_create_form_is_scoped_to_the_selected_pair(
+        self, admin_client, pair_es_en
+    ):
+        resp = admin_client.get(
+            "/admin-panel/canonical-rules/panel",
+            params={"pair_id": str(pair_es_en.pair_id)},
+        )
+        assert resp.status_code == 200
+        assert 'hx-include="#canonical-rules-pair-select"' in resp.text
+        assert 'hx-post="/admin-panel/canonical-rules/rules"' in resp.text
+
+    def test_panel_hides_create_card_when_the_selection_is_cleared(
+        self, admin_client, pair_es_en
+    ):
+        resp = admin_client.get(
+            "/admin-panel/canonical-rules/panel",
+            params={"pair_id": ""},
+        )
+        assert resp.status_code == 200
+        assert "Create Rule for Catalogue" not in resp.text
+        assert 'id="create-canonical-rule"' not in resp.text
+        assert "Select a language pair to view its canonical rules." in resp.text
+
+    def test_panel_shows_the_rules_of_the_newly_selected_pair(
+        self, admin_client, pair_es_en, pair_de_es, nouns, catalog
+    ):
+        resp = admin_client.get(
+            "/admin-panel/canonical-rules/panel",
+            params={"pair_id": str(pair_de_es.pair_id)},
+        )
+        assert resp.status_code == 200
+        assert "Create Rule for Catalogue" in resp.text
+        assert "Ser vs Estar" not in resp.text
+        assert "No canonical rules for this pair yet." in resp.text
+
+    def test_pair_selector_asks_for_the_panel_on_every_change(
+        self, admin_client
+    ):
+        resp = admin_client.get("/admin-panel/canonical-rules")
+        assert resp.status_code == 200
+        assert 'hx-get="/admin-panel/canonical-rules/panel"' in resp.text
+        assert 'hx-target="#canonical-rules-panel"' in resp.text
+        assert 'hx-trigger="change"' in resp.text
+        assert 'id="canonical-rules-panel"' in resp.text
+
+
+class TestCreateForm:
+    def test_panel_renders_create_form_fields(
+        self, admin_client, pair_es_en, nouns, verbs
+    ):
+        resp = admin_client.get(
+            "/admin-panel/canonical-rules/panel",
+            params={"pair_id": str(pair_es_en.pair_id)},
+        )
         assert resp.status_code == 200
         text = resp.text
         assert 'hx-post="/admin-panel/canonical-rules/rules"' in text

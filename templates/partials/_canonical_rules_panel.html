@@ -1,0 +1,27 @@
+<div id="canonical-rules-panel">
+    {% if pair %}
+    <!-- Create canonical rule -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Create Rule for Catalogue</h2>
+        </div>
+
+        <button id="create-canonical-rule" class="save-button">
+            Create
+        </button>
+
+        {% include "partials/_canonical_rule_create_form.html" %}
+    </div>
+    {% endif %}
+
+    <!-- Rules list -->
+    <div class="card">
+        {% if pair %}
+            {% include "partials/_canonical_rules_list.html" %}
+        {% else %}
+            <div id="canonical-rules-list">
+                <p class="page-subtext">Select a language pair to view its canonical rules.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
