@@ -19,9 +19,9 @@
                 hx-indicator="#loader"
         >
             <option value="">Select a language pair...</option>
-            {% for pair in language_pairs %}
-            <option value="{{ pair.pair_id }}">
-                {{ pair.native_name }} → {{ pair.target_name }}
+            {% for language_pair in language_pairs %}
+            <option value="{{ language_pair.pair_id }}"{% if pair and pair.pair_id == language_pair.pair_id %} selected{% endif %}>
+                {{ language_pair.native_name }} → {{ language_pair.target_name }}
             </option>
             {% endfor %}
         </select>

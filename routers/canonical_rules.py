@@ -63,6 +63,22 @@ def _resolve_language_pair(db: Session, pair_id: str) -> dict | None:
     return get_language_pair_by_id(db, pair_uuid)
 
 
+def _pair_context(db: Session, pair_id: str) -> dict:
+    """The pair the section is scoped to, together with that pair's rules."""
+    pair = _resolve_language_pair(db, pair_id)
+    if pair is None:
+        return {"pair": None, "rules": None}
+    return _rules_list_context(db, pair)
+
+
+def _catalogue_context(db: Session, pair_id: str) -> dict:
+    """Everything the catalogue panel renders, including the create-form choices."""
+    pair_context = _pair_context(db, pair_id)
+    if pair_context["pair"] is None:
+        return pair_context
+    return {**pair_context, **_rule_form_context(db)}
+
+
 def _form_error_response(request: Request, message: str, target: str):
     return templates.TemplateResponse(
         request=request,
@@ -80,6 +96,7 @@ async def canonical_rules_section(
     request: Request,
     user: Annotated[dict, Depends(require_admin)],
     db: Annotated[Session, Depends(get_db)],
+    pair_id: str = "",
 ):
     return render_section(
         request=request,
@@ -89,7 +106,7 @@ async def canonical_rules_section(
             "user": user,
             "menu_sections": menu_sections,
             "language_pairs": get_language_pairs(db),
-            "pair": None,
+            **_catalogue_context(db, pair_id),
         },
     )
 
@@ -100,16 +117,10 @@ async def canonical_rules_panel(
     db: Annotated[Session, Depends(get_db)],
     pair_id: str = "",
 ):
-    pair = _resolve_language_pair(db, pair_id)
-    panel_context = (
-        _rules_list_context(db, pair)
-        if pair is not None
-        else {"pair": None, "rules": None}
-    )
     return templates.TemplateResponse(
         request=request,
         name=RULES_PANEL_LOCATION,
-        context={**panel_context, **_rule_form_context(db)},
+        context=_catalogue_context(db, pair_id),
     )
 
 

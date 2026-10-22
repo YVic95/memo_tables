@@ -1,4 +1,5 @@
 import uuid
+import re
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
@@ -182,6 +183,86 @@ class TestSection:
         resp = client.get("/admin-panel/canonical-rules")
         assert resp.status_code == 307
         assert resp.headers["location"] == "/login"
+
+
+class TestPairSelectionPersistence:
+    def _assert_pair_is_selected(self, html, pair_id):
+        assert re.search(rf'<option value="{pair_id}"[^>]*\bselected\b', html)
+
+    def test_section_restores_the_persisted_pair(self, admin_client, db_session, pair_es_en, pair_de_es, nouns, catalog):
+        _make_rule(db_session, pair=pair_de_es, category=nouns, level="A1", position=1, name="German Noun Gender", slug="german-noun-gender")
+
+        resp = admin_client.get(
+            "/admin-panel/canonical-rules",
+            params={"pair_id": str(pair_es_en.pair_id)},
+        )
+
+        assert resp.status_code == 200
+        self._assert_pair_is_selected(resp.text, pair_es_en.pair_id)
+        assert "Ser vs Estar" in resp.text
+        assert "German Noun Gender" not in resp.text
+        assert "Create Rule for Catalogue" in resp.text
+
+    def test_restored_section_renders_the_create_form_with_choices(self, admin_client, pair_es_en, nouns, verbs):
+        resp = admin_client.get(
+            "/admin-panel/canonical-rules",
+            params={"pair_id": str(pair_es_en.pair_id)},
+        )
+
+        assert resp.status_code == 200
+        assert "Nouns" in resp.text
+        assert "Verbs" in resp.text
+        assert 'value="A1"' in resp.text
+        assert 'value="C2"' in resp.text
+
+    def test_panel_says_which_pair_it_renders(self, admin_client, pair_es_en):
+        resp = admin_client.get(
+            "/admin-panel/canonical-rules",
+            params={"pair_id": str(pair_es_en.pair_id)},
+        )
+
+        assert resp.status_code == 200
+        assert f'data-pair-id="{pair_es_en.pair_id}"' in resp.text
+
+    def test_section_loads_the_pair_persistence_script(self, admin_client):
+        resp = admin_client.get("/admin-panel/canonical-rules")
+
+        assert resp.status_code == 200
+        assert '<script src="/static/js/canonical_rules_pair.js" defer></script>' in resp.text
+
+    def test_section_without_a_persisted_pair_starts_empty(self, admin_client, pair_es_en, nouns, catalog):
+        resp = admin_client.get("/admin-panel/canonical-rules")
+
+        assert resp.status_code == 200
+        assert f'<option value="{pair_es_en.pair_id}">' in resp.text
+        assert not re.search(
+            rf'<option value="{pair_es_en.pair_id}"[^>]*\bselected\b', resp.text
+        )
+        assert "Select a language pair to view its canonical rules." in resp.text
+        assert "Ser vs Estar" not in resp.text
+        assert "Create Rule for Catalogue" not in resp.text
+
+    def test_section_ignores_a_persisted_pair_that_no_longer_exists(self, admin_client, pair_es_en):
+        resp = admin_client.get(
+            "/admin-panel/canonical-rules",
+            params={"pair_id": str(uuid.uuid4())},
+        )
+
+        assert resp.status_code == 200
+        assert "Select a language pair to view its canonical rules." in resp.text
+        assert "Create Rule for Catalogue" not in resp.text
+
+    def test_htmx_fragment_renders_the_requested_pair(self, admin_client, pair_es_en, nouns, catalog):
+        resp = admin_client.get(
+            "/admin-panel/canonical-rules",
+            params={"pair_id": str(pair_es_en.pair_id)},
+            headers={"HX-Request": "true"},
+        )
+
+        assert resp.status_code == 200
+        assert "<html" not in resp.text
+        self._assert_pair_is_selected(resp.text, pair_es_en.pair_id)
+        assert "Ser vs Estar" in resp.text
 
 
 class TestRulesList:
@@ -762,6 +843,18 @@ class TestCreateCardVisibility:
         assert "Create Rule for Catalogue" not in resp.text
         assert 'id="create-canonical-rule"' not in resp.text
         assert "Select a language pair to view its canonical rules." in resp.text
+
+    def test_panel_shows_the_rules_of_the_selected_pair(
+        self, admin_client, pair_es_en, catalog
+    ):
+        resp = admin_client.get(
+            "/admin-panel/canonical-rules/panel",
+            params={"pair_id": str(pair_es_en.pair_id)},
+        )
+        assert resp.status_code == 200
+        assert "Ser vs Estar" in resp.text
+        assert "Articles" in resp.text
+        assert f'data-pair-id="{pair_es_en.pair_id}"' in resp.text
 
     def test_panel_shows_the_rules_of_the_newly_selected_pair(
         self, admin_client, pair_es_en, pair_de_es, nouns, catalog
