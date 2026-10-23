@@ -140,7 +140,7 @@ class TestGetOrCreateBaseWord:
 
     def test_different_category_creates_different_word(self, db_session, language_es):
         from models.word_categories import WordCategory
-        cat1 = WordCategory(name="Nouns", slug="nouns")
+        cat1 = WordCategory(name="Nouns", slug="noun")
         cat2 = WordCategory(name="Verbs", slug="verbs")
         db_session.add_all([cat1, cat2])
         db_session.commit()

@@ -101,7 +101,7 @@ def pair_de_es(db_session):
 
 @pytest.fixture()
 def nouns(db_session):
-    cat = WordCategory(name="Nouns", slug="nouns")
+    cat = WordCategory(name="Nouns", slug="noun")
     db_session.add(cat)
     db_session.commit()
     db_session.refresh(cat)

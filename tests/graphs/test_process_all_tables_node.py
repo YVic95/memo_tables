@@ -264,7 +264,7 @@ class TestGeneralTable:
 
     @patch("graphs.nodes.process_all_tables_node.translate_chain")
     def test_creates_label_and_description_no_word_form(self, mock_chain, db_session, grammar_rule, language_es, language_en):
-        category = db_session.query(WordCategory).filter(WordCategory.slug == "nouns").one()
+        category = db_session.query(WordCategory).filter(WordCategory.slug == "noun").one()
         mock_chain.invoke.return_value = Translations(translations=[
             TranslationPair(text="Masculine", translation="Masculine"),
             TranslationPair(text="el gato", translation="the cat"),

@@ -74,7 +74,7 @@ def language_en(db_session):
 
 @pytest.fixture()
 def word_category(db_session):
-    cat = WordCategory(name="Nouns", slug="nouns")
+    cat = WordCategory(name="Nouns", slug="noun")
     db_session.add(cat)
     db_session.commit()
     db_session.refresh(cat)

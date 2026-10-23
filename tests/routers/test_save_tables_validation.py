@@ -57,7 +57,7 @@ def seed_data(db_session):
     db_session.commit()
     db_session.refresh(pair)
 
-    cat = WordCategory(name="Nouns", slug="nouns")
+    cat = WordCategory(name="Nouns", slug="noun")
     db_session.add(cat)
     db_session.commit()
     db_session.refresh(cat)
@@ -230,9 +230,9 @@ class TestValidRequest:
             language_id="1",
             word_category_id="1",
         )
-        mock_get_category.return_value = WordCategory(name="Nouns", slug="nouns")
+        mock_get_category.return_value = WordCategory(name="Nouns", slug="noun")
         mock_get_table_data.return_value = []
-        mock_build_md.return_value = {"nouns": ""}
+        mock_build_md.return_value = {"noun": ""}
         body = _make_request(seed_data)
 
         result = save_tables(body, db_session)
@@ -565,10 +565,10 @@ class TestSkeletonTable:
             id=seed_data["rule_id"], name="test", description="test",
             language_id="1", word_category_id="1",
         )
-        mock_get_category.return_value = WordCategory(name="Nouns", slug="nouns")
+        mock_get_category.return_value = WordCategory(name="Nouns", slug="noun")
         mock_count.return_value = {"sentences": 1, "word_forms": 2, "base_words": 1}
         mock_get_table_data.return_value = []
-        mock_build_md.return_value = {"nouns": ""}
+        mock_build_md.return_value = {"noun": ""}
         body = _make_request(seed_data)
 
         result = save_tables(body, db_session)
@@ -594,10 +594,10 @@ class TestSkeletonTable:
             id=seed_data["rule_id"], name="Plural Agreement", description="test",
             language_id="1", word_category_id="1",
         )
-        mock_get_category.return_value = WordCategory(name="Nouns", slug="nouns")
+        mock_get_category.return_value = WordCategory(name="Nouns", slug="noun")
         mock_count.return_value = {"sentences": 0, "word_forms": 0, "base_words": 0}
         mock_get_table_data.return_value = []
-        mock_build_md.return_value = {"nouns": ""}
+        mock_build_md.return_value = {"noun": ""}
         body = _make_request(seed_data)
 
         result = save_tables(body, db_session)
@@ -620,14 +620,14 @@ class TestSkeletonTable:
             id=seed_data["rule_id"], name="Plural Agreement", description="test",
             language_id="1", word_category_id="1",
         )
-        mock_get_category.return_value = WordCategory(name="Nouns", slug="nouns")
+        mock_get_category.return_value = WordCategory(name="Nouns", slug="noun")
         mock_count.return_value = {"sentences": 0, "word_forms": 0, "base_words": 0}
         mock_get_table_data.return_value = [
             {"table_no": 0, "entries": [{"label": "A", "base_word_text": "x", "form": "y"}]},
             {"table_no": 2, "entries": [{"label": "B", "base_word_text": "x", "form": "y"}]},
             {"table_no": 3, "entries": [{"label": "C", "base_word_text": "x", "form": "y"}]},
         ]
-        mock_build_md.return_value = {"nouns": "table0\n\ntable2\n\ntable3"}
+        mock_build_md.return_value = {"noun": "table0\n\ntable2\n\ntable3"}
         body = _make_request(seed_data, tables=[
             {"title": "Nouns: Feminine", "headers": ["Form"], "rows": [{"cells": ["x"]}], "fragmented_table_id": 2},
             {"title": "Nouns: Masculine", "headers": ["Form"], "rows": [{"cells": ["y"]}], "fragmented_table_id": 3},
@@ -636,7 +636,7 @@ class TestSkeletonTable:
         result = save_tables(body, db_session)
 
         assert result["skeleton_titles"] == {
-            "nouns": ["Plural Agreement", "Nouns: Feminine", "Nouns: Masculine"],
+            "noun": ["Plural Agreement", "Nouns: Feminine", "Nouns: Masculine"],
         }
 
     @patch("routers.save_tables_agent.get_language_pair_by_id")

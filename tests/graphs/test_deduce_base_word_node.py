@@ -164,7 +164,7 @@ class TestDeduceBaseWordNode:
         assert "Yo" not in call_kwargs["surface_forms"]
         assert str(verb_category.id) in call_kwargs["available_categories"]
         assert str(adjective_category.id) in call_kwargs["available_categories"]
-        assert "Nouns (nouns)" in call_kwargs["rule_word_category"]
+        assert "Nouns (noun)" in call_kwargs["rule_word_category"]
 
     @patch("graphs.nodes.deduce_base_word_node.get_language_name_by_id")
     @patch("graphs.nodes.deduce_base_word_node.deduce_chain")
@@ -212,7 +212,7 @@ class TestDeduceBaseWordNode:
             _verb_base_word("gato", uuid.uuid4(), "gato"),
         )
         state = _make_state(
-            db_session, grammar_rule, word_category_slug="nouns",
+            db_session, grammar_rule, word_category_slug="noun",
             tables=[
                 {"headers": ["Form", "Explanation", "Example"], "rows": [{"cells": ["Masculine", "masculine nouns", "el gato"]}]}
             ],
