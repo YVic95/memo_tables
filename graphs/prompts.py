@@ -195,7 +195,7 @@ generate_noun_table_prompt = PromptTemplate.from_template(
     Rule description: {rule_description}
 
     COLUMN STRUCTURE — output EXACTLY these three columns, in this order, and no others:
-    1. Label — the noun in {target_language} together with its definite article
+    1. Form — the noun in {target_language} together with its definite article
        (e.g. "la mesa"), so the learner can see the noun's gender.
     2. Explanation — in {native_language}, stating the noun's gender and
        explaining how its plural is formed (e.g. "Feminine; plural adds -s").
@@ -206,7 +206,7 @@ generate_noun_table_prompt = PromptTemplate.from_template(
     - Column headers: written in {target_language}.
     - Explanation text inside cells: written in {native_language}, so the learner
       understands the noun's gender and plural formation.
-    - All other cells (Label, Example): written in {target_language}.
+    - All other cells (Form, Example): written in {target_language}.
     - Select ONE representative noun for the entire table. Every row must use
       this same noun. Only vary the feature the row demonstrates (for example
       singular vs plural). Do not introduce additional lexical items.
@@ -389,6 +389,34 @@ deduce_base_word_prompt = PromptTemplate.from_template(
         - Assign the main verb's base form the category {rule_word_category}.
         - For every other base word, choose the single best-fitting category id
           from the available list.
+
+        Return only the base words with their category ids and surface forms —
+        no additional commentary.
+    """
+)
+
+deduce_noun_base_word_prompt = PromptTemplate.from_template(
+    """
+        You are a linguistics expert. Given the forms from a noun table in
+        {target_language}, deduce each noun's citation (dictionary) form.
+
+        Use this word category for every base word:
+        {rule_word_category}
+
+        Surface forms:
+        {surface_forms}
+
+        Rules:
+        - Return each noun in citation form: singular with its definite article
+          (e.g. "la mesa", not "las mesas" or "una mesa").
+        - Keep the definite article that shows the noun's grammatical gender.
+        - Replace any indefinite article with the definite article, and map any
+          plural form back to the singular definite form.
+        - Group every surface form that belongs to the same noun under a single
+          base word. List that base word only once and put every form it
+          appeared as in its surface_forms list.
+        - Only include nouns. Never treat explanation prose or example sentences
+          as surface forms.
 
         Return only the base words with their category ids and surface forms —
         no additional commentary.

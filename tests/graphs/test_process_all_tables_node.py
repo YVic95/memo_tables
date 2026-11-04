@@ -56,6 +56,45 @@ def verb_rule(db_session, language_es, verb_category):
     return rule
 
 
+@pytest.fixture()
+def adjective_category(db_session):
+    category = WordCategory(name="Adjectives", slug="adjective")
+    db_session.add(category)
+    db_session.commit()
+    db_session.refresh(category)
+    return category
+
+
+@pytest.fixture()
+def general_rule(db_session, language_es, adjective_category):
+    canon = CanonicalRule(
+        native_language_id=language_es.id,
+        target_language_id=language_es.id,
+        word_category_id=adjective_category.id,
+        level="A1",
+        name="Adjective Agreement",
+        description="Adjective gender agreement",
+        position=1,
+        slug="adjective-agreement",
+        is_active=True,
+    )
+    db_session.add(canon)
+    db_session.commit()
+    db_session.refresh(canon)
+
+    rule = GrammarRule(
+        name="Adjective Agreement",
+        description="Adjective gender agreement",
+        language_id=language_es.id,
+        word_category_id=adjective_category.id,
+        canonical_rule_id=canon.id,
+    )
+    db_session.add(rule)
+    db_session.commit()
+    db_session.refresh(rule)
+    return rule
+
+
 def _seed_base_word_with_assignment(db_session, rule, language_es, text="hablar"):
     word = get_or_create_base_word(db_session, text, language_es.id, rule.word_category_id)
     create_word_rule_assignment(db_session, word.id, rule.id)
@@ -255,22 +294,23 @@ class TestVerbTable:
 
 class TestGeneralTable:
     GENERAL_TABLE = {
-        "title": "Género",
+        "title": "Concordancia",
         "headers": ["Form", "Explanation", "Example"],
         "rows": [
-            {"cells": ["Masculine", "masculine nouns", "el gato"]},
+            {"cells": ["Masculine", "masculine adjectives", "el gato"]},
         ],
     }
 
     @patch("graphs.nodes.process_all_tables_node.translate_chain")
-    def test_creates_label_and_description_no_word_form(self, mock_chain, db_session, grammar_rule, language_es, language_en):
-        category = db_session.query(WordCategory).filter(WordCategory.slug == "noun").one()
+    def test_uses_the_default_label_role_and_creates_no_word_form(
+        self, mock_chain, db_session, general_rule, language_es, language_en
+    ):
         mock_chain.invoke.return_value = Translations(translations=[
             TranslationPair(text="Masculine", translation="Masculine"),
             TranslationPair(text="el gato", translation="the cat"),
         ])
         state = _make_state(
-            db_session, grammar_rule, language_es, language_en, category.slug,
+            db_session, general_rule, language_es, language_en, "adjective",
             tables=[self.GENERAL_TABLE], form_to_base_word_id={},
         )
 
@@ -278,7 +318,7 @@ class TestGeneralTable:
 
         row = db_session.query(GrammarRuleRow).one()
         assert row.label == "Masculine"
-        assert row.description == "masculine nouns"
+        assert row.description == "masculine adjectives"
 
         assert db_session.query(WordForm).count() == 0
         assert db_session.query(WordFormTranslation).count() == 0
@@ -288,6 +328,66 @@ class TestGeneralTable:
         assert sentence.template == "el gato"
         sentence_translation = db_session.query(SentenceTranslation).one()
         assert sentence_translation.template == "the cat"
+
+
+class TestNounTable:
+    NOUN_TABLE = {
+        "title": "Género",
+        "headers": ["Form", "Explanation", "Example"],
+        "rows": [
+            {"cells": ["la mesa", "feminine noun", "La mesa es grande"]},
+        ],
+    }
+
+    @patch("graphs.nodes.process_all_tables_node.translate_chain")
+    def test_uses_form_as_label_and_keeps_description(self, mock_chain, db_session, grammar_rule, language_es, language_en):
+        category = db_session.query(WordCategory).filter(WordCategory.slug == "noun").one()
+        mock_chain.invoke.return_value = Translations(translations=[
+            TranslationPair(text="la mesa", translation="the table"),
+            TranslationPair(text="La mesa es grande", translation="The table is big"),
+        ])
+        state = _make_state(
+            db_session, grammar_rule, language_es, language_en, category.slug,
+            tables=[self.NOUN_TABLE], form_to_base_word_id={},
+        )
+
+        process_all_tables_node(state)
+
+        row = db_session.query(GrammarRuleRow).one()
+        assert row.label == "la mesa"
+        assert row.description == "feminine noun"
+
+        assert db_session.query(WordForm).count() == 0
+        assert db_session.query(WordFormTranslation).count() == 0
+        assert db_session.query(WordFormSentence).count() == 0
+
+        sentence = db_session.query(Sentence).one()
+        assert sentence.template == "La mesa es grande"
+        sentence_translation = db_session.query(SentenceTranslation).one()
+        assert sentence_translation.template == "The table is big"
+
+    @patch("graphs.nodes.process_all_tables_node.translate_chain")
+    def test_creates_word_form_for_the_noun_form(self, mock_chain, db_session, grammar_rule, language_es, language_en):
+        category = db_session.query(WordCategory).filter(WordCategory.slug == "noun").one()
+        mock_chain.invoke.return_value = Translations(translations=[
+            TranslationPair(text="la mesa", translation="the table"),
+            TranslationPair(text="La mesa es grande", translation="The table is big"),
+        ])
+        base_word = _seed_base_word_with_assignment(
+            db_session, grammar_rule, language_es, text="la mesa"
+        )
+        state = _make_state(
+            db_session, grammar_rule, language_es, language_en, category.slug,
+            tables=[self.NOUN_TABLE],
+            form_to_base_word_id={"la mesa": base_word.id},
+        )
+
+        process_all_tables_node(state)
+
+        word_form = db_session.query(WordForm).one()
+        assert word_form.form == "la mesa"
+        assert db_session.query(WordFormTranslation).one().translation == "the table"
+        assert db_session.query(WordFormSentence).count() == 1
 
 
 class TestFragmentedTables:

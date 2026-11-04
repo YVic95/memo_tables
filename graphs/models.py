@@ -120,8 +120,8 @@ class GenerateTableRequest(BaseModel):
 
 class DeducedBaseWord(BaseModel):
     word: str = Field(description="Base/dictionary form of the word in the target language")
-    word_category_id: uuid.UUID = Field(description="The id of the best-fitting category for this base word, chosen from the provided list")
-    surface_forms: list[str] = Field(description="The source surface forms (conjugated verb forms or example-sentence words) that map to this base word")
+    word_category_id: uuid.UUID = Field(description="The id of the word category assigned to this base word")
+    surface_forms: list[str] = Field(description="The source surface forms (conjugated verb forms, noun forms, or example-sentence words) that map to this base word")
 
     @field_validator("surface_forms")
     @classmethod

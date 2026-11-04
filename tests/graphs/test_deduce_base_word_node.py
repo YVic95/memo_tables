@@ -4,18 +4,20 @@ import pytest
 from graphs.nodes.deduce_base_word_node import (
     deduce_base_word_node,
     _extract_unique_forms,
-    _extract_verb_forms,
+    _extract_form_cells,
     _extract_example_words,
 )
 from graphs.models import DeducedBaseWords, DeducedBaseWord
+from graphs.prompts import deduce_noun_base_word_prompt
 from models.word_categories import WordCategory
+from tests.graphs.table_fixtures import NOUN_ROLES, NOUN_TABLE
 
 
 def _base_words(*entries):
     return DeducedBaseWords(base_words=[DeducedBaseWord(**entry) for entry in entries])
 
 
-def _verb_base_word(word, word_category_id, *surface_forms):
+def _base_word(word, word_category_id, *surface_forms):
     return {
         "word": word,
         "word_category_id": word_category_id,
@@ -70,7 +72,7 @@ VERB_TABLE = {
 
 class TestExtractVerbForms:
     def test_extracts_form_column_only(self):
-        result = _extract_verb_forms([VERB_TABLE], {"form": 1})
+        result = _extract_form_cells([VERB_TABLE], {"form": 1})
         assert set(result) == {"hablo", "hablas"}
 
     def test_deduplicates_across_tables(self):
@@ -78,22 +80,22 @@ class TestExtractVerbForms:
             {"rows": [{"cells": ["Yo", "hablo", "Yo hablo", "I speak"]}]},
             {"rows": [{"cells": ["Yo", "hablo", "Yo hablo", "I speak"]}]},
         ]
-        result = _extract_verb_forms(tables, {"form": 1})
+        result = _extract_form_cells(tables, {"form": 1})
         assert result == ["hablo"]
 
     def test_strips_whitespace(self):
         tables = [{"rows": [{"cells": ["Yo", "  hablo  ", "Yo hablo", "I speak"]}]}]
-        result = _extract_verb_forms(tables, {"form": 1})
+        result = _extract_form_cells(tables, {"form": 1})
         assert result == ["hablo"]
 
     def test_skips_empty_cells(self):
         tables = [{"rows": [{"cells": ["Yo", "", "", "I speak"]}]}]
-        result = _extract_verb_forms(tables, {"form": 1})
+        result = _extract_form_cells(tables, {"form": 1})
         assert result == []
 
     def test_skips_rows_shorter_than_form_column(self):
         tables = [{"rows": [{"cells": ["Yo", "hablo"]}]}]
-        assert _extract_verb_forms(tables, {"form": 1}) == ["hablo"]
+        assert _extract_form_cells(tables, {"form": 1}) == ["hablo"]
 
 
 class TestExtractExampleWords:
@@ -127,6 +129,31 @@ class TestExtractUniqueForms:
         assert result == ["I speak", "You speak", "hablas", "hablo"]
 
 
+class TestExtractNounForms:
+    def test_extracts_form_column_only(self):
+        result = _extract_form_cells([NOUN_TABLE], NOUN_ROLES)
+
+        assert result == ["la mesa", "las mesas"]
+
+    def test_strips_whitespace(self):
+        tables = [{"rows": [{"cells": ["  la mesa  ", "Feminine", "La mesa es grande"]}]}]
+
+        assert _extract_form_cells(tables, NOUN_ROLES) == ["la mesa"]
+
+    def test_deduplicates_forms_across_rows_and_tables(self):
+        tables = [
+            {"rows": [{"cells": ["la mesa", "Feminine", "La mesa es grande"]}]},
+            {"rows": [{"cells": ["la mesa", "Feminine", "La mesa es grande"]}]},
+        ]
+
+        assert _extract_form_cells(tables, NOUN_ROLES) == ["la mesa"]
+
+    def test_skips_empty_forms(self):
+        tables = [{"rows": [{"cells": ["", "Feminine", "La mesa es grande"]}]}]
+
+        assert _extract_form_cells(tables, NOUN_ROLES) == []
+
+
 class TestDeduceBaseWordNode:
     def test_returns_empty_when_no_tables(self, db_session, grammar_rule):
         state = _make_state(db_session, grammar_rule, tables=[])
@@ -147,8 +174,8 @@ class TestDeduceBaseWordNode:
     ):
         mock_get_lang.return_value = "Spanish"
         mock_chain.invoke.return_value = _base_words(
-            _verb_base_word("hablar", verb_category.id, "hablo", "hablas"),
-            _verb_base_word("amigo", adjective_category.id, "amigo"),
+            _base_word("hablar", verb_category.id, "hablo", "hablas"),
+            _base_word("amigo", adjective_category.id, "amigo"),
         )
         state = _make_state(db_session, grammar_rule, tables=[VERB_TABLE])
 
@@ -173,8 +200,8 @@ class TestDeduceBaseWordNode:
     ):
         mock_get_lang.return_value = "Spanish"
         mock_chain.invoke.return_value = _base_words(
-            _verb_base_word("hablar", verb_category.id, "hablo", "hablas"),
-            _verb_base_word("amigo", adjective_category.id, "amigo"),
+            _base_word("hablar", verb_category.id, "hablo", "hablas"),
+            _base_word("amigo", adjective_category.id, "amigo"),
         )
         state = _make_state(db_session, grammar_rule, tables=[VERB_TABLE])
 
@@ -194,7 +221,7 @@ class TestDeduceBaseWordNode:
     ):
         mock_get_lang.return_value = "Spanish"
         mock_chain.invoke.return_value = _base_words(
-            _verb_base_word("hablar", uuid.uuid4(), "hablo"),
+            _base_word("hablar", uuid.uuid4(), "hablo"),
         )
         state = _make_state(db_session, grammar_rule, tables=[VERB_TABLE])
 
@@ -209,12 +236,12 @@ class TestDeduceBaseWordNode:
     ):
         mock_get_lang.return_value = "Spanish"
         mock_chain.invoke.return_value = _base_words(
-            _verb_base_word("gato", uuid.uuid4(), "gato"),
+            _base_word("gato", uuid.uuid4(), "gato"),
         )
         state = _make_state(
-            db_session, grammar_rule, word_category_slug="noun",
+            db_session, grammar_rule, word_category_slug="adjective",
             tables=[
-                {"headers": ["Form", "Explanation", "Example"], "rows": [{"cells": ["Masculine", "masculine nouns", "el gato"]}]}
+                {"headers": ["Form", "Explanation", "Example"], "rows": [{"cells": ["gato", "masculine adjective", "el gato"]}]}
             ],
         )
 
@@ -227,7 +254,7 @@ class TestDeduceBaseWordNode:
     def test_preserves_other_state_fields(self, mock_chain, mock_get_lang, db_session, grammar_rule, verb_category):
         mock_get_lang.return_value = "Spanish"
         mock_chain.invoke.return_value = _base_words(
-            _verb_base_word("hablar", verb_category.id, "hablo"),
+            _base_word("hablar", verb_category.id, "hablo"),
         )
         state = _make_state(db_session, grammar_rule, tables=[VERB_TABLE])
 
@@ -254,3 +281,237 @@ class TestDeduceBaseWordNode:
         )
         with pytest.raises(ValueError, match="Grammar rule"):
             deduce_base_word_node(state)
+
+
+class TestDeduceNounBaseWordNode:
+    @patch("graphs.nodes.deduce_base_word_node.get_language_name_by_id")
+    @patch("graphs.nodes.deduce_base_word_node.deduce_noun_chain")
+    def test_uses_noun_chain_and_only_form_cells(
+        self, mock_chain, mock_get_lang, db_session, grammar_rule
+    ):
+        mock_get_lang.return_value = "Spanish"
+        mock_chain.invoke.return_value = _base_words(
+            _base_word("la mesa", uuid.uuid4(), "la mesa", "las mesas"),
+        )
+        state = _make_state(
+            db_session, grammar_rule, word_category_slug="noun", tables=[NOUN_TABLE]
+        )
+
+        deduce_base_word_node(state)
+
+        call_kwargs = mock_chain.invoke.call_args[0][0]
+        assert call_kwargs["target_language"] == "Spanish"
+        assert call_kwargs["surface_forms"] == "la mesa\nlas mesas"
+        assert "Feminine" not in call_kwargs["surface_forms"]
+        assert "La mesa es grande" not in call_kwargs["surface_forms"]
+
+    @patch("graphs.nodes.deduce_base_word_node.get_language_name_by_id")
+    @patch("graphs.nodes.deduce_base_word_node.deduce_chain")
+    @patch("graphs.nodes.deduce_base_word_node.deduce_noun_chain")
+    def test_does_not_use_the_generic_deduction_chain(
+        self, mock_noun_chain, mock_generic_chain, mock_get_lang, db_session, grammar_rule
+    ):
+        mock_get_lang.return_value = "Spanish"
+        mock_noun_chain.invoke.return_value = _base_words(
+            _base_word("la mesa", uuid.uuid4(), "la mesa", "las mesas"),
+        )
+        state = _make_state(
+            db_session, grammar_rule, word_category_slug="noun", tables=[NOUN_TABLE]
+        )
+
+        deduce_base_word_node(state)
+
+        mock_noun_chain.invoke.assert_called_once()
+        mock_generic_chain.invoke.assert_not_called()
+
+    @patch("graphs.nodes.deduce_base_word_node.get_language_name_by_id")
+    @patch("graphs.nodes.deduce_base_word_node.deduce_noun_chain")
+    def test_returns_citation_form_grouped_under_rule_category(
+        self, mock_chain, mock_get_lang, db_session, grammar_rule
+    ):
+        mock_get_lang.return_value = "Spanish"
+        mock_chain.invoke.return_value = _base_words(
+            _base_word("la mesa", uuid.uuid4(), "la mesa", "las mesas"),
+        )
+        state = _make_state(
+            db_session, grammar_rule, word_category_slug="noun", tables=[NOUN_TABLE]
+        )
+
+        result = deduce_base_word_node(state)
+
+        assert len(result["base_words_to_save"]) == 1
+        saved = result["base_words_to_save"][0]
+        assert saved["text"] == "la mesa"
+        assert saved["word_category_id"] == grammar_rule.word_category_id
+        assert saved["language_id"] == state["target_language_id"]
+        assert saved["forms"] == ["la mesa", "las mesas"]
+
+    @patch("graphs.nodes.deduce_base_word_node.get_language_name_by_id")
+    @patch("graphs.nodes.deduce_base_word_node.deduce_noun_chain")
+    def test_merges_separate_base_words_that_share_the_same_noun(
+        self, mock_chain, mock_get_lang, db_session, grammar_rule
+    ):
+        mock_get_lang.return_value = "Spanish"
+        mock_chain.invoke.return_value = _base_words(
+            _base_word("la mesa", uuid.uuid4(), "la mesa"),
+            _base_word("las mesas", uuid.uuid4(), "las mesas"),
+        )
+        state = _make_state(
+            db_session, grammar_rule, word_category_slug="noun", tables=[NOUN_TABLE]
+        )
+
+        result = deduce_base_word_node(state)
+
+        assert len(result["base_words_to_save"]) == 1
+        saved = result["base_words_to_save"][0]
+        assert saved["text"] == "la mesa"
+        assert saved["forms"] == ["la mesa", "las mesas"]
+
+    @patch("graphs.nodes.deduce_base_word_node.get_language_name_by_id")
+    @patch("graphs.nodes.deduce_base_word_node.deduce_noun_chain")
+    def test_adds_form_cells_the_model_omitted(
+        self, mock_chain, mock_get_lang, db_session, grammar_rule
+    ):
+        mock_get_lang.return_value = "Spanish"
+        mock_chain.invoke.return_value = _base_words(
+            _base_word("la mesa", uuid.uuid4(), "la mesa"),
+        )
+        state = _make_state(
+            db_session, grammar_rule, word_category_slug="noun", tables=[NOUN_TABLE]
+        )
+
+        result = deduce_base_word_node(state)
+
+        saved = result["base_words_to_save"][0]
+        assert saved["forms"] == ["la mesa", "las mesas"]
+
+    @patch("graphs.nodes.deduce_base_word_node.get_language_name_by_id")
+    @patch("graphs.nodes.deduce_base_word_node.deduce_noun_chain")
+    def test_prefers_the_definite_singular_form_over_the_model_citation(
+        self, mock_chain, mock_get_lang, db_session, grammar_rule
+    ):
+        mock_get_lang.return_value = "Spanish"
+        mock_chain.invoke.return_value = _base_words(
+            _base_word("las mesas", uuid.uuid4(), "las mesas"),
+        )
+        state = _make_state(
+            db_session, grammar_rule, word_category_slug="noun", tables=[NOUN_TABLE]
+        )
+
+        result = deduce_base_word_node(state)
+
+        assert result["base_words_to_save"][0]["text"] == "la mesa"
+
+    @patch("graphs.nodes.deduce_base_word_node.get_language_name_by_id")
+    @patch("graphs.nodes.deduce_base_word_node.deduce_noun_chain")
+    def test_maps_an_indefinite_form_to_the_definite_citation(
+        self, mock_chain, mock_get_lang, db_session, grammar_rule
+    ):
+        mock_get_lang.return_value = "Spanish"
+        mock_chain.invoke.return_value = _base_words(
+            _base_word("mesa", uuid.uuid4(), "una mesa"),
+        )
+        tables = [
+            {"rows": [{"cells": ["una mesa", "Femenino", "Una mesa es grande"]}]},
+        ]
+        state = _make_state(
+            db_session, grammar_rule, word_category_slug="noun", tables=tables
+        )
+
+        result = deduce_base_word_node(state)
+
+        assert result["base_words_to_save"][0]["text"] == "la mesa"
+
+    @patch("graphs.nodes.deduce_base_word_node.get_language_name_by_id")
+    @patch("graphs.nodes.deduce_base_word_node.deduce_noun_chain")
+    def test_keeps_singular_nouns_that_end_in_s(
+        self, mock_chain, mock_get_lang, db_session, grammar_rule
+    ):
+        mock_get_lang.return_value = "Spanish"
+        mock_chain.invoke.return_value = _base_words(
+            _base_word("el lunes", uuid.uuid4(), "el lunes"),
+        )
+        tables = [
+            {"rows": [{"cells": ["el lunes", "Masculino", "El lunes es tranquilo"]}]},
+        ]
+        state = _make_state(
+            db_session, grammar_rule, word_category_slug="noun", tables=tables
+        )
+
+        result = deduce_base_word_node(state)
+
+        assert result["base_words_to_save"][0]["text"] == "el lunes"
+
+    @patch("graphs.nodes.deduce_base_word_node.get_language_name_by_id")
+    @patch("graphs.nodes.deduce_base_word_node.deduce_noun_chain")
+    def test_repeated_noun_forms_are_deduplicated_before_deduction(
+        self, mock_chain, mock_get_lang, db_session, grammar_rule
+    ):
+        mock_get_lang.return_value = "Spanish"
+        mock_chain.invoke.return_value = _base_words(
+            _base_word("la mesa", uuid.uuid4(), "la mesa"),
+        )
+        tables = [
+            {"rows": [NOUN_TABLE["rows"][0], NOUN_TABLE["rows"][0]]},
+        ]
+        state = _make_state(
+            db_session, grammar_rule, word_category_slug="noun", tables=tables
+        )
+
+        deduce_base_word_node(state)
+
+        call_kwargs = mock_chain.invoke.call_args[0][0]
+        assert call_kwargs["surface_forms"] == "la mesa"
+
+    @patch("graphs.nodes.deduce_base_word_node.get_language_name_by_id")
+    @patch("graphs.nodes.deduce_base_word_node.deduce_noun_chain")
+    def test_returns_empty_when_no_forms(
+        self, mock_chain, mock_get_lang, db_session, grammar_rule
+    ):
+        state = _make_state(
+            db_session,
+            grammar_rule,
+            word_category_slug="noun",
+            tables=[
+                {"headers": ["Sustantivo", "Explicación", "Ejemplo"], "rows": [{"cells": ["", "", ""]}]},
+            ],
+        )
+
+        result = deduce_base_word_node(state)
+
+        assert result["base_words_to_save"] == []
+        mock_chain.invoke.assert_not_called()
+
+
+class TestNounDeductionPrompt:
+    def test_requests_singular_form_with_the_definite_article(self):
+        template = deduce_noun_base_word_prompt.template.lower()
+
+        assert "citation" in template
+        assert "singular" in template
+        assert "definite article" in template
+        assert "indefinite article" in template
+
+    def test_replaces_indefinite_articles_with_the_definite_article(self):
+        template = deduce_noun_base_word_prompt.template
+
+        assert "Replace any indefinite article with the definite article" in template
+        assert "strip any indefinite article" not in template
+
+    def test_states_the_rule_category_without_asking_for_a_choice(self):
+        template = deduce_noun_base_word_prompt.template
+
+        assert "Use this word category for every base word" in template
+        assert "assign it a word category" not in template
+        assert "Every base word must be assigned" not in template
+
+    def test_instructs_the_model_to_group_surface_forms(self):
+        template = deduce_noun_base_word_prompt.template
+
+        assert "Group every surface form" in template
+
+    def test_restricts_surface_forms_to_the_form_column(self):
+        template = deduce_noun_base_word_prompt.template
+
+        assert "Given the forms from a noun table" in template
+        assert "Never treat explanation prose or example sentences" in template

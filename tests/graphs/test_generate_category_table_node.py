@@ -65,6 +65,8 @@ class TestNounPromptContent:
         template = generate_noun_table_prompt.template
 
         assert "EXACTLY these three columns" in template
+        assert "1. Form" in template
+        assert "1. Label" not in template
         assert "definite article" in template
         assert "gender" in template
         assert "plural" in template

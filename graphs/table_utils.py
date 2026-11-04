@@ -2,7 +2,7 @@ import re
 
 COLUMN_ROLES = {
     "verb": {0: "label", 1: "form", 2: "example", 3: "explanation"},
-    "noun": {0: "label", 1: "explanation", 2: "example"},
+    "noun": {0: "form", 1: "explanation", 2: "example"},
 }
 DEFAULT_COLUMN_ROLES = {0: "label", 1: "explanation", 2: "example"}
 

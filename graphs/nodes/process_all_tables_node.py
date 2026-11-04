@@ -61,6 +61,7 @@ def process_all_tables_node(state: SaveTableState) -> SaveTableState:
     target_language_id = state["target_language_id"]
     form_to_base_word_id = state["form_to_base_word_id"]
     is_verb = state["word_category_slug"] == "verb"
+    is_noun = state["word_category_slug"] == "noun"
 
     rule = get_grammar_rule_by_id(db, grammar_rule_id)
     if rule is None:
@@ -91,10 +92,14 @@ def process_all_tables_node(state: SaveTableState) -> SaveTableState:
             if position is None:
                 position = index
 
-            label = cell_at_role(cells, role_lookup, "label") or ""
+            label = cell_at_role(cells, role_lookup, "label")
             explanation = cell_at_role(cells, role_lookup, "explanation")
             form = cell_at_role(cells, role_lookup, "form")
             example = cell_at_role(cells, role_lookup, "example")
+            if label is None and is_noun:
+                # Noun tables have no label column, so the form is the row label.
+                label = form or ""
+            label = label or ""
 
             grammar_row = create_grammar_rule_row(
                 db,

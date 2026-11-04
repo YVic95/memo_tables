@@ -7,6 +7,7 @@ from models.language_pairs import LanguagePair
 from models.word_categories import WordCategory
 from models.canonical_rules import CanonicalRule
 from models.grammar_rules import GrammarRule
+from tests.graphs.table_fixtures import NOUN_TABLE
 
 
 class TestDeducedBaseWordValidation:
@@ -40,6 +41,7 @@ from models.grammar_rule_rows import GrammarRuleRow
 from models.word_forms import WordForm
 from models.word_translations import WordTranslation
 from models.sentences import Sentence
+from models.word_form_sentences import WordFormSentence
 
 
 @pytest.fixture()
@@ -51,8 +53,7 @@ def verb_category(db_session):
     return category
 
 
-@pytest.fixture()
-def seeded_context(db_session, language_es, language_en, verb_category):
+def _create_language_pair(db_session, language_es, language_en):
     pair = LanguagePair(
         native_language_id=language_en.id,
         target_language_id=language_es.id,
@@ -60,6 +61,12 @@ def seeded_context(db_session, language_es, language_en, verb_category):
     db_session.add(pair)
     db_session.commit()
     db_session.refresh(pair)
+    return pair
+
+
+@pytest.fixture()
+def seeded_context(db_session, language_es, language_en, verb_category):
+    pair = _create_language_pair(db_session, language_es, language_en)
 
     canon = CanonicalRule(
         native_language_id=language_en.id,
@@ -91,6 +98,19 @@ def seeded_context(db_session, language_es, language_en, verb_category):
         "pair_id": pair.pair_id,
         "rule_id": rule.id,
         "category_id": verb_category.id,
+        "target_language_id": language_es.id,
+        "native_language_id": language_en.id,
+    }
+
+
+@pytest.fixture()
+def noun_seeded_context(db_session, language_es, language_en, grammar_rule):
+    pair = _create_language_pair(db_session, language_es, language_en)
+
+    return {
+        "pair_id": pair.pair_id,
+        "rule_id": grammar_rule.id,
+        "category_id": grammar_rule.word_category_id,
         "target_language_id": language_es.id,
         "native_language_id": language_en.id,
     }
@@ -194,3 +214,56 @@ class TestGraphInvocation:
         assert db_session.query(BaseWord).count() == 0
         assert db_session.query(GrammarRuleRow).count() == 0
         assert db_session.query(WordTranslation).count() == 0
+
+
+class TestNounGraphInvocation:
+    @patch("graphs.nodes.translate_base_words_node.translate_chain")
+    @patch("graphs.nodes.process_all_tables_node.translate_chain")
+    @patch("graphs.nodes.deduce_base_word_node.deduce_noun_chain")
+    def test_noun_table_persists_citation_form_base_words_and_forms(
+        self, mock_deduce, mock_translate, mock_base_translate,
+        db_session, noun_seeded_context,
+    ):
+        mock_deduce.invoke.return_value = DeducedBaseWords(base_words=[
+            DeducedBaseWord(
+                word="la mesa",
+                word_category_id=noun_seeded_context["category_id"],
+                surface_forms=["la mesa"],
+            ),
+        ])
+        mock_base_translate.invoke.return_value = Translations(translations=[
+            TranslationPair(text="la mesa", translation="the table"),
+        ])
+        mock_translate.invoke.return_value = Translations(translations=[
+            TranslationPair(text="la mesa", translation="the table"),
+            TranslationPair(text="La mesa es grande", translation="The table is big"),
+            TranslationPair(text="las mesas", translation="the tables"),
+            TranslationPair(text="Las mesas son grandes", translation="The tables are big"),
+        ])
+        state = _make_state(
+            db_session,
+            noun_seeded_context,
+            tables=[NOUN_TABLE],
+            word_category_slug="noun",
+        )
+
+        graph.invoke(state)
+
+        base_words = db_session.query(BaseWord).all()
+        assert [word.text for word in base_words] == ["la mesa"]
+        assert base_words[0].word_category_id == noun_seeded_context["category_id"]
+        assert db_session.query(WordRuleAssignment).count() == 1
+
+        rows = db_session.query(GrammarRuleRow).order_by(GrammarRuleRow.position).all()
+        assert [row.label for row in rows] == ["la mesa", "las mesas"]
+
+        forms = db_session.query(WordForm).all()
+        assert {form.form for form in forms} == {"la mesa", "las mesas"}
+        assert db_session.query(WordFormSentence).count() == 2
+
+        word_translation = db_session.query(WordTranslation).one()
+        assert word_translation.base_word_id == base_words[0].id
+        assert word_translation.translation == "the table"
+
+        call_kwargs = mock_deduce.invoke.call_args[0][0]
+        assert call_kwargs["surface_forms"] == "la mesa\nlas mesas"
