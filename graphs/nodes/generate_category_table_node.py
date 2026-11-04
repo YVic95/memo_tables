@@ -1,11 +1,15 @@
 from graphs.llm import llm
 from graphs.models import TableData
-from graphs.prompts import generate_table_prompt, generate_verb_table_prompt
+from graphs.prompts import (
+    generate_table_prompt,
+    generate_noun_table_prompt,
+    generate_verb_table_prompt,
+)
 from graphs.states import GenerateTableState
 
 CATEGORY_PROMPTS = {
     "verb": generate_verb_table_prompt,
-    # "noun": generate_noun_table_prompt,
+    "noun": generate_noun_table_prompt,
     # "pronoun": generate_pronoun_table_prompt,
     # "adjective": generate_adjective_table_prompt,
     # "adverb": generate_adverb_table_prompt,

@@ -185,6 +185,49 @@ generate_verb_table_prompt = PromptTemplate.from_template(
     """
 )
 
+generate_noun_table_prompt = PromptTemplate.from_template(
+    """
+    You are a language-learning content expert. Create a noun table that
+    teaches the rule below to a learner whose native language is
+    {native_language} and who is learning {target_language}.
+
+    Rule name: {rule_name}
+    Rule description: {rule_description}
+
+    COLUMN STRUCTURE — output EXACTLY these three columns, in this order, and no others:
+    1. Label — the noun in {target_language} together with its definite article
+       (e.g. "la mesa"), so the learner can see the noun's gender.
+    2. Explanation — in {native_language}, stating the noun's gender and
+       explaining how its plural is formed (e.g. "Feminine; plural adds -s").
+    3. Example — a short sentence in {target_language} using this noun.
+
+    LANGUAGE RULES
+    - Table title: written in {target_language}, briefly summarizing the noun rule.
+    - Column headers: written in {target_language}.
+    - Explanation text inside cells: written in {native_language}, so the learner
+      understands the noun's gender and plural formation.
+    - All other cells (Label, Example): written in {target_language}.
+    - Select ONE representative noun for the entire table. Every row must use
+      this same noun. Only vary the feature the row demonstrates (for example
+      singular vs plural). Do not introduce additional lexical items.
+
+    CONTENT RULES
+    - Cover every grammatically meaningful form relevant to this rule
+      (for example singular and plural).
+    - Every row must include a short example sentence in {target_language}.
+    - Each row should demonstrate a different form of the same noun (for example
+      singular vs plural). Restating the noun's gender and plural rule in the
+      explanation is fine when the row changes the form.
+    - If a form does not apply to a given row, use "" rather than "N/A" or
+      similar filler.
+    - Do not include separate "Common mistake" or "Correction" columns or content.
+    - If the language uses diacritics, use them properly.
+
+    Return only the table (title, headers, rows) — no additional commentary
+    before or after it.
+    """
+)
+
 fragmentation_prompt = PromptTemplate.from_template(
     """
         Analyse the following grammar table and decide if it can be split into smaller,
