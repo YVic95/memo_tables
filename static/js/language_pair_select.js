@@ -39,7 +39,7 @@ function enableProposeMissingRulesButton() {
 function hideProposeMissingRulesButton() {
     const proposeButton = document.getElementById('propose-missing-rules');
     if (proposeButton) {
-        proposeButton.className = 'hidden-button';
+        proposeButton.classList.add('hidden-button');
     }
 }
 

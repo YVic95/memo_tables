@@ -5,6 +5,14 @@ document.addEventListener('htmx:load', function(event) {
     initializeChatTab(container);
 });
 
+function bindChatHandlerOnce(element, event, handler) {
+    if (!element) return;
+    const flag = `chatBound_${event}`;
+    if (element.dataset[flag] === 'true') return;
+    element.dataset[flag] = 'true';
+    element.addEventListener(event, handler);
+}
+
 function initializeChatTab(container) {
     const addLanguagePairButton = container.querySelector('#add-language-pair');
     const proposeMissingRulesButton = container.querySelector('#propose-missing-rules');
@@ -18,7 +26,7 @@ function initializeChatTab(container) {
     }
 
     if (closeChatSessionBtn) {
-        closeChatSessionBtn.addEventListener('click', async () => {
+        bindChatHandlerOnce(closeChatSessionBtn, 'click', async () => {
             closeChatSessionBtn.disabled = true;
             closeChatSessionBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin-pulse"></i> Closing...';
             try {
@@ -33,13 +41,13 @@ function initializeChatTab(container) {
     }
 
     if (generateTableBtn) {
-        generateTableBtn.addEventListener('click', async () => {
+        bindChatHandlerOnce(generateTableBtn, 'click', async () => {
             const ruleId = generateTableBtn.dataset.ruleId;
             if (!ruleId) return;
             const languagePairId = languagePairSelect?.value;
             if (!languagePairId) return;
 
-            generateTableBtn.className = 'hidden-button';
+            generateTableBtn.classList.add('hidden-button');
             
             const loader = document.getElementById('loader');
             loader.classList.add('htmx-request');
@@ -75,7 +83,7 @@ function initializeChatTab(container) {
     }
 
     // Toggle language pair dropdown
-    addLanguagePairButton.addEventListener('click', function() {
+    bindChatHandlerOnce(addLanguagePairButton, 'click', function() {
         if (languagePairDropdown.classList.contains('hidden')) {
             // Show dropdown and change button icon to restricted
             languagePairDropdown.classList.remove('hidden');
@@ -93,7 +101,7 @@ function initializeChatTab(container) {
     });
 
     // Handle language pair selection
-    languagePairSelect.addEventListener('change', function() {
+    bindChatHandlerOnce(languagePairSelect, 'change', function() {
         const selectedValue = this.value;
         if (selectedValue) {
             // Save to localStorage
@@ -106,11 +114,11 @@ function initializeChatTab(container) {
     });
 
     // Handle propose missing rules button
-    proposeMissingRulesButton.addEventListener('click', async () => {
+    bindChatHandlerOnce(proposeMissingRulesButton, 'click', async () => {
         if (!languagePairSelect.value) return;
 
         // proposeMissingRulesButton.disabled = true;
-        proposeMissingRulesButton.className = 'hidden-button';
+        proposeMissingRulesButton.classList.add('hidden-button');
         try {
             const reply = await callAgent({
                 type: 'propose_missing_rules'

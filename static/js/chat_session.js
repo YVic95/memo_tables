@@ -104,6 +104,11 @@ function resetChatUI() {
         proposeButton.disabled = true;
     }
 
+    const closeButton = document.getElementById('close-chat-session-btn');
+    if (closeButton) {
+        closeButton.innerHTML = '<i class="fa-solid fa-power-off"></i> Close Chat Session';
+    }
+
     document.getElementById('generate-table-btn')?.removeAttribute('data-rule-id');
 
     localStorage.removeItem('selectedLanguagePair');
