@@ -1,4 +1,5 @@
 from crud.canonical_rules import get_canonical_rule_by_id
+from crud.rules import get_word_category_by_id
 from graphs.states import InitialRuleState
 
 
@@ -14,7 +15,10 @@ def copy_canonical_category_node(state: InitialRuleState) -> InitialRuleState:
             f"Canonical rule {state['canonical_rule_id']} not found"
         )
 
+    category = get_word_category_by_id(state["db"], canonical_rule.word_category_id)
+
     return {
         **state,
         "word_category_id": canonical_rule.word_category_id,
+        "word_category_slug": category.slug if category else None,
     }

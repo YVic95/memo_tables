@@ -347,9 +347,57 @@ rule_content_prompt = PromptTemplate.from_template(
         [clear explanation of the rule]
 
         ### Examples:
-        Select ONE representative lexical item (verb, noun, adjective, etc.) for
+        Select ONE representative lexical item (verb, adjective, etc.) for
         all examples. Use ONLY ONE word for all examples.
 
+    """
+)
+
+noun_rule_content_prompt = PromptTemplate.from_template(
+    """
+        Write the full learning content for this noun grammar rule, in
+        {native_language}, for a speaker learning {target_language}. Cover all
+        grammatical forms for the concrete rule.
+
+        Name: {rule_title}
+        Short explanation: {rule_explanation}
+
+        CRITICAL FORMATTING RULES:
+        - Never use "#" alone as a separator between sections. Use blank lines instead.
+        - Use "##" for the main heading: ## Grammar Rule: {rule_title}
+        - Use "###" for section headings: ### Rule Statement:, ### Examples:
+        - Use "**" for emphasis on key terms.
+        - Use "*" for translations and example phrases.
+        - Use numbered lists (1. 2. ...) for examples.
+        - Each numbered example MUST be a single line. Do not put the noun forms or
+          the translation on separate lines: a multi-line item breaks the numbering.
+        - Every noun MUST appear with its definite article in {target_language}
+          (for example el/la/los/las in Spanish). Never list a bare noun.
+
+        Follow this structure exactly:
+
+        ## Grammar Rule: {rule_title}
+
+        ### Rule Statement:
+        [clear explanation of the rule]
+
+        ### Examples:
+        Use 4-5 examples. Use a DIFFERENT noun (or noun pair) in each example.
+        Do not use only one noun for all examples, and do not write a sentence
+        saying that one noun will be used for all of them.
+
+        For each example, write one numbered line that shows the form(s) the rule
+        is about and a short translation in {native_language}. Keep the whole
+        example on that line. Always include the definite article with each noun.
+
+        - For a singular/plural rule, show both forms, e.g.:
+          1. **el libro / los libros** — the book / the books
+          2. **el dólar / los dólares** — the dollar / the dollars
+        - For a gender rule, pair a masculine and a feminine noun, e.g.:
+          1. **el libro / la mesa** — the book (masculine) / the table (feminine)
+
+        Choose nouns that illustrate the rule clearly, including important spelling,
+        article, or gender patterns.
     """
 )
 

@@ -17,6 +17,7 @@ class TestCopyCanonicalCategoryNode:
         )
 
         assert result["word_category_id"] == canonical_rule.word_category_id
+        assert result["word_category_slug"] == "noun"
         assert result["canonical_rule_id"] == canonical_rule.id
 
     def test_raises_when_the_catalog_entry_does_not_exist(self, db_session):

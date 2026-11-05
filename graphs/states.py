@@ -22,6 +22,7 @@ class InitialRuleState(TypedDict):
     target_language_id: uuid.UUID
     canonical_rule_id: uuid.UUID
     word_category_id: uuid.UUID
+    word_category_slug: Optional[str]
     grammar_rule_id: uuid.UUID
     translated_name: str
     translated_description: str
