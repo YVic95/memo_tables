@@ -159,14 +159,8 @@ async function submitEdit(instructions) {
         input.value = '';
 
         data.edited_table.edited_from = selectedTable.tableId;
+        tableMetadata.preserveTableMetadata(data.edited_table, selectedTable);
         assignTableId(data.edited_table);
-        if (selectedTable.isFragmented) {
-            data.edited_table.isFragmented = true;
-            data.edited_table.fragmented_table_id = selectedTable.fragmented_table_id;
-            data.edited_table.rows.forEach((row, idx) => {
-                row.row_position = idx;
-            });
-        }
 
         const editedEl = renderTableData(data.edited_table);
         appendToChat(editedEl);
@@ -211,13 +205,7 @@ async function submitInsert(targetContainer) {
     const originalData = targetContainer._tableData;
     const newData = parsed;
     newData.tableId = originalData.tableId;
-    if (originalData.isFragmented) {
-        newData.isFragmented = true;
-        newData.fragmented_table_id = originalData.fragmented_table_id;
-        newData.rows.forEach((row, idx) => {
-            row.row_position = idx;
-        });
-    }
+    tableMetadata.preserveTableMetadata(newData, originalData);
 
     const newEl = renderTableData(newData);
     targetContainer.replaceWith(newEl);

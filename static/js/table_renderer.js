@@ -131,6 +131,9 @@ function displayGeneratedTables(response) {
             table.isFragmented = true;
             table.fragmented_table_id = index + 1;
             table.rows.forEach((row, rowIndex) => {
+                if (tableMetadata.keepsNounRowPosition(table, row)) {
+                    return;
+                }
                 row.row_position = rowIndex;
             });
             console.log('[Fragmented Table]', {

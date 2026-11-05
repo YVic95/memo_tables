@@ -29,7 +29,11 @@ def route_by_category(state: GenerateTableState) -> str:
 
 def route_after_table(state: GenerateTableState) -> str:
     table = state["general_table"]
-    if table and len(table.get("rows", [])) > FRAGMENT_THRESHOLD:
+    if not table:
+        return END
+    if state.get("word_category_slug") == "noun":
+        return "fragment"
+    if len(table.get("rows", [])) > FRAGMENT_THRESHOLD:
         return "fragment"
     return END
 
