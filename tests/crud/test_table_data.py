@@ -1,5 +1,6 @@
 import pytest
 from crud.table_data import (
+    build_noun_skeleton_tables,
     get_or_create_base_word,
     get_or_create_word_translation,
     get_or_create_word_rule_assignment,
@@ -764,6 +765,95 @@ class TestBuildMarkdownTables:
 
         header_line = result["reflexive_verb"].split("\n")[0]
         assert "Reflexive Verb: hablar" in header_line
+
+
+class TestBuildNounSkeletonTables:
+    def test_number_layout_groups_pairs_into_singular_plural(
+        self, db_session, grammar_rule
+    ):
+        create_grammar_rule_row(db_session, grammar_rule.id, "el gato", None, 0, 0)
+        create_grammar_rule_row(db_session, grammar_rule.id, "los gatos", None, 0, 1)
+        create_grammar_rule_row(db_session, grammar_rule.id, "la mesa", None, 0, 2)
+        create_grammar_rule_row(db_session, grammar_rule.id, "las mesas", None, 0, 3)
+
+        result = build_noun_skeleton_tables(
+            db_session, grammar_rule.id, "noun_number"
+        )
+
+        expected = (
+            "| Singular | Plural    |\n"
+            "| -------- | --------- |\n"
+            "| el gato  | los gatos |\n"
+            "| la mesa  | las mesas |"
+        )
+        assert result == {"noun": expected}
+
+    def test_gender_layout_groups_pairs_into_masculine_feminine(
+        self, db_session, grammar_rule
+    ):
+        create_grammar_rule_row(db_session, grammar_rule.id, "el libro", None, 0, 0)
+        create_grammar_rule_row(db_session, grammar_rule.id, "la mesa", None, 0, 1)
+        create_grammar_rule_row(db_session, grammar_rule.id, "el problema", None, 0, 2)
+        create_grammar_rule_row(db_session, grammar_rule.id, "la mano", None, 0, 3)
+
+        result = build_noun_skeleton_tables(
+            db_session, grammar_rule.id, "noun_gender"
+        )
+
+        expected = (
+            "| Masculine   | Feminine |\n"
+            "| ----------- | -------- |\n"
+            "| el libro    | la mesa  |\n"
+            "| el problema | la mano  |"
+        )
+        assert result == {"noun": expected}
+
+    def test_tables_are_separated_by_blank_lines(self, db_session, grammar_rule):
+        create_grammar_rule_row(db_session, grammar_rule.id, "el gato", None, 1, 0)
+        create_grammar_rule_row(db_session, grammar_rule.id, "los gatos", None, 1, 1)
+        create_grammar_rule_row(db_session, grammar_rule.id, "la mesa", None, 2, 0)
+        create_grammar_rule_row(db_session, grammar_rule.id, "las mesas", None, 2, 1)
+
+        result = build_noun_skeleton_tables(
+            db_session, grammar_rule.id, "noun_number"
+        )
+
+        assert result["noun"] == (
+            "| Singular | Plural    |\n"
+            "| -------- | --------- |\n"
+            "| el gato  | los gatos |\n"
+            "\n"
+            "| Singular | Plural    |\n"
+            "| -------- | --------- |\n"
+            "| la mesa  | las mesas |"
+        )
+
+    def test_missing_side_cell_renders_empty(self, db_session, grammar_rule):
+        create_grammar_rule_row(db_session, grammar_rule.id, "el gato", None, 0, 0)
+
+        result = build_noun_skeleton_tables(
+            db_session, grammar_rule.id, "noun_number"
+        )
+
+        assert result["noun"] == (
+            "| Singular | Plural |\n"
+            "| -------- | ------ |\n"
+            "| el gato  |        |"
+        )
+
+    def test_unknown_layout_returns_empty_string(self, db_session, grammar_rule):
+        create_grammar_rule_row(db_session, grammar_rule.id, "el gato", None, 0, 0)
+
+        result = build_noun_skeleton_tables(db_session, grammar_rule.id, "noun_case")
+
+        assert result == {"noun": ""}
+
+    def test_no_rows_returns_empty_string(self, db_session, grammar_rule):
+        result = build_noun_skeleton_tables(
+            db_session, grammar_rule.id, "noun_number"
+        )
+
+        assert result == {"noun": ""}
 
 
 class TestCountSavedData:

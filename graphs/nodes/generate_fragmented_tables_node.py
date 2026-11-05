@@ -3,13 +3,16 @@ from graphs.llm import llm
 from graphs.models import FragmentationOutput, TableData, TableRow
 from graphs.prompts import fragmentation_prompt
 from graphs.states import GenerateTableState
+from graphs.table_utils import (
+    NOUN_COLUMN_COUNT,
+    NOUN_FRAGMENT_TITLE_SEPARATOR,
+    NOUN_SIDE_COLUMN_COUNT,
+)
 
 fragmentation_llm = llm.with_structured_output(FragmentationOutput)
 fragmentation_chain = fragmentation_prompt | fragmentation_llm
 
-NOUN_COLUMN_COUNT = 8
-NOUN_FRAGMENT_COLUMN_COUNT = NOUN_COLUMN_COUNT // 2
-NOUN_SIDE_STARTS = (0, NOUN_FRAGMENT_COLUMN_COUNT)
+NOUN_SIDE_STARTS = (0, NOUN_SIDE_COLUMN_COUNT)
 
 
 def _noun_side_fragments(table: dict) -> list[dict]:
@@ -37,10 +40,10 @@ def _noun_side_fragments(table: dict) -> list[dict]:
     fragments = []
 
     for fragment_id, start in enumerate(NOUN_SIDE_STARTS, start=1):
-        end = start + NOUN_FRAGMENT_COLUMN_COUNT
+        end = start + NOUN_SIDE_COLUMN_COUNT
         side_headers = headers[start:end]
         side_title = (
-            f"{table['title']} — {side_headers[0]}"
+            f"{table['title']}{NOUN_FRAGMENT_TITLE_SEPARATOR}{side_headers[0]}"
             if side_headers
             else table["title"]
         )

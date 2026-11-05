@@ -1,15 +1,22 @@
 from graphs.llm import llm
-from graphs.models import DeducedBaseWord, DeducedBaseWords
-from graphs.noun_forms import citation_candidates, is_singular_definite, noun_keys, singular_form
-from graphs.prompts import deduce_base_word_prompt, deduce_noun_base_word_prompt
+from graphs.models import DeducedBaseWords
+from graphs.prompts import deduce_base_word_prompt
 from graphs.states import SaveTableState
-from graphs.table_utils import column_roles, role_to_column, cell_at_role, tokenize_words
+from graphs.table_utils import (
+    NOUN_SIDE_COLUMNS,
+    NounTableLayout,
+    cell_at_role,
+    column_roles,
+    noun_side_cell,
+    require_noun_layout,
+    role_to_column,
+    tokenize_words,
+)
 from crud.rules import get_grammar_rule_by_id, get_word_categories, get_word_category_by_id
 from crud.language_pairs import get_language_name_by_id
 
 deduce_llm = llm.with_structured_output(DeducedBaseWords)
 deduce_chain = deduce_base_word_prompt | deduce_llm
-deduce_noun_chain = deduce_noun_base_word_prompt | deduce_llm
 
 
 def _extract_unique_forms(tables: list[dict]) -> list[str]:
@@ -49,79 +56,118 @@ def _extract_example_words(tables: list[dict], role_lookup: dict[str, int]) -> l
     return sorted(words)
 
 
-def _group_noun_base_words(
-    deduced_base_words: list[DeducedBaseWord],
-    form_cells: list[str],
-    language_name: str,
+def _noun_base_words_and_translations(
+    tables: list[dict],
+    language_id,
     word_category_id,
-) -> list[DeducedBaseWord]:
-    """Collapse model output and form cells into one base word per noun.
+):
+    """Build noun base words directly from the paired form/translation cells.
 
-    The model may return one entry per surface form, or omit a form entirely.
-    Grouping by a normalized key and preferring the singular definite form makes
-    the persisted vocabulary deterministic regardless of which shape the model
-    returns.
+    Number tables contribute one base word per pair, using the singular side as
+    the dictionary form and keeping the plural as a surface form. Gender tables
+    contribute both the masculine and the feminine noun as separate base words.
     """
-    groups: list[dict] = []
+    base_words: dict[str, dict] = {}
+    translations: dict[str, str] = {}
 
-    def group_for(text: str) -> dict:
-        keys = noun_keys(text, language_name)
-        matching_groups = [group for group in groups if group["keys"] & keys]
-        if not matching_groups:
-            group = {"keys": keys, "candidates": [], "forms": set()}
-            groups.append(group)
-            return group
-
-        group = matching_groups[0]
-        group["keys"] |= keys
-        for other_group in matching_groups[1:]:
-            group["keys"] |= other_group["keys"]
-            group["candidates"].extend(other_group["candidates"])
-            group["forms"] |= other_group["forms"]
-            groups.remove(other_group)
-        return group
-
-    for base_word in deduced_base_words:
-        group = group_for(base_word.word)
-        priority = 0 if is_singular_definite(base_word.word, language_name) else 3
-        group["candidates"].append((priority, base_word.word.lower()))
-        group["forms"].update(form.lower() for form in base_word.surface_forms)
-
-    for form in form_cells:
-        group = group_for(form)
-        group["forms"].add(form.lower())
-        if is_singular_definite(form, language_name):
-            group["candidates"].append((0, form.lower()))
-            continue
-
-        candidates = citation_candidates(form, language_name)
-        if not candidates:
-            group["candidates"].append((4, singular_form(form, language_name)))
-            continue
-
-        group["candidates"].extend(
-            (priority + 1, citation) for priority, citation in candidates
+    def add(form: str, surface_forms: list[str], translation: str) -> None:
+        if not form:
+            return
+        key = form.lower()
+        entry = base_words.setdefault(
+            key,
+            {
+                "text": form,
+                "language_id": language_id,
+                "word_category_id": word_category_id,
+                "forms": set(),
+            },
         )
+        entry["forms"].update(form.lower() for form in surface_forms if form)
+        if translation and key not in translations:
+            translations[key] = translation
 
-    grouped_base_words = []
-    for group in groups:
-        if not group["candidates"]:
-            continue
-        citation = min(group["candidates"])[1]
-        grouped_base_words.append(
-            DeducedBaseWord(
-                word=citation,
-                word_category_id=word_category_id,
-                surface_forms=sorted(group["forms"]),
+    for table in tables:
+        layout = require_noun_layout(table.get("noun_table_layout"))
+
+        for row in table.get("rows", []):
+            cells = row.get("cells", [])
+            singular_or_masculine = NOUN_SIDE_COLUMNS[0]
+            plural_or_feminine = NOUN_SIDE_COLUMNS[1]
+            singular_or_masculine_form = noun_side_cell(cells, singular_or_masculine, "form")
+            plural_or_feminine_form = noun_side_cell(cells, plural_or_feminine, "form")
+            singular_or_masculine_translation = noun_side_cell(
+                cells, singular_or_masculine, "translation"
             )
+            plural_or_feminine_translation = noun_side_cell(
+                cells, plural_or_feminine, "translation"
+            )
+
+            if layout is NounTableLayout.noun_number:
+                if singular_or_masculine_form:
+                    add(
+                        singular_or_masculine_form,
+                        [singular_or_masculine_form, plural_or_feminine_form],
+                        singular_or_masculine_translation,
+                    )
+                elif plural_or_feminine_form:
+                    add(
+                        plural_or_feminine_form,
+                        [plural_or_feminine_form],
+                        plural_or_feminine_translation,
+                    )
+                continue
+
+            if singular_or_masculine_form:
+                add(
+                    singular_or_masculine_form,
+                    [singular_or_masculine_form],
+                    singular_or_masculine_translation,
+                )
+            if plural_or_feminine_form:
+                add(
+                    plural_or_feminine_form,
+                    [plural_or_feminine_form],
+                    plural_or_feminine_translation,
+                )
+
+    result = []
+    for entry in base_words.values():
+        result.append(
+            {
+                "text": entry["text"],
+                "language_id": entry["language_id"],
+                "word_category_id": entry["word_category_id"],
+                "forms": sorted(entry["forms"]),
+            }
         )
 
-    return sorted(grouped_base_words, key=lambda base_word: base_word.word)
+    return (
+        sorted(result, key=lambda base_word: base_word["text"].lower()),
+        {base_words[key]["text"]: value for key, value in translations.items()},
+    )
 
 
 def deduce_base_word_node(state: SaveTableState) -> SaveTableState:
     is_verb = state["word_category_slug"] == "verb"
     is_noun = state["word_category_slug"] == "noun"
+
+    rule = get_grammar_rule_by_id(state["db"], state["grammar_rule_id"])
+    if rule is None:
+        raise ValueError(f"Grammar rule {state['grammar_rule_id']} not found")
+
+    if is_noun:
+        base_words, translations = _noun_base_words_and_translations(
+            state["tables"],
+            state["target_language_id"],
+            rule.word_category_id,
+        )
+        return {
+            **state,
+            "base_words_to_save": base_words,
+            "base_word_translations": translations,
+        }
+
     role_lookup = role_to_column(column_roles(state["word_category_slug"]))
 
     if is_verb:
@@ -129,23 +175,14 @@ def deduce_base_word_node(state: SaveTableState) -> SaveTableState:
             set(_extract_form_cells(state["tables"], role_lookup))
             | set(_extract_example_words(state["tables"], role_lookup))
         )
-        chain = deduce_chain
-    elif is_noun:
-        unique_forms = _extract_form_cells(state["tables"], role_lookup)
-        chain = deduce_noun_chain
     else:
         unique_forms = _extract_unique_forms(state["tables"])
-        chain = deduce_chain
 
     if not unique_forms:
         return {
             **state,
             "base_words_to_save": [],
         }
-
-    rule = get_grammar_rule_by_id(state["db"], state["grammar_rule_id"])
-    if rule is None:
-        raise ValueError(f"Grammar rule {state['grammar_rule_id']} not found")
 
     rule_category = get_word_category_by_id(state["db"], rule.word_category_id)
     categories = get_word_categories(state["db"])
@@ -161,24 +198,14 @@ def deduce_base_word_node(state: SaveTableState) -> SaveTableState:
         "rule_word_category": rule_word_category,
         "surface_forms": "\n".join(unique_forms),
     }
-    if not is_noun:
-        chain_input["available_categories"] = "\n".join(
-            f"{category.id}: {category.name} ({category.slug})" for category in categories
-        )
+    chain_input["available_categories"] = "\n".join(
+        f"{category.id}: {category.name} ({category.slug})" for category in categories
+    )
 
-    result: DeducedBaseWords = chain.invoke(chain_input)
-
-    deduced_base_words = result.base_words
-    if is_noun:
-        deduced_base_words = _group_noun_base_words(
-            deduced_base_words,
-            unique_forms,
-            target_language_name,
-            rule.word_category_id,
-        )
+    result: DeducedBaseWords = deduce_chain.invoke(chain_input)
 
     base_words = []
-    for base_word in deduced_base_words:
+    for base_word in result.base_words:
         word_category_id = base_word.word_category_id
         if word_category_id not in valid_category_ids or not is_verb:
             word_category_id = rule.word_category_id

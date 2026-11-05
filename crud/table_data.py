@@ -10,6 +10,8 @@ from models.word_form_translations import WordFormTranslation
 from models.sentences import Sentence
 from models.sentence_translations import SentenceTranslation
 from models.word_form_sentences import WordFormSentence
+from graphs.models import NounTableLayout
+from graphs.table_utils import NOUN_LAYOUT_HEADERS, NOUN_SIDE_COLUMNS
 
 
 def _commit_or_flush(db: Session, commit: bool) -> None:
@@ -405,6 +407,23 @@ def get_table_data(
     ]
 
 
+def _format_markdown_table(headers: list[str], rows: list[list[str]]) -> str:
+    col_widths = [len(h) for h in headers]
+    for row in rows:
+        for i, cell in enumerate(row):
+            col_widths[i] = max(col_widths[i], len(cell))
+
+    def pad_row(cells: list[str]) -> str:
+        padded = [cells[i].ljust(col_widths[i]) for i in range(len(cells))]
+        return "| " + " | ".join(padded) + " |"
+
+    header_line = pad_row(headers)
+    separator_line = "| " + " | ".join("-" * w for w in col_widths) + " |"
+    data_lines = [pad_row(row) for row in rows]
+
+    return "\n".join([header_line, separator_line] + data_lines)
+
+
 def _build_single_table(entries: list[dict], word_category_slug: str) -> str:
     category_prefix = word_category_slug.replace("_", " ").title()
 
@@ -430,20 +449,7 @@ def _build_single_table(entries: list[dict], word_category_slug: str) -> str:
             cells.append(form if form is not None else "")
         all_rows.append(cells)
 
-    col_widths = [len(h) for h in headers]
-    for row in all_rows:
-        for i, cell in enumerate(row):
-            col_widths[i] = max(col_widths[i], len(cell))
-
-    def pad_row(cells: list[str]) -> str:
-        padded = [cells[i].ljust(col_widths[i]) for i in range(len(cells))]
-        return "| " + " | ".join(padded) + " |"
-
-    header_line = pad_row(headers)
-    separator_line = "| " + " | ".join("-" * w for w in col_widths) + " |"
-    data_lines = [pad_row(row) for row in all_rows]
-
-    return "\n".join([header_line, separator_line] + data_lines)
+    return _format_markdown_table(headers, all_rows)
 
 
 def build_markdown_tables(
@@ -459,3 +465,47 @@ def build_markdown_tables(
     ]
 
     return {word_category_slug: "\n\n".join(tables)}
+
+
+def build_noun_skeleton_tables(
+    db: Session,
+    grammar_rule_id: uuid.UUID,
+    noun_layout: str,
+) -> dict[str, str]:
+    """Render the two-column skeleton for a saved noun rule.
+
+    Two grammar_rule_rows are persisted per pair, at positions
+    ``pair_index * (number of sides)`` through ``pair_index * (number of
+    sides) + 1``. They are grouped back into a single skeleton row under the
+    layout's two side headers.
+    """
+    try:
+        layout = NounTableLayout(noun_layout)
+    except ValueError:
+        return {"noun": ""}
+    headers = NOUN_LAYOUT_HEADERS[layout]
+    side_count = len(NOUN_SIDE_COLUMNS)
+
+    rows = (
+        db.query(GrammarRuleRow)
+        .filter(GrammarRuleRow.grammar_rule_id == grammar_rule_id)
+        .order_by(GrammarRuleRow.table_no, GrammarRuleRow.position)
+        .all()
+    )
+    if not rows:
+        return {"noun": ""}
+
+    grouped: dict[int, dict[int, dict[int, str]]] = {}
+    for row in rows:
+        pair_index, side_index = divmod(row.position, side_count)
+        grouped.setdefault(row.table_no, {}).setdefault(pair_index, {})[side_index] = row.label
+
+    tables = []
+    for table_no in sorted(grouped):
+        table_rows = [
+            [pair.get(0, ""), pair.get(1, "")]
+            for _, pair in sorted(grouped[table_no].items())
+        ]
+        tables.append(_format_markdown_table(list(headers), table_rows))
+
+    return {"noun": "\n\n".join(tables)}

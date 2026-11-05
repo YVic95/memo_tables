@@ -1,11 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException
+import uuid
 from typing import Annotated
 from sqlalchemy.orm import Session
 from database import get_db
 from crud.language_pairs import get_language_pair_by_id
 from crud.rules import get_grammar_rule_by_id, get_word_category_by_id
-from crud.table_data import count_saved_data, get_table_data, build_markdown_tables
+from crud.table_data import (
+    build_markdown_tables,
+    build_noun_skeleton_tables,
+    count_saved_data,
+    get_table_data,
+)
 from graphs.models import SaveTablesRequest, TableData
+from graphs.table_utils import NOUN_COLUMN_COUNT, NOUN_LAYOUTS, select_noun_tables
 from models.grammar_rules import GrammarRule
 from graphs.save_table_graph import graph
 
@@ -15,13 +22,46 @@ router = APIRouter(tags=["save-tables"])
 def _plural(n: int, word: str) -> str:
     return f"{n} {word}{'s' if n != 1 else ''}"
 
-def _validate_tables(tables: list[TableData]) -> None:
+
+def _category_slug(db: Session, rule: GrammarRule) -> str | None:
+    try:
+        category_id = uuid.UUID(str(rule.word_category_id))
+    except (ValueError, AttributeError, TypeError):
+        # Test doubles and stale payloads can carry a non-UUID category id.
+        return None
+    category = get_word_category_by_id(db, category_id)
+    return category.slug if category else None
+
+
+def _validate_tables(
+    tables: list[TableData],
+    word_category_slug: str | None = None,
+) -> None:
     if not tables:
         raise HTTPException(status_code=400, detail="Tables list must not be empty")
 
+    is_noun = word_category_slug == "noun"
     for table in tables:
         if not table.rows:
             raise HTTPException(status_code=400, detail=f"Table '{table.title}' must have at least one row")
+
+        if is_noun and table.noun_table_layout not in NOUN_LAYOUTS:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Noun table '{table.title}' is missing its table layout. "
+                    "Regenerate the table before saving."
+                ),
+            )
+        if is_noun and len(table.headers) != NOUN_COLUMN_COUNT:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Noun table '{table.title}' must have exactly "
+                    f"{NOUN_COLUMN_COUNT} columns, got {len(table.headers)}. "
+                    "Regenerate the table before saving."
+                ),
+            )
 
         for i, row in enumerate(table.rows):
             if len(row.cells) != len(table.headers):
@@ -29,6 +69,7 @@ def _validate_tables(tables: list[TableData]) -> None:
                     status_code=400,
                     detail=f"Row {i + 1} in table '{table.title}' has {len(row.cells)} cells but headers have {len(table.headers)} columns",
                 )
+
 
 @router.post("/api/save-tables")
 def save_tables(
@@ -43,10 +84,18 @@ def save_tables(
     if rule is None:
         raise HTTPException(status_code=400, detail="Grammar rule not found")
 
-    fragmented = [table for table in body.tables if table.fragmented_table_id is not None]
-    tables_to_save = fragmented if fragmented else [table for table in body.tables if table.fragmented_table_id is None]
+    word_category_slug = _category_slug(db, rule)
 
-    _validate_tables(tables_to_save)
+    if word_category_slug == "noun":
+        try:
+            tables_to_save = select_noun_tables(body.tables)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+    else:
+        fragmented = [table for table in body.tables if table.fragmented_table_id is not None]
+        tables_to_save = fragmented if fragmented else [table for table in body.tables if table.fragmented_table_id is None]
+
+    _validate_tables(tables_to_save, word_category_slug)
 
     try:
         graph.invoke(
@@ -81,7 +130,17 @@ def save_tables(
     )
 
     titles_by_no = {table.fragmented_table_id or 0: table.title for table in tables_to_save}
-    skeleton_table, skeleton_titles = _build_skeleton_summary(db, rule, titles_by_no)
+    noun_layout = next(
+        (
+            table.noun_table_layout
+            for table in tables_to_save
+            if table.noun_table_layout is not None
+        ),
+        None,
+    )
+    skeleton_table, skeleton_titles = _build_skeleton_summary(
+        db, rule, titles_by_no, word_category_slug, noun_layout
+    )
 
     return {
         "status": "saved",
@@ -97,9 +156,15 @@ def _build_skeleton_summary(
     db: Session,
     rule: GrammarRule,
     titles_by_no: dict[int, str],
+    word_category_slug: str | None = None,
+    noun_layout: str | None = None,
 ) -> tuple[dict[str, str], dict[str, list[str]]]:
-    category = get_word_category_by_id(db, rule.word_category_id)
-    slug = category.slug if category else "table"
+    slug = word_category_slug or _category_slug(db, rule) or "table"
+
+    if slug == "noun" and noun_layout:
+        titles = [titles_by_no.get(table_no, rule.name) for table_no in sorted(titles_by_no)]
+        return build_noun_skeleton_tables(db, rule.id, noun_layout), {slug: titles}
+
     table_data = get_table_data(db, rule.id, rule.word_category_id)
     if not table_data:
         return {slug: ""}, {slug: []}

@@ -24,6 +24,10 @@ class MessageType(StrEnum):
     duplicate_warning = "duplicate_warning"
     info = "info"
 
+class NounTableLayout(StrEnum):
+    noun_number = "noun_number"
+    noun_gender = "noun_gender"
+
 class CatalogRule(BaseModel):
     title: str = Field(description="Short name of the grammar/language rule")
     explanation: str = Field(
@@ -108,7 +112,7 @@ class TableData(BaseModel):
         default=None,
         description="1-based id for fragmented sub-tables; None for a regular table",
     )
-    noun_table_layout: Literal["noun_number", "noun_gender"] | None = Field(
+    noun_table_layout: NounTableLayout | None = Field(
         default=None,
         description=(
             "Layout of a generated noun table: 'noun_number' for the "

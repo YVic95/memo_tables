@@ -6,9 +6,7 @@ from graphs.prompts import (
     generate_verb_table_prompt,
 )
 from graphs.states import GenerateTableState
-
-NOUN_LAYOUTS = frozenset({"noun_number", "noun_gender"})
-NOUN_COLUMN_COUNT = 8
+from graphs.table_utils import NOUN_COLUMN_COUNT, require_noun_layout
 
 CATEGORY_PROMPTS = {
     "verb": generate_verb_table_prompt,
@@ -20,10 +18,7 @@ CATEGORY_PROMPTS = {
 
 
 def _validate_noun_table(table: TableData) -> None:
-    if table.noun_table_layout not in NOUN_LAYOUTS:
-        raise ValueError(
-            "Noun table must set noun_table_layout to 'noun_number' or 'noun_gender'"
-        )
+    require_noun_layout(table.noun_table_layout)
     if len(table.headers) != NOUN_COLUMN_COUNT:
         raise ValueError(
             f"Noun table must have {NOUN_COLUMN_COUNT} columns, got {len(table.headers)}"

@@ -194,11 +194,17 @@ async function onSaveTablesClick(event) {
     const grammarRuleId = document.getElementById('generate-table-btn')?.dataset.ruleId;
     const languagePairId = document.getElementById('language-pair-select')?.value;
 
+    const saveTables = tables.map(t => ({
+        ...t,
+        noun_table_layout: t.noun_table_layout ?? null,
+    }));
+
     console.log('[Save] Payload:', {
         language_pair_id: languagePairId,
         grammar_rule_id: grammarRuleId,
-        tables: tables.map(t => ({
+        tables: saveTables.map(t => ({
             fragmented_table_id: t.fragmented_table_id,
+            noun_table_layout: t.noun_table_layout,
             title: t.title,
             rows: t.rows.map(r => ({ row_position: r.row_position, cells: r.cells })),
         })),
@@ -215,7 +221,7 @@ async function onSaveTablesClick(event) {
                 language_pair_id: languagePairId,
                 session_id: await getOrCreateChatSession(),
                 grammar_rule_id: grammarRuleId,
-                tables: tables,
+                tables: saveTables,
             }),
         });
 

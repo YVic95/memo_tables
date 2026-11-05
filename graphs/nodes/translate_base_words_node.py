@@ -16,7 +16,15 @@ def translate_base_words_node(state: SaveTableState) -> SaveTableState:
             "base_word_translations": {},
         }
 
+    translations = dict(state.get("base_word_translations") or {})
     unique_texts = sorted({word["text"] for word in base_words})
+    missing_texts = [text for text in unique_texts if not translations.get(text)]
+
+    if not missing_texts:
+        return {
+            **state,
+            "base_word_translations": translations,
+        }
 
     target_language_name = get_language_name_by_id(state["db"], state["target_language_id"])
     native_language_name = get_language_name_by_id(state["db"], state["native_language_id"])
@@ -25,11 +33,13 @@ def translate_base_words_node(state: SaveTableState) -> SaveTableState:
         {
             "target_language": target_language_name,
             "native_language": native_language_name,
-            "items": "\n".join(unique_texts),
+            "items": "\n".join(missing_texts),
         }
     )
 
-    translations = {item.text.strip(): item.translation for item in result.translations}
+    translations.update(
+        {item.text.strip(): item.translation for item in result.translations}
+    )
 
     return {
         **state,

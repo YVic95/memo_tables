@@ -12,6 +12,7 @@ from models.word_categories import WordCategory
 from models.canonical_rules import CanonicalRule
 from models.grammar_rules import GrammarRule
 from graphs.models import SaveTablesRequest
+from tests.graphs.generation_helpers import NOUN_NUMBER_HEADERS, NOUN_NUMBER_TABLE
 from routers.save_tables_agent import save_tables
 
 
@@ -94,21 +95,19 @@ def seed_data(db_session):
     }
 
 
+def _noun_table(title="Noun Gender", **overrides):
+    table = NOUN_NUMBER_TABLE.model_dump()
+    table["title"] = title
+    table.update(overrides)
+    return table
+
+
 def _make_request(seed_data, **overrides):
     defaults = {
         "language_pair_id": seed_data["pair_id"],
         "session_id": uuid.uuid4(),
         "grammar_rule_id": seed_data["rule_id"],
-        "tables": [
-            {
-                "title": "Noun Gender",
-                "headers": ["Form", "Example"],
-                "rows": [
-                    {"cells": ["Masculine", "el gato"]},
-                    {"cells": ["Feminine", "la gata"]},
-                ],
-            }
-        ],
+        "tables": [_noun_table()],
     }
     defaults.update(overrides)
     return SaveTablesRequest(**defaults)
@@ -138,7 +137,7 @@ class TestTablesListNotEmpty:
             name="test",
             description="test",
             language_id="1",
-            word_category_id="1",
+            word_category_id=str(uuid.uuid4()),
         )
         body = _make_request(seed_data, tables=[])
 
@@ -158,7 +157,7 @@ class TestTableHasRows:
             name="test",
             description="test",
             language_id="1",
-            word_category_id="1",
+            word_category_id=str(uuid.uuid4()),
         )
         body = _make_request(seed_data, tables=[
             {"title": "Empty", "headers": ["A"], "rows": []}
@@ -180,7 +179,7 @@ class TestRowCellCountMatchesHeaders:
             name="test",
             description="test",
             language_id="1",
-            word_category_id="1",
+            word_category_id=str(uuid.uuid4()),
         )
         body = _make_request(seed_data, tables=[
             {"title": "Bad", "headers": ["A", "B"], "rows": [{"cells": ["1", "2", "3"]}]}
@@ -200,7 +199,7 @@ class TestRowCellCountMatchesHeaders:
             name="test",
             description="test",
             language_id="1",
-            word_category_id="1",
+            word_category_id=str(uuid.uuid4()),
         )
         body = _make_request(seed_data, tables=[
             {"title": "Bad", "headers": ["A", "B", "C"], "rows": [{"cells": ["1"]}]}
@@ -228,7 +227,7 @@ class TestValidRequest:
             name="test",
             description="test",
             language_id="1",
-            word_category_id="1",
+            word_category_id=str(uuid.uuid4()),
         )
         mock_get_category.return_value = WordCategory(name="Nouns", slug="noun")
         mock_get_table_data.return_value = []
@@ -258,7 +257,7 @@ class TestGraphInvocation:
             name="test",
             description="test",
             language_id="1",
-            word_category_id="1",
+            word_category_id=str(uuid.uuid4()),
         )
         mock_count_saved_data.return_value = {"sentences": 3, "word_forms": 5, "base_words": 1}
         mock_db = MagicMock()
@@ -298,7 +297,7 @@ class TestGraphInvocation:
             name="test",
             description="test",
             language_id="1",
-            word_category_id="1",
+            word_category_id=str(uuid.uuid4()),
         )
         mock_count_saved_data.return_value = {"sentences": 1, "word_forms": 2, "base_words": 1}
         body = SaveTablesRequest(
@@ -329,7 +328,7 @@ class TestGraphInvocation:
             name="test",
             description="test",
             language_id="1",
-            word_category_id="1",
+            word_category_id=str(uuid.uuid4()),
         )
         mock_graph.invoke.side_effect = RuntimeError("boom")
         mock_db = MagicMock()
@@ -357,7 +356,7 @@ class TestTableFiltering:
         mock_get_pair.return_value = {"pair_id": uuid.uuid4()}
         mock_get_rule.return_value = GrammarRule(
             id=uuid.uuid4(), name="t", description="t",
-            language_id="1", word_category_id="1",
+            language_id="1", word_category_id=str(uuid.uuid4()),
         )
         mock_count_saved_data.return_value = {"sentences": 0, "word_forms": 0, "base_words": 0}
         body = SaveTablesRequest(
@@ -388,7 +387,7 @@ class TestTableFiltering:
         mock_get_pair.return_value = {"pair_id": uuid.uuid4()}
         mock_get_rule.return_value = GrammarRule(
             id=uuid.uuid4(), name="t", description="t",
-            language_id="1", word_category_id="1",
+            language_id="1", word_category_id=str(uuid.uuid4()),
         )
         mock_count_saved_data.return_value = {"sentences": 0, "word_forms": 0, "base_words": 0}
         body = SaveTablesRequest(
@@ -416,7 +415,7 @@ class TestTableFiltering:
         mock_get_pair.return_value = {"pair_id": uuid.uuid4()}
         mock_get_rule.return_value = GrammarRule(
             id=uuid.uuid4(), name="t", description="t",
-            language_id="1", word_category_id="1",
+            language_id="1", word_category_id=str(uuid.uuid4()),
         )
         mock_count_saved_data.return_value = {"sentences": 0, "word_forms": 0, "base_words": 0}
         body = SaveTablesRequest(
@@ -443,7 +442,7 @@ class TestTableFiltering:
         mock_get_pair.return_value = {"pair_id": uuid.uuid4()}
         mock_get_rule.return_value = GrammarRule(
             id=uuid.uuid4(), name="t", description="t",
-            language_id="1", word_category_id="1",
+            language_id="1", word_category_id=str(uuid.uuid4()),
         )
         body = SaveTablesRequest(
             language_pair_id=uuid.uuid4(),
@@ -470,7 +469,7 @@ class TestTableFiltering:
         mock_get_pair.return_value = {"pair_id": uuid.uuid4()}
         mock_get_rule.return_value = GrammarRule(
             id=uuid.uuid4(), name="t", description="t",
-            language_id="1", word_category_id="1",
+            language_id="1", word_category_id=str(uuid.uuid4()),
         )
         mock_count_saved_data.return_value = {"sentences": 1, "word_forms": 2, "base_words": 1}
         body = SaveTablesRequest(
@@ -505,7 +504,7 @@ class TestSkeletonTable:
         mock_get_pair.return_value = {"pair_id": seed_data["pair_id"]}
         mock_get_rule.return_value = GrammarRule(
             id=seed_data["rule_id"], name="test", description="test",
-            language_id="1", word_category_id="1",
+            language_id="1", word_category_id=str(uuid.uuid4()),
         )
         mock_get_category.return_value = WordCategory(name="Verbs", slug="verbs")
         mock_count.return_value = {"sentences": 0, "word_forms": 0, "base_words": 0}
@@ -534,7 +533,7 @@ class TestSkeletonTable:
         mock_get_pair.return_value = {"pair_id": seed_data["pair_id"]}
         mock_get_rule.return_value = GrammarRule(
             id=seed_data["rule_id"], name="test", description="test",
-            language_id="1", word_category_id="1",
+            language_id="1", word_category_id=str(uuid.uuid4()),
         )
         mock_get_category.return_value = WordCategory(name="Verbs", slug="verbs")
         mock_count.return_value = {"sentences": 0, "word_forms": 0, "base_words": 0}
@@ -563,7 +562,7 @@ class TestSkeletonTable:
         mock_get_pair.return_value = {"pair_id": seed_data["pair_id"]}
         mock_get_rule.return_value = GrammarRule(
             id=seed_data["rule_id"], name="test", description="test",
-            language_id="1", word_category_id="1",
+            language_id="1", word_category_id=str(uuid.uuid4()),
         )
         mock_get_category.return_value = WordCategory(name="Nouns", slug="noun")
         mock_count.return_value = {"sentences": 1, "word_forms": 2, "base_words": 1}
@@ -592,7 +591,7 @@ class TestSkeletonTable:
         mock_get_pair.return_value = {"pair_id": seed_data["pair_id"]}
         mock_get_rule.return_value = GrammarRule(
             id=seed_data["rule_id"], name="Plural Agreement", description="test",
-            language_id="1", word_category_id="1",
+            language_id="1", word_category_id=str(uuid.uuid4()),
         )
         mock_get_category.return_value = WordCategory(name="Nouns", slug="noun")
         mock_count.return_value = {"sentences": 0, "word_forms": 0, "base_words": 0}
@@ -604,40 +603,47 @@ class TestSkeletonTable:
 
         assert result["rule_title"] == "Plural Agreement"
 
-    @patch("routers.save_tables_agent.build_markdown_tables")
-    @patch("routers.save_tables_agent.get_table_data")
+    @patch("routers.save_tables_agent.build_noun_skeleton_tables")
     @patch("routers.save_tables_agent.get_word_category_by_id")
     @patch("routers.save_tables_agent.get_language_pair_by_id")
     @patch("routers.save_tables_agent.get_grammar_rule_by_id")
     @patch("routers.save_tables_agent.count_saved_data")
-    def test_skeleton_titles_aligned_with_blocks(
-        self, mock_count, mock_get_rule, mock_get_pair,
-        mock_get_category, mock_get_table_data, mock_build_md,
-        seed_data, mock_graph, db_session,
+    def test_noun_skeleton_uses_merged_table_title(
+        self, mock_count, mock_get_rule, mock_get_pair, mock_get_category,
+        mock_build_noun_skeleton, seed_data, mock_graph, db_session,
     ):
         mock_get_pair.return_value = {"pair_id": seed_data["pair_id"]}
         mock_get_rule.return_value = GrammarRule(
             id=seed_data["rule_id"], name="Plural Agreement", description="test",
-            language_id="1", word_category_id="1",
+            language_id="1", word_category_id=str(uuid.uuid4()),
         )
         mock_get_category.return_value = WordCategory(name="Nouns", slug="noun")
         mock_count.return_value = {"sentences": 0, "word_forms": 0, "base_words": 0}
-        mock_get_table_data.return_value = [
-            {"table_no": 0, "entries": [{"label": "A", "base_word_text": "x", "form": "y"}]},
-            {"table_no": 2, "entries": [{"label": "B", "base_word_text": "x", "form": "y"}]},
-            {"table_no": 3, "entries": [{"label": "C", "base_word_text": "x", "form": "y"}]},
-        ]
-        mock_build_md.return_value = {"noun": "table0\n\ntable2\n\ntable3"}
+        mock_build_noun_skeleton.return_value = {"noun": "| Singular | Plural |"}
         body = _make_request(seed_data, tables=[
-            {"title": "Nouns: Feminine", "headers": ["Form"], "rows": [{"cells": ["x"]}], "fragmented_table_id": 2},
-            {"title": "Nouns: Masculine", "headers": ["Form"], "rows": [{"cells": ["y"]}], "fragmented_table_id": 3},
+            {
+                "title": "Nouns — Singular",
+                "headers": ["Singular", "Traducción", "Explicación", "Ejemplo"],
+                "rows": [{"cells": ["el gato", "the cat", "Masculine", "El gato duerme."]}],
+                "fragmented_table_id": 1,
+                "noun_table_layout": "noun_number",
+            },
+            {
+                "title": "Nouns — Plural",
+                "headers": ["Plural", "Traducción", "Explicación", "Ejemplo"],
+                "rows": [{"cells": ["los gatos", "the cats", "Plural", "Los gatos duermen."]}],
+                "fragmented_table_id": 2,
+                "noun_table_layout": "noun_number",
+            },
         ])
 
         result = save_tables(body, db_session)
 
-        assert result["skeleton_titles"] == {
-            "noun": ["Plural Agreement", "Nouns: Feminine", "Nouns: Masculine"],
-        }
+        assert result["skeleton_titles"] == {"noun": ["Nouns"]}
+        assert result["skeleton_table"] == {"noun": "| Singular | Plural |"}
+        mock_build_noun_skeleton.assert_called_once_with(
+            db_session, seed_data["rule_id"], "noun_number"
+        )
 
     @patch("routers.save_tables_agent.get_language_pair_by_id")
     @patch("routers.save_tables_agent.get_grammar_rule_by_id")
@@ -648,10 +654,155 @@ class TestSkeletonTable:
         mock_get_pair.return_value = {"pair_id": seed_data["pair_id"]}
         mock_get_rule.return_value = GrammarRule(
             id=seed_data["rule_id"], name="test", description="test",
-            language_id="1", word_category_id="1",
+            language_id="1", word_category_id=str(uuid.uuid4()),
         )
         mock_graph.invoke.side_effect = RuntimeError("boom")
         body = _make_request(seed_data)
 
         with pytest.raises(RuntimeError, match="boom"):
             save_tables(body, db_session)
+
+
+class TestNounTableValidation:
+    def test_missing_noun_layout_returns_400(self, seed_data, mock_graph, db_session):
+        table = _noun_table()
+        table.pop("noun_table_layout")
+        body = _make_request(seed_data, tables=[table])
+
+        with pytest.raises(HTTPException) as exc_info:
+            save_tables(body, db_session)
+
+        assert exc_info.value.status_code == 400
+        assert "layout" in exc_info.value.detail.lower()
+        assert "regenerate" in exc_info.value.detail.lower()
+        mock_graph.invoke.assert_not_called()
+
+    def test_noun_table_with_wrong_column_count_returns_400(
+        self, seed_data, mock_graph, db_session
+    ):
+        table = {
+            "title": "Half Table",
+            "headers": NOUN_NUMBER_HEADERS[:4],
+            "rows": [
+                {"cells": ["el gato", "the cat", "Masculine", "El gato duerme."]}
+            ],
+            "noun_table_layout": "noun_number",
+        }
+        body = _make_request(seed_data, tables=[table])
+
+        with pytest.raises(HTTPException) as exc_info:
+            save_tables(body, db_session)
+
+        assert exc_info.value.status_code == 400
+        assert "8 columns" in exc_info.value.detail
+        assert "regenerate" in exc_info.value.detail.lower()
+        mock_graph.invoke.assert_not_called()
+
+    def test_valid_eight_column_noun_table_is_saved(
+        self, seed_data, mock_graph, db_session
+    ):
+        body = _make_request(seed_data)
+
+        result = save_tables(body, db_session)
+
+        assert result["status"] == "saved"
+        mock_graph.invoke.assert_called_once()
+
+
+class TestNounFragmentMerge:
+    def test_two_side_fragments_merge_into_one_eight_column_table(
+        self, seed_data, mock_graph, db_session
+    ):
+        body = _make_request(seed_data, tables=[
+            {
+                "title": "Nouns — Singular",
+                "headers": ["Singular", "Traducción", "Explicación", "Ejemplo"],
+                "rows": [
+                    {
+                        "cells": ["el gato", "the cat", "Masculine", "El gato duerme."],
+                        "row_position": 0,
+                    },
+                    {
+                        "cells": ["la mesa", "the table", "Feminine", "La mesa es grande."],
+                        "row_position": 1,
+                    },
+                ],
+                "fragmented_table_id": 1,
+                "noun_table_layout": "noun_number",
+            },
+            {
+                "title": "Nouns — Plural",
+                "headers": ["Plural", "Traducción", "Explicación", "Ejemplo"],
+                "rows": [
+                    {
+                        "cells": ["los gatos", "the cats", "Plural", "Los gatos duermen."],
+                        "row_position": 0,
+                    },
+                    {
+                        "cells": ["las mesas", "the tables", "Plural", "Las mesas son grandes."],
+                        "row_position": 1,
+                    },
+                ],
+                "fragmented_table_id": 2,
+                "noun_table_layout": "noun_number",
+            },
+        ])
+
+        result = save_tables(body, db_session)
+
+        state = mock_graph.invoke.call_args.args[0]
+        assert len(state["tables"]) == 1
+        merged = state["tables"][0]
+        assert merged["title"] == "Nouns"
+        assert merged["headers"] == NOUN_NUMBER_HEADERS
+        assert merged["noun_table_layout"] == "noun_number"
+        assert merged["rows"][0]["cells"] == [
+            "el gato",
+            "the cat",
+            "Masculine",
+            "El gato duerme.",
+            "los gatos",
+            "the cats",
+            "Plural",
+            "Los gatos duermen.",
+        ]
+        assert merged["rows"][1]["cells"] == [
+            "la mesa",
+            "the table",
+            "Feminine",
+            "La mesa es grande.",
+            "las mesas",
+            "the tables",
+            "Plural",
+            "Las mesas son grandes.",
+        ]
+        assert "Saved 1 table" in result["message"]
+
+    def test_mismatched_fragment_row_counts_returns_400(
+        self, seed_data, mock_graph, db_session
+    ):
+        body = _make_request(seed_data, tables=[
+            {
+                "title": "Nouns — Singular",
+                "headers": ["Singular", "Traducción", "Explicación", "Ejemplo"],
+                "rows": [
+                    {"cells": ["el gato", "the cat", "Masculine", "El gato duerme."]}
+                ],
+                "fragmented_table_id": 1,
+                "noun_table_layout": "noun_number",
+            },
+            {
+                "title": "Nouns — Plural",
+                "headers": ["Plural", "Traducción", "Explicación", "Ejemplo"],
+                "rows": [],
+                "fragmented_table_id": 2,
+                "noun_table_layout": "noun_number",
+            },
+        ])
+
+        with pytest.raises(HTTPException) as exc_info:
+            save_tables(body, db_session)
+
+        assert exc_info.value.status_code == 400
+        assert "same number of pairs" in exc_info.value.detail.lower()
+        mock_graph.invoke.assert_not_called()

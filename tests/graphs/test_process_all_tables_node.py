@@ -15,6 +15,7 @@ from models.word_rule_assignments import WordRuleAssignment
 from models.sentences import Sentence
 from models.sentence_translations import SentenceTranslation
 from models.word_form_sentences import WordFormSentence
+from tests.graphs.generation_helpers import NOUN_GENDER_TABLE, NOUN_NUMBER_TABLE
 
 
 @pytest.fixture()
@@ -331,63 +332,138 @@ class TestGeneralTable:
 
 
 class TestNounTable:
-    NOUN_TABLE = {
-        "title": "Género",
-        "headers": ["Form", "Explanation", "Example"],
-        "rows": [
-            {"cells": ["la mesa", "feminine noun", "La mesa es grande"]},
-        ],
-    }
+    def _noun_state(self, db_session, language_es, language_en, tables, form_to_base_word_id=None):
+        category = db_session.query(WordCategory).filter(WordCategory.slug == "noun").one()
+        rule = db_session.query(GrammarRule).filter(
+            GrammarRule.word_category_id == category.id
+        ).one()
+        return _make_state(
+            db_session, rule, language_es, language_en, category.slug,
+            tables=tables,
+            form_to_base_word_id=form_to_base_word_id or {},
+        )
+
+    def _seed_noun(self, db_session, rule, language_es, text):
+        return _seed_base_word_with_assignment(db_session, rule, language_es, text=text)
 
     @patch("graphs.nodes.process_all_tables_node.translate_chain")
-    def test_uses_form_as_label_and_keeps_description(self, mock_chain, db_session, grammar_rule, language_es, language_en):
-        category = db_session.query(WordCategory).filter(WordCategory.slug == "noun").one()
+    def test_creates_two_rows_per_pair_with_labels_and_positions(
+        self, mock_chain, db_session, grammar_rule, language_es, language_en
+    ):
         mock_chain.invoke.return_value = Translations(translations=[
-            TranslationPair(text="la mesa", translation="the table"),
-            TranslationPair(text="La mesa es grande", translation="The table is big"),
+            TranslationPair(text="La mesa es grande.", translation="The table is big."),
+            TranslationPair(text="Las mesas son grandes.", translation="The tables are big."),
         ])
-        state = _make_state(
-            db_session, grammar_rule, language_es, language_en, category.slug,
-            tables=[self.NOUN_TABLE], form_to_base_word_id={},
+        state = self._noun_state(
+            db_session, language_es, language_en,
+            tables=[NOUN_NUMBER_TABLE.model_dump()],
         )
 
         process_all_tables_node(state)
 
-        row = db_session.query(GrammarRuleRow).one()
-        assert row.label == "la mesa"
-        assert row.description == "feminine noun"
-
-        assert db_session.query(WordForm).count() == 0
-        assert db_session.query(WordFormTranslation).count() == 0
-        assert db_session.query(WordFormSentence).count() == 0
-
-        sentence = db_session.query(Sentence).one()
-        assert sentence.template == "La mesa es grande"
-        sentence_translation = db_session.query(SentenceTranslation).one()
-        assert sentence_translation.template == "The table is big"
+        rows = db_session.query(GrammarRuleRow).order_by(GrammarRuleRow.position).all()
+        assert [(row.label, row.description, row.table_no, row.position) for row in rows] == [
+            ("la mesa", "Feminine; singular article 'la'", 0, 0),
+            ("las mesas", "Plural adds -s", 0, 1),
+            ("el libro", "Masculine; singular article 'el'", 0, 2),
+            ("los libros", "Plural adds -s", 0, 3),
+        ]
 
     @patch("graphs.nodes.process_all_tables_node.translate_chain")
-    def test_creates_word_form_for_the_noun_form(self, mock_chain, db_session, grammar_rule, language_es, language_en):
-        category = db_session.query(WordCategory).filter(WordCategory.slug == "noun").one()
-        mock_chain.invoke.return_value = Translations(translations=[
-            TranslationPair(text="la mesa", translation="the table"),
-            TranslationPair(text="La mesa es grande", translation="The table is big"),
-        ])
-        base_word = _seed_base_word_with_assignment(
-            db_session, grammar_rule, language_es, text="la mesa"
-        )
-        state = _make_state(
-            db_session, grammar_rule, language_es, language_en, category.slug,
-            tables=[self.NOUN_TABLE],
-            form_to_base_word_id={"la mesa": base_word.id},
+    def test_row_translations_use_generated_translation_cells(
+        self, mock_chain, db_session, grammar_rule, language_es, language_en
+    ):
+        mock_chain.invoke.return_value = Translations(translations=[])
+        state = self._noun_state(
+            db_session, language_es, language_en,
+            tables=[NOUN_NUMBER_TABLE.model_dump()],
         )
 
         process_all_tables_node(state)
 
-        word_form = db_session.query(WordForm).one()
-        assert word_form.form == "la mesa"
-        assert db_session.query(WordFormTranslation).one().translation == "the table"
-        assert db_session.query(WordFormSentence).count() == 1
+        translations = db_session.query(GrammarRuleRowTranslation).order_by(
+            GrammarRuleRowTranslation.id
+        ).all()
+        assert {t.label_translation for t in translations} == {
+            "the table", "the tables", "the book", "the books",
+        }
+
+    @patch("graphs.nodes.process_all_tables_node.translate_chain")
+    def test_saves_both_examples_and_links_each_to_its_side(
+        self, mock_chain, db_session, grammar_rule, language_es, language_en
+    ):
+        mock_chain.invoke.return_value = Translations(translations=[
+            TranslationPair(text="La mesa es grande.", translation="The table is big."),
+            TranslationPair(text="Las mesas son grandes.", translation="The tables are big."),
+        ])
+        mesa = self._seed_noun(db_session, grammar_rule, language_es, "la mesa")
+        mesas = self._seed_noun(db_session, grammar_rule, language_es, "las mesas")
+        state = self._noun_state(
+            db_session, language_es, language_en,
+            tables=[NOUN_NUMBER_TABLE.model_dump()],
+            form_to_base_word_id={"la mesa": mesa.id, "las mesas": mesas.id},
+        )
+
+        process_all_tables_node(state)
+
+        sentences = db_session.query(Sentence).order_by(Sentence.row_position).all()
+        assert [s.template for s in sentences] == [
+            "La mesa es grande.",
+            "Las mesas son grandes.",
+            "El libro es nuevo.",
+            "Los libros son nuevos.",
+        ]
+        assert [s.row_position for s in sentences] == [0, 1, 2, 3]
+
+        links = db_session.query(WordFormSentence).all()
+        linked = {
+            (
+                db_session.query(WordForm).filter(WordForm.id == link.word_form_id).one().form,
+                db_session.query(Sentence).filter(Sentence.id == link.sentence_id).one().template,
+            )
+            for link in links
+        }
+        assert ("la mesa", "La mesa es grande.") in linked
+        assert ("las mesas", "Las mesas son grandes.") in linked
+
+    @patch("graphs.nodes.process_all_tables_node.translate_chain")
+    def test_noun_examples_are_not_tokenized_into_word_forms(
+        self, mock_chain, db_session, grammar_rule, language_es, language_en
+    ):
+        mock_chain.invoke.return_value = Translations(translations=[])
+        mesa = self._seed_noun(db_session, grammar_rule, language_es, "la mesa")
+        state = self._noun_state(
+            db_session, language_es, language_en,
+            tables=[NOUN_NUMBER_TABLE.model_dump()],
+            form_to_base_word_id={"la mesa": mesa.id},
+        )
+
+        process_all_tables_node(state)
+
+        forms = {form.form for form in db_session.query(WordForm).all()}
+        assert forms == {"la mesa"}
+
+        sent_items = set(mock_chain.invoke.call_args[0][0]["items"].splitlines())
+        assert "La mesa es grande." in sent_items
+        assert "mesa" not in sent_items
+
+    @patch("graphs.nodes.process_all_tables_node.translate_chain")
+    def test_gender_layout_creates_two_rows_per_pair(
+        self, mock_chain, db_session, grammar_rule, language_es, language_en
+    ):
+        mock_chain.invoke.return_value = Translations(translations=[])
+        state = self._noun_state(
+            db_session, language_es, language_en,
+            tables=[NOUN_GENDER_TABLE.model_dump()],
+        )
+
+        process_all_tables_node(state)
+
+        rows = db_session.query(GrammarRuleRow).order_by(GrammarRuleRow.position).all()
+        assert [row.label for row in rows] == [
+            "el libro", "la mesa", "el problema", "la mano",
+        ]
+        assert [row.position for row in rows] == [0, 1, 2, 3]
 
 
 class TestFragmentedTables:
