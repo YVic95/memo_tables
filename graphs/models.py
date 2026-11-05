@@ -108,6 +108,14 @@ class TableData(BaseModel):
         default=None,
         description="1-based id for fragmented sub-tables; None for a regular table",
     )
+    noun_table_layout: Literal["noun_number", "noun_gender"] | None = Field(
+        default=None,
+        description=(
+            "Layout of a generated noun table: 'noun_number' for the "
+            "singular/plural layout or 'noun_gender' for the masculine/feminine "
+            "layout. None for non-noun tables."
+        ),
+    )
 
 class FragmentationOutput(BaseModel):
     should_fragment: bool = Field(description="Whether the table can be split into sub-tables")

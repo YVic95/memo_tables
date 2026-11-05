@@ -194,37 +194,68 @@ generate_noun_table_prompt = PromptTemplate.from_template(
     Rule name: {rule_name}
     Rule description: {rule_description}
 
-    COLUMN STRUCTURE — output EXACTLY these three columns, in this order, and no others:
-    1. Form — the noun in {target_language} together with its definite article
-       (e.g. "la mesa"), so the learner can see the noun's gender.
-    2. Explanation — in {native_language}, stating the noun's gender and
-       explaining how its plural is formed (e.g. "Feminine; plural adds -s").
-    3. Example — a short sentence in {target_language} using this noun.
+    CHOOSE THE LAYOUT
+    Decide which of the two layouts fits the rule, then set `noun_table_layout` to
+    the matching value and use that layout's eight columns.
+    - NUMBER layout ("noun_number") — for a rule about singular/plural, number,
+      or how plurals are formed.
+    - GENDER layout ("noun_gender") — for a rule about grammatical gender
+      (masculine/feminine) that does not teach plural formation.
+    - If the rule covers BOTH gender and number, use the NUMBER layout and set
+      noun_table_layout to "noun_number"; mention gender in the explanations.
 
-    LANGUAGE RULES
-    - Table title: written in {target_language}, briefly summarizing the noun rule.
-    - Column headers: written in {target_language}.
-    - Explanation text inside cells: written in {native_language}, so the learner
-      understands the noun's gender and plural formation.
-    - All other cells (Form, Example): written in {target_language}.
-    - Select ONE representative noun for the entire table. Every row must use
-      this same noun. Only vary the feature the row demonstrates (for example
-      singular vs plural). Do not introduce additional lexical items.
+    The column names below describe each column's role. Output the headers in
+    {target_language}, keeping this exact order and meaning.
+
+    NUMBER LAYOUT — noun_table_layout "noun_number"
+    1. Singular
+    2. Translation
+    3. Explanation
+    4. Example
+    5. Plural
+    6. Translation
+    7. Explanation
+    8. Example
+
+    GENDER LAYOUT — noun_table_layout "noun_gender"
+    1. Masculine
+    2. Translation
+    3. Explanation
+    4. Example
+    5. Feminine
+    6. Translation
+    7. Explanation
+    8. Example
+
+    ROW STRUCTURE — one row = one pair
+    - Number layout: the same noun in singular (columns 1-4) and plural
+      (columns 5-8).
+    - Gender layout: a masculine noun (columns 1-4) paired with a feminine noun
+      (columns 5-8) that shows the same pattern or the same exception
+      (e.g. "el libro" / "la mesa", "el problema" / "la mano").
 
     CONTENT RULES
-    - Cover every grammatically meaningful form relevant to this rule
-      (for example singular and plural).
-    - Every row must include a short example sentence in {target_language}.
-    - Each row should demonstrate a different form of the same noun (for example
-      singular vs plural). Restating the noun's gender and plural rule in the
-      explanation is fine when the row changes the form.
-    - If a form does not apply to a given row, use "" rather than "N/A" or
-      similar filler.
+    - Table title: written in {target_language}, briefly summarizing the rule.
+    - Column headers: written in {target_language}, in the chosen layout's order.
+    - The form columns (Singular/Plural or Masculine/Feminine): the noun in
+      {target_language}, with its article where the language uses one.
+    - Translation cells: written in {native_language} and include the article,
+      e.g. "the table".
+    - Explanation cells: written in {native_language}, as short grammar notes.
+      Left side: the gender cue or the singular article. Right side: the plural
+      formation or the feminine cue.
+    - Example cells: exactly one short sentence in {target_language} using that
+      side's noun form. Do not include a native-language translation in the cell.
+    - Pair count:
+      - Single-pattern rule: generate 2-3 pairs.
+      - Multi-pattern rule: generate 4-6 pairs.
+    - Every row must have exactly eight cells.
+    - Do not add, omit, reorder, or split any of the eight columns.
     - Do not include separate "Common mistake" or "Correction" columns or content.
     - If the language uses diacritics, use them properly.
 
-    Return only the table (title, headers, rows) — no additional commentary
-    before or after it.
+    Return only the table (title, headers, rows, noun_table_layout) — no additional
+    commentary before or after it.
     """
 )
 
