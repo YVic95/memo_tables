@@ -391,6 +391,23 @@ body.admin-panel-body {
     min-width: 140px;
 }
 
+.catalogue-filters-reset {
+    background-color: #EEEEEE;
+    color: #4A4A4A;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 24px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-bottom: 16px;
+    white-space: nowrap;
+}
+
+.catalogue-filters-reset:hover {
+    background-color: #DDDDDD;
+}
+
 .sort-header {
     background: none;
     border: none;

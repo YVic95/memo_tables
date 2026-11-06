@@ -53,7 +53,7 @@
                 </div>
                 <input type="hidden" id="catalogue-sort" name="sort" value="{{ sort }}">
                 <input type="hidden" id="catalogue-dir" name="dir" value="{{ dir }}">
-                <button type="button" id="catalogue-filters-reset" class="close-button"
+                <button type="button" id="catalogue-filters-reset" class="catalogue-filters-reset"
                         hx-on:click="this.form.reset(); document.getElementById('catalogue-filter-level').dispatchEvent(new Event('change', {bubbles: true}))">
                     Reset
                 </button>
