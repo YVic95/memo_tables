@@ -2,6 +2,7 @@
           action="/admin-panel/canonical-rules/rules" method="post"
           hx-post="/admin-panel/canonical-rules/rules"
           hx-include="#canonical-rules-pair-select"
+          hx-vals="{{ filter_vals_js }}"
           hx-target="#canonical-rules-list"
           hx-swap="outerHTML"
           hx-indicator="#loader"

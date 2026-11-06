@@ -379,6 +379,33 @@ body.admin-panel-body {
 }
 
 /* Canonical rules table */
+.catalogue-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px 16px;
+    margin-bottom: 16px;
+}
+
+.catalogue-filters .form-group {
+    min-width: 140px;
+}
+
+.sort-header {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    font-weight: bold;
+    cursor: pointer;
+    text-align: left;
+}
+
+.sort-header:hover {
+    text-decoration: underline;
+}
+
 .canonical-rules-table {
     width: 100%;
     border-collapse: separate;

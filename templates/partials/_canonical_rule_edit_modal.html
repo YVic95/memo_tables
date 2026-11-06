@@ -9,6 +9,7 @@
             <form id="canonical-rule-edit-form"
                   action="/admin-panel/canonical-rules/rules/{{ rule.id }}" method="post"
                   hx-patch="/admin-panel/canonical-rules/rules/{{ rule.id }}"
+                  hx-vals="{{ filter_vals_js }}"
                   hx-target="#canonical-rules-list"
                   hx-swap="outerHTML"
                   hx-indicator="#loader"

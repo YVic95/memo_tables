@@ -243,3 +243,53 @@ class TestRulesListFiltering:
         )
         assert resp.status_code == 200
         assert "No canonical rules for this pair yet." in resp.text
+
+
+class TestPairChangeKeepsFilters:
+    def test_panel_preserves_level_and_status_selections(
+        self, admin_client, pair_es_en, catalog
+    ):
+        resp = admin_client.get(
+            "/admin-panel/canonical-rules/panel",
+            params={
+                "pair_id": str(pair_es_en.pair_id),
+                "level": "A1",
+                "status": "active",
+            },
+        )
+        assert resp.status_code == 200
+        assert '<option value="A1" selected>' in resp.text
+        assert '<option value="active" selected>' in resp.text
+        assert "Ser vs Estar" in resp.text
+        assert "Plural Nouns" not in resp.text
+
+    def test_panel_canonicalizes_category_to_display_name(
+        self, admin_client, pair_es_en, catalog
+    ):
+        resp = admin_client.get(
+            "/admin-panel/canonical-rules/panel",
+            params={"pair_id": str(pair_es_en.pair_id), "category": "noun"},
+        )
+        assert resp.status_code == 200
+        assert '<option value="Nouns" selected>' in resp.text
+        assert "Ser vs Estar" not in resp.text
+        assert "Articles" in resp.text
+
+    def test_panel_drops_unknown_category(
+        self, admin_client, pair_es_en, catalog
+    ):
+        resp = admin_client.get(
+            "/admin-panel/canonical-rules/panel",
+            params={"pair_id": str(pair_es_en.pair_id), "category": "Klingon"},
+        )
+        assert resp.status_code == 200
+        category_block = resp.text.split('id="catalogue-filter-category"')[1].split(
+            "</select>"
+        )[0]
+        assert "selected" not in category_block
+        assert "Ser vs Estar" in resp.text
+
+    def test_pair_selector_carries_filters(self, admin_client, pair_es_en):
+        resp = admin_client.get("/admin-panel/canonical-rules")
+        assert resp.status_code == 200
+        assert 'hx-include="#catalogue-filters"' in resp.text

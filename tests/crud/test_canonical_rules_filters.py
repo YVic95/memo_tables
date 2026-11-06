@@ -213,3 +213,47 @@ class TestCanonicalRuleCategories:
         assert get_canonical_rule_categories_for_pair(
             db_session, language_en.id, language_es.id
         ) == []
+
+
+class TestResolveCanonicalCategory:
+    def test_slug_resolves_to_display_name(
+        self, db_session, language_en, language_es, catalog
+    ):
+        from crud.canonical_rules import resolve_canonical_category_name
+
+        assert (
+            resolve_canonical_category_name(
+                db_session, language_en.id, language_es.id, "noun"
+            )
+            == "Nouns"
+        )
+
+    def test_name_matches_case_insensitively(
+        self, db_session, language_en, language_es, catalog
+    ):
+        from crud.canonical_rules import resolve_canonical_category_name
+
+        assert (
+            resolve_canonical_category_name(
+                db_session, language_en.id, language_es.id, "VERBS"
+            )
+            == "Verbs"
+        )
+
+    def test_unknown_or_empty_returns_none(
+        self, db_session, language_en, language_es, catalog, nouns
+    ):
+        from crud.canonical_rules import resolve_canonical_category_name
+
+        assert (
+            resolve_canonical_category_name(
+                db_session, language_en.id, language_es.id, "Klingon"
+            )
+            is None
+        )
+        assert (
+            resolve_canonical_category_name(
+                db_session, language_en.id, language_es.id, ""
+            )
+            is None
+        )

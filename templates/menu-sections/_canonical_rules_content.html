@@ -13,6 +13,7 @@
         <select id="canonical-rules-pair-select" name="pair_id" class="form-select"
                 hx-get="/admin-panel/canonical-rules/panel"
                 hx-trigger="change"
+                hx-include="#catalogue-filters"
                 hx-vals="js:{pair_id: this.value}"
                 hx-target="#canonical-rules-panel"
                 hx-swap="outerHTML"

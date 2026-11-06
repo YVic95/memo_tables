@@ -30,7 +30,7 @@
                     <select id="catalogue-filter-level" name="level" class="form-select">
                         <option value="">All levels</option>
                         {% for level in cefr_levels %}
-                        <option value="{{ level }}">{{ level }}</option>
+                        <option value="{{ level }}"{% if filters and filters.level == level %} selected{% endif %}>{{ level }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -39,7 +39,7 @@
                     <select id="catalogue-filter-category" name="category" class="form-select">
                         <option value="">All categories</option>
                         {% for category_name in filter_categories %}
-                        <option value="{{ category_name }}">{{ category_name }}</option>
+                        <option value="{{ category_name }}"{% if filters and filters.category == category_name %} selected{% endif %}>{{ category_name }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -47,12 +47,14 @@
                     <label for="catalogue-filter-status">Status</label>
                     <select id="catalogue-filter-status" name="status" class="form-select">
                         <option value="">All statuses</option>
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
+                        <option value="active"{% if filters and filters.status == 'active' %} selected{% endif %}>Active</option>
+                        <option value="inactive"{% if filters and filters.status == 'inactive' %} selected{% endif %}>Inactive</option>
                     </select>
                 </div>
+                <input type="hidden" id="catalogue-sort" name="sort" value="{{ sort }}">
+                <input type="hidden" id="catalogue-dir" name="dir" value="{{ dir }}">
                 <button type="button" id="catalogue-filters-reset" class="close-button"
-                        hx-on:click="for (const id of ['catalogue-filter-level', 'catalogue-filter-category', 'catalogue-filter-status']) { const el = document.getElementById(id); el.value = ''; el.dispatchEvent(new Event('change', {bubbles: true})); }">
+                        hx-on:click="this.form.reset(); document.getElementById('catalogue-filter-level').dispatchEvent(new Event('change', {bubbles: true}))">
                     Reset
                 </button>
             </form>

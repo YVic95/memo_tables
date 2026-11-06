@@ -220,6 +220,36 @@ def get_canonical_rule_categories_for_pair(
     return [row[0] for row in rows]
 
 
+def resolve_canonical_category_name(
+    db: Session,
+    native_language_id: uuid.UUID,
+    target_language_id: uuid.UUID,
+    value: str | None,
+) -> str | None:
+    """Resolve a category filter to the pair's display name.
+
+    Matches the backend filtering (slug or name, case-insensitive) so the
+    panel can keep the selection and drop values the pair does not use.
+    """
+    if not value:
+        return None
+    lowered = value.strip().lower()
+    rows = (
+        db.query(WordCategory.name, WordCategory.slug)
+        .join(CanonicalRule, CanonicalRule.word_category_id == WordCategory.id)
+        .filter(
+            CanonicalRule.native_language_id == native_language_id,
+            CanonicalRule.target_language_id == target_language_id,
+        )
+        .distinct()
+        .all()
+    )
+    for name, slug in rows:
+        if lowered in (name.lower(), slug.lower()):
+            return name
+    return None
+
+
 def _validate_rule_fields(
     db: Session,
     *,

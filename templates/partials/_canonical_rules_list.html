@@ -5,12 +5,36 @@
     <table class="canonical-rules-table">
         <thead>
             <tr>
-                <th>Name</th>
+                <th><button type="button" class="sort-header" title="Sort by Name"
+                        hx-get="/admin-panel/canonical-rules/rules?level={{ filters.level | urlencode }}&amp;category={{ filters.category | urlencode }}&amp;status={{ filters.status }}&amp;sort=name&amp;dir={{ 'asc' if sort == 'name' and dir == 'desc' else ('desc' if sort == 'name' else 'asc') }}"
+                        hx-include="#canonical-rules-pair-select"
+                        hx-target="#canonical-rules-list"
+                        hx-swap="outerHTML"
+                        hx-indicator="#loader"
+                        hx-on:click="document.getElementById('catalogue-sort').value='name'; document.getElementById('catalogue-dir').value='{{ 'asc' if sort == 'name' and dir == 'desc' else ('desc' if sort == 'name' else 'asc') }}'">Name{% if sort == 'name' %} {{ '▼' if dir == 'desc' else '▲' }}{% endif %}</button></th>
                 <th>Slug</th>
-                <th>Level</th>
+                <th><button type="button" class="sort-header" title="Sort by Level"
+                        hx-get="/admin-panel/canonical-rules/rules?level={{ filters.level | urlencode }}&amp;category={{ filters.category | urlencode }}&amp;status={{ filters.status }}&amp;sort=level&amp;dir={{ 'asc' if sort == 'level' and dir == 'desc' else ('desc' if sort == 'level' else 'asc') }}"
+                        hx-include="#canonical-rules-pair-select"
+                        hx-target="#canonical-rules-list"
+                        hx-swap="outerHTML"
+                        hx-indicator="#loader"
+                        hx-on:click="document.getElementById('catalogue-sort').value='level'; document.getElementById('catalogue-dir').value='{{ 'asc' if sort == 'level' and dir == 'desc' else ('desc' if sort == 'level' else 'asc') }}'">Level{% if sort == 'level' %} {{ '▼' if dir == 'desc' else '▲' }}{% endif %}</button></th>
                 {# <th>Position</th> #}
-                <th>Category</th>
-                <th>Status</th>
+                <th><button type="button" class="sort-header" title="Sort by Category"
+                        hx-get="/admin-panel/canonical-rules/rules?level={{ filters.level | urlencode }}&amp;category={{ filters.category | urlencode }}&amp;status={{ filters.status }}&amp;sort=category&amp;dir={{ 'asc' if sort == 'category' and dir == 'desc' else ('desc' if sort == 'category' else 'asc') }}"
+                        hx-include="#canonical-rules-pair-select"
+                        hx-target="#canonical-rules-list"
+                        hx-swap="outerHTML"
+                        hx-indicator="#loader"
+                        hx-on:click="document.getElementById('catalogue-sort').value='category'; document.getElementById('catalogue-dir').value='{{ 'asc' if sort == 'category' and dir == 'desc' else ('desc' if sort == 'category' else 'asc') }}'">Category{% if sort == 'category' %} {{ '▼' if dir == 'desc' else '▲' }}{% endif %}</button></th>
+                <th><button type="button" class="sort-header" title="Sort by Status"
+                        hx-get="/admin-panel/canonical-rules/rules?level={{ filters.level | urlencode }}&amp;category={{ filters.category | urlencode }}&amp;status={{ filters.status }}&amp;sort=status&amp;dir={{ 'asc' if sort == 'status' and dir == 'desc' else ('desc' if sort == 'status' else 'asc') }}"
+                        hx-include="#canonical-rules-pair-select"
+                        hx-target="#canonical-rules-list"
+                        hx-swap="outerHTML"
+                        hx-indicator="#loader"
+                        hx-on:click="document.getElementById('catalogue-sort').value='status'; document.getElementById('catalogue-dir').value='{{ 'asc' if sort == 'status' and dir == 'desc' else ('desc' if sort == 'status' else 'asc') }}'">Status{% if sort == 'status' %} {{ '▼' if dir == 'desc' else '▲' }}{% endif %}</button></th>
                 <th>Actions</th>
             </tr>
         </thead>
@@ -43,6 +67,7 @@
                         {% if rule.is_active %}
                         <button type="button" class="deactivate-button" title="Deactivate" aria-label="Deactivate"
                                 hx-post="/admin-panel/canonical-rules/rules/{{ rule.id }}/deactivate"
+                                hx-include="#catalogue-filters"
                                 hx-target="#canonical-rules-list"
                                 hx-swap="outerHTML"
                                 hx-confirm="Deactivate this canonical rule?">
@@ -51,6 +76,7 @@
                         {% else %}
                         <button type="button" class="reactivate-button" title="Reactivate" aria-label="Reactivate"
                                 hx-post="/admin-panel/canonical-rules/rules/{{ rule.id }}/activate"
+                                hx-include="#catalogue-filters"
                                 hx-target="#canonical-rules-list"
                                 hx-swap="outerHTML">
                             Reactivate
