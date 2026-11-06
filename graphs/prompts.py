@@ -323,10 +323,10 @@ fragmentation_prompt = PromptTemplate.from_template(
         ### Common Mistakes: -> put it in the section heading when needed
         # - Use "-" sub-lists within common mistakes. -> put it in the CRITICAL FORMATTING RULES when needed
 
-rule_content_prompt = PromptTemplate.from_template(
+general_rule_content_prompt = PromptTemplate.from_template(
     """
         Write the full learning content for this grammar rule, in {native_language},
-        for a speaker learning {target_language}. Cover all gramatical forms for concrete rule.
+        for a speaker learning {target_language}. Cover all grammatical forms for concrete rule.
 
         Name: {rule_title}
         Short explanation: {rule_explanation}
@@ -338,6 +338,8 @@ rule_content_prompt = PromptTemplate.from_template(
         - Use "**" for emphasis on key terms.
         - Use "*" for translations and example phrases.
         - Use numbered lists (1. 2. ...) for examples.
+        - Each numbered example MUST be a single line. Do not put the forms or
+          the translation on separate lines: a multi-line item breaks the numbering.
 
         Follow this structure exactly:
 
@@ -347,8 +349,47 @@ rule_content_prompt = PromptTemplate.from_template(
         [clear explanation of the rule]
 
         ### Examples:
-        Select ONE representative lexical item (verb, adjective, etc.) for
-        all examples. Use ONLY ONE word for all examples.
+        Select ONE representative lexical item for all examples.
+        Use ONLY ONE word for all examples.
+
+    """
+)
+
+verb_rule_content_prompt = PromptTemplate.from_template(
+    """
+        Write the full learning content for this verb grammar rule, in {native_language},
+        for a speaker learning {target_language}. Cover all grammatical forms for concrete rule.
+
+        Name: {rule_title}
+        Short explanation: {rule_explanation}
+
+        CRITICAL FORMATTING RULES:
+        - Never use "#" alone as a separator between sections. Use blank lines instead.
+        - Use "##" for the main heading: ## Grammar Rule: {rule_title}
+        - Use "###" for section headings: ### Rule Statement:, ### Examples:
+        - Use "**" for emphasis on key terms.
+        - Use "*" for translations and example phrases.
+        - Use numbered lists (1. 2. ...) for examples.
+        - Each numbered example MUST be a single line. Do not put the verb forms or
+          the translation on separate lines: a multi-line item breaks the numbering.
+
+        Follow this structure exactly:
+
+        ## Grammar Rule: {rule_title}
+
+        ### Rule Statement:
+        [clear explanation of the rule]
+
+        ### Examples:
+        Select ONE representative verb for all examples. Use ONLY ONE verb
+        for all examples, and do not write a sentence saying that one verb
+        will be used for all of them.
+
+        For each example, write one numbered line that shows the conjugated
+        form(s) the rule is about and a short translation in {native_language}.
+        Keep the whole example on that line. Cover every person the rule
+        applies to, e.g.:
+        1. **hablo / hablas** — I speak / you speak
 
     """
 )
@@ -398,6 +439,61 @@ noun_rule_content_prompt = PromptTemplate.from_template(
 
         Choose nouns that illustrate the rule clearly, including important spelling,
         article, or gender patterns.
+    """
+)
+
+adjective_rule_content_prompt = PromptTemplate.from_template(
+    """
+        Write the full learning content for this adjective grammar rule, in
+        {native_language}, for a speaker learning {target_language}. Cover all
+        grammatical forms for the concrete rule.
+
+        Name: {rule_title}
+        Short explanation: {rule_explanation}
+
+        CRITICAL FORMATTING RULES:
+        - Never use "#" alone as a separator between sections. Use blank lines instead.
+        - Use "##" for the main heading: ## Grammar Rule: {rule_title}
+        - Use "###" for section headings: ### Rule Statement:, ### Examples:
+        - Use "**" for emphasis on key terms.
+        - Use "*" for translations and example phrases.
+        - Use numbered lists (1. 2. ...) for examples.
+        - Each numbered example MUST be a single line. Do not put the adjective forms or
+          the translation on separate lines: a multi-line item breaks the numbering.
+        - Every adjective MUST appear inside a carrier noun phrase in
+          {target_language} with its definite article (for example el/la/los/las
+          in Spanish). Never list a bare adjective.
+        - Mark the adjective itself with "*" italics inside the "**" phrase, so the
+          learner can spot it, e.g. **el libro *rojo***. The italic hook lets the
+          admin panel highlight the adjective in theme color.
+
+        Follow this structure exactly:
+
+        ## Grammar Rule: {rule_title}
+
+        ### Rule Statement:
+        [clear explanation of the rule]
+
+        ### Examples:
+        Use 4-5 examples. Use a DIFFERENT adjective in each example.
+        Do not use only one adjective for all examples, and do not write a sentence
+        saying that one adjective will be used for all of them.
+
+        For each example, write one numbered line that shows the form(s) the rule
+        is about and a short translation in {native_language}. Keep the whole
+        example on that line. Always include the definite article with each carrier
+        noun, and keep the "*" italics on the adjective.
+
+        - For a singular/plural rule, show both forms, e.g.:
+          1. **el libro *rojo* / los libros *rojos*** — the red book / the red books
+          2. **el dólar *fuerte* / los dólares *fuertes*** — the strong dollar / the strong dollars
+        - For a gender rule, pair a masculine and a feminine phrase, e.g.:
+          1. **el libro *rojo* / la mesa *roja*** — the red book (masculine) / the red table (feminine)
+        - For an agreement rule, show the noun and adjective agreeing, e.g.:
+          1. **el libro *rojo* / la mesa *roja*** — the red book / the red table
+
+        Choose adjectives that illustrate the rule clearly, including important spelling,
+        agreement, or position patterns.
     """
 )
 

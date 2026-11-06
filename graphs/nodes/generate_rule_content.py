@@ -1,14 +1,21 @@
 from graphs.llm import llm
-from graphs.prompts import noun_rule_content_prompt, rule_content_prompt
+from graphs.prompts import (
+    adjective_rule_content_prompt,
+    general_rule_content_prompt,
+    noun_rule_content_prompt,
+    verb_rule_content_prompt,
+)
 from graphs.states import InitialRuleState
 
 CONTENT_PROMPTS = {
     "noun": noun_rule_content_prompt,
+    "adjective": adjective_rule_content_prompt,
+    "verb": verb_rule_content_prompt,
 }
 
 
 def generate_rule_content_node(state: InitialRuleState) -> InitialRuleState:
-    prompt = CONTENT_PROMPTS.get(state.get("word_category_slug"), rule_content_prompt)
+    prompt = CONTENT_PROMPTS.get(state.get("word_category_slug"), general_rule_content_prompt)
     pipe = prompt | llm
     result = pipe.invoke({
         "native_language": state["native_language"],
