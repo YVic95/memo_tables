@@ -38,11 +38,25 @@ def _rule_form_context(
         "cefr_levels": CEFR_LEVELS,
     }
 
-def _rules_list_context(db: Session, pair: dict) -> dict:
+def _rules_list_context(
+    db: Session,
+    pair: dict,
+    *,
+    level: str | None = None,
+    category: str | None = None,
+    status: str | None = None,
+    sort: str | None = None,
+    direction: str | None = None,
+) -> dict:
     rules = get_all_canonical_rules_for_pair(
         db,
         native_language_id=pair["native_language_id"],
         target_language_id=pair["target_language_id"],
+        level=level,
+        category=category,
+        status=status,
+        sort=sort,
+        direction=direction,
     )
     rule_ids = [rule["id"] for rule in rules]
     linked_ids = get_linked_canonical_rule_ids(db, rule_ids)
@@ -130,6 +144,11 @@ async def canonical_rules_list(
     pair_id: uuid.UUID,
     user: Annotated[dict, Depends(require_admin)],
     db: Annotated[Session, Depends(get_db)],
+    level: str = "",
+    category: str = "",
+    status: str = "",
+    sort: str = "",
+    dir: str = "",
 ):
     pair = get_language_pair_by_id(db, pair_id)
     if pair is None:
@@ -141,7 +160,15 @@ async def canonical_rules_list(
     return templates.TemplateResponse(
         request=request,
         name=RULES_LIST_LOCATION,
-        context=_rules_list_context(db, pair),
+        context=_rules_list_context(
+            db,
+            pair,
+            level=level or None,
+            category=category or None,
+            status=status or None,
+            sort=sort or None,
+            direction=dir or None,
+        ),
     )
 
 

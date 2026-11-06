@@ -1,7 +1,7 @@
 import re
 import uuid
 
-from sqlalchemy import and_, exists, func
+from sqlalchemy import and_, exists, func, or_
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy.sql.elements import ColumnElement
 from models.canonical_rules import CanonicalRule
@@ -70,27 +70,123 @@ def get_canonical_rules_for_pair(
     ).all()
 
 
+VALID_CANONICAL_SORTS = ("level", "category", "status", "name")
+VALID_CANONICAL_SORT_DIRS = ("asc", "desc")
+
+
+def _normalize_canonical_level(level: str | None) -> str | None:
+    if not level:
+        return None
+    normalized = level.strip().upper()
+    return normalized if normalized in CEFR_LEVELS else None
+
+
+def _normalize_canonical_status(status: str | None) -> bool | None:
+    if not status:
+        return None
+    normalized = status.strip().lower()
+    if normalized == "all":
+        return None
+    if normalized == "active":
+        return True
+    if normalized == "inactive":
+        return False
+    return None
+
+
+def _normalize_canonical_category(category: str | None) -> str | None:
+    if not category:
+        return None
+    normalized = category.strip()
+    return normalized or None
+
+
+def _normalize_canonical_sort(
+    sort: str | None, direction: str | None
+) -> tuple[str | None, str]:
+    if not sort:
+        return None, "asc"
+    normalized_sort = sort.strip().lower()
+    if normalized_sort not in VALID_CANONICAL_SORTS:
+        return None, "asc"
+    normalized_dir = (direction or "asc").strip().lower()
+    if normalized_dir not in VALID_CANONICAL_SORT_DIRS:
+        normalized_dir = "asc"
+    return normalized_sort, normalized_dir
+
+
 def get_all_canonical_rules_for_pair(
     db: Session,
     native_language_id: uuid.UUID,
     target_language_id: uuid.UUID,
+    *,
+    level: str | None = None,
+    category: str | None = None,
+    status: str | None = None,
+    sort: str | None = None,
+    direction: str | None = None,
 ) -> list[dict]:
     """
         Return the pair's full catalog — active and inactive — ordered by level then position.
+
+        Optional filters: `level` (A1..C2, invalid ignored), `category`
+        (WordCategory slug or name, invalid ignored by yielding no rows),
+        `status` (`active`/`inactive`/`all`, invalid ignored).
+        Optional `sort` (`level`/`category`/`status`/`name`) with `direction`
+        (`asc`/`desc`) overrides the default ordering; invalid sort falls back
+        to the default. `position ASC` is always the final tiebreak.
     """
-    rows = (
+    level_filter = _normalize_canonical_level(level)
+    status_filter = _normalize_canonical_status(status)
+    category_filter = _normalize_canonical_category(category)
+    sort_by, sort_dir = _normalize_canonical_sort(sort, direction)
+    descending = sort_dir == "desc"
+
+    def _order(column):
+        return column.desc() if descending else column.asc()
+
+    query = (
         db.query(CanonicalRule, WordCategory.name)
         .join(WordCategory, WordCategory.id == CanonicalRule.word_category_id)
         .filter(
             CanonicalRule.native_language_id == native_language_id,
             CanonicalRule.target_language_id == target_language_id,
         )
-        .order_by(
+    )
+    if level_filter is not None:
+        query = query.filter(CanonicalRule.level == level_filter)
+    if status_filter is not None:
+        query = query.filter(CanonicalRule.is_active.is_(status_filter))
+    if category_filter is not None:
+        lowered = category_filter.lower()
+        query = query.filter(
+            or_(
+                func.lower(WordCategory.slug) == lowered,
+                func.lower(WordCategory.name) == lowered,
+            )
+        )
+    if sort_by == "level":
+        query = query.order_by(
+            _order(CanonicalRule.level), CanonicalRule.position.asc()
+        )
+    elif sort_by == "category":
+        query = query.order_by(
+            _order(func.lower(WordCategory.name)), CanonicalRule.position.asc()
+        )
+    elif sort_by == "status":
+        query = query.order_by(
+            _order(CanonicalRule.is_active), CanonicalRule.position.asc()
+        )
+    elif sort_by == "name":
+        query = query.order_by(
+            _order(func.lower(CanonicalRule.name)), CanonicalRule.position.asc()
+        )
+    else:
+        query = query.order_by(
             CanonicalRule.level.asc(),
             CanonicalRule.position.asc(),
         )
-        .all()
-    )
+    rows = query.all()
     return [
         {
             "id": rule.id,
