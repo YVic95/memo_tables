@@ -4,7 +4,10 @@ import pytest
 
 from models.canonical_rules import CanonicalRule
 from models.word_categories import WordCategory
-from crud.canonical_rules import get_all_canonical_rules_for_pair
+from crud.canonical_rules import (
+    get_all_canonical_rules_for_pair,
+    get_canonical_rule_categories_for_pair,
+)
 
 
 @pytest.fixture()
@@ -194,3 +197,19 @@ class TestCanonicalRuleSort:
         assert _slugs(
             db_session, language_en, language_es, level="A1", category="noun"
         ) == ["articles", "old-gender"]
+
+
+class TestCanonicalRuleCategories:
+    def test_returns_distinct_used_categories_alphabetical(
+        self, db_session, language_en, language_es, catalog
+    ):
+        assert get_canonical_rule_categories_for_pair(
+            db_session, language_en.id, language_es.id
+        ) == ["Nouns", "Verbs"]
+
+    def test_empty_pair_returns_empty_list(
+        self, db_session, language_en, language_es, nouns
+    ):
+        assert get_canonical_rule_categories_for_pair(
+            db_session, language_en.id, language_es.id
+        ) == []

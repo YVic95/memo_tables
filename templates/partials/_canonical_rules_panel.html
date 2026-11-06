@@ -17,6 +17,45 @@
     <!-- Rules list -->
     <div class="card">
         {% if pair %}
+            <form id="catalogue-filters" class="catalogue-filters"
+                  hx-get="/admin-panel/canonical-rules/rules"
+                  hx-trigger="change"
+                  hx-include="#canonical-rules-pair-select"
+                  hx-target="#canonical-rules-list"
+                  hx-swap="outerHTML"
+                  hx-indicator="#loader"
+                  onsubmit="return false">
+                <div class="form-group">
+                    <label for="catalogue-filter-level">Level</label>
+                    <select id="catalogue-filter-level" name="level" class="form-select">
+                        <option value="">All levels</option>
+                        {% for level in cefr_levels %}
+                        <option value="{{ level }}">{{ level }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="catalogue-filter-category">Category</label>
+                    <select id="catalogue-filter-category" name="category" class="form-select">
+                        <option value="">All categories</option>
+                        {% for category_name in filter_categories %}
+                        <option value="{{ category_name }}">{{ category_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="catalogue-filter-status">Status</label>
+                    <select id="catalogue-filter-status" name="status" class="form-select">
+                        <option value="">All statuses</option>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+                <button type="button" id="catalogue-filters-reset" class="close-button"
+                        hx-on:click="for (const id of ['catalogue-filter-level', 'catalogue-filter-category', 'catalogue-filter-status']) { const el = document.getElementById(id); el.value = ''; el.dispatchEvent(new Event('change', {bubbles: true})); }">
+                    Reset
+                </button>
+            </form>
             {% include "partials/_canonical_rules_list.html" %}
         {% else %}
             <div id="canonical-rules-list">

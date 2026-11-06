@@ -200,6 +200,26 @@ def get_all_canonical_rules_for_pair(
         for rule, category_name in rows
     ]
 
+def get_canonical_rule_categories_for_pair(
+    db: Session,
+    native_language_id: uuid.UUID,
+    target_language_id: uuid.UUID,
+) -> list[str]:
+    """Distinct category names used by the pair's catalog, alphabetical."""
+    rows = (
+        db.query(WordCategory.name)
+        .join(CanonicalRule, CanonicalRule.word_category_id == WordCategory.id)
+        .filter(
+            CanonicalRule.native_language_id == native_language_id,
+            CanonicalRule.target_language_id == target_language_id,
+        )
+        .distinct()
+        .order_by(WordCategory.name.asc())
+        .all()
+    )
+    return [row[0] for row in rows]
+
+
 def _validate_rule_fields(
     db: Session,
     *,

@@ -63,6 +63,10 @@
         </tbody>
     </table>
     {% else %}
+    {% if filters and (filters.level or filters.category or filters.status) %}
+    <p>No canonical rules match these filters.</p>
+    {% else %}
     <p>No canonical rules for this pair yet.</p>
+    {% endif %}
     {% endif %}
 </div>

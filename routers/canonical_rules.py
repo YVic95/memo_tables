@@ -12,6 +12,7 @@ from crud.canonical_rules import (
     create_canonical_rule,
     get_all_canonical_rules_for_pair,
     get_canonical_rule_by_id,
+    get_canonical_rule_categories_for_pair,
     get_linked_canonical_rule_ids,
     set_canonical_rule_active,
     update_canonical_rule,
@@ -28,6 +29,7 @@ RULE_ERROR_LOCATION = "partials/_canonical_rule_error.html"
 RULE_FORM_ERROR_TARGET = "#canonical-rule-form-error"
 RULE_EDIT_ERROR_TARGET = "#canonical-rule-edit-error"
 RULE_NOT_FOUND = "Rule not found."
+EMPTY_FILTERS = {"level": "", "category": "", "status": ""}
 
 def _rule_form_context(
     db: Session, rule: CanonicalRule | None = None
@@ -65,6 +67,9 @@ def _rules_list_context(
     return {
         "pair": pair,
         "rules": rules,
+        "filters": dict(
+            EMPTY_FILTERS, level=level or "", category=category or "", status=status or ""
+        ),
     }
 
 def _resolve_language_pair(db: Session, pair_id: str) -> dict | None:
@@ -81,8 +86,15 @@ def _pair_context(db: Session, pair_id: str) -> dict:
     """The pair the section is scoped to, together with that pair's rules."""
     pair = _resolve_language_pair(db, pair_id)
     if pair is None:
-        return {"pair": None, "rules": None}
-    return _rules_list_context(db, pair)
+        return {"pair": None, "rules": None, "filter_categories": []}
+    return {
+        **_rules_list_context(db, pair),
+        "filter_categories": get_canonical_rule_categories_for_pair(
+            db,
+            native_language_id=pair["native_language_id"],
+            target_language_id=pair["target_language_id"],
+        ),
+    }
 
 
 def _catalogue_context(db: Session, pair_id: str) -> dict:
@@ -155,7 +167,7 @@ async def canonical_rules_list(
         return templates.TemplateResponse(
             request=request,
             name=RULES_LIST_LOCATION,
-            context={"pair": None, "rules": []},
+            context={"pair": None, "rules": [], "filters": dict(EMPTY_FILTERS)},
         )
     return templates.TemplateResponse(
         request=request,
