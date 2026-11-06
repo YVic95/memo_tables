@@ -362,6 +362,7 @@ async def edit_canonical_rule_form(
 
 
 @router.post("/rules/{rule_id}")
+@router.patch("/rules/{rule_id}")
 async def update_canonical_rule_route(
     request: Request,
     rule_id: uuid.UUID,
