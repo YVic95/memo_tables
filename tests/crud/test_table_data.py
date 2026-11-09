@@ -1,5 +1,6 @@
 import pytest
 from crud.table_data import (
+    build_adjective_skeleton_tables,
     build_noun_skeleton_tables,
     get_or_create_base_word,
     get_or_create_word_translation,
@@ -854,6 +855,55 @@ class TestBuildNounSkeletonTables:
         )
 
         assert result == {"noun": ""}
+
+
+class TestBuildAdjectiveSkeletonTables:
+    HEADERS_BY_TABLE_NO = {0: ("Singular", "Plural"), 1: ("Masculine", "Feminine")}
+
+    def test_unified_flow_renders_number_and_gender_tables(
+        self, db_session, grammar_rule
+    ):
+        create_grammar_rule_row(db_session, grammar_rule.id, "el libro *rojo*", None, 0, 0)
+        create_grammar_rule_row(db_session, grammar_rule.id, "los libros *rojos*", None, 0, 1)
+        create_grammar_rule_row(db_session, grammar_rule.id, "el chico *alto*", None, 1, 0)
+        create_grammar_rule_row(db_session, grammar_rule.id, "la chica *alta*", None, 1, 1)
+
+        result = build_adjective_skeleton_tables(
+            db_session, grammar_rule.id, self.HEADERS_BY_TABLE_NO
+        )
+
+        assert result == {
+            "adjective": (
+                "| Singular        | Plural             |\n"
+                "| --------------- | ------------------ |\n"
+                "| el libro *rojo* | los libros *rojos* |\n"
+                "\n"
+                "| Masculine       | Feminine        |\n"
+                "| --------------- | --------------- |\n"
+                "| el chico *alto* | la chica *alta* |"
+            )
+        }
+
+    def test_table_nos_without_a_header_mapping_are_skipped(
+        self, db_session, grammar_rule
+    ):
+        create_grammar_rule_row(db_session, grammar_rule.id, "el libro *rojo*", None, 0, 0)
+        create_grammar_rule_row(db_session, grammar_rule.id, "los libros *rojos*", None, 0, 1)
+        create_grammar_rule_row(db_session, grammar_rule.id, "stale row", None, 9, 0)
+
+        result = build_adjective_skeleton_tables(
+            db_session, grammar_rule.id, {0: ("Singular", "Plural")}
+        )
+
+        assert "stale row" not in result["adjective"]
+        assert "el libro *rojo*" in result["adjective"]
+
+    def test_no_rows_returns_empty_string(self, db_session, grammar_rule):
+        result = build_adjective_skeleton_tables(
+            db_session, grammar_rule.id, self.HEADERS_BY_TABLE_NO
+        )
+
+        assert result == {"adjective": ""}
 
 
 class TestCountSavedData:

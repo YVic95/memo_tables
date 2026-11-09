@@ -7,6 +7,7 @@ from graphs.table_utils import (
     NOUN_COLUMN_COUNT,
     NOUN_FRAGMENT_TITLE_SEPARATOR,
     NOUN_SIDE_COLUMN_COUNT,
+    split_pair_table,
 )
 
 fragmentation_llm = llm.with_structured_output(FragmentationOutput)
@@ -67,6 +68,27 @@ def _noun_side_fragments(table: dict) -> list[dict]:
     return fragments
 
 
+def _adjective_side_fragments(state: GenerateTableState) -> list[dict]:
+    """Split each unified-flow general table into its two 4-column sides.
+
+    The number table yields Singular/Plural fragments, the gender table yields
+    Masculine/Feminine fragments. Ids run 1-4 across both tables so every
+    fragment keeps a unique table number.
+    """
+    generals = state.get("general_tables") or []
+    if not generals and state.get("general_table"):
+        generals = [state["general_table"]]
+
+    fragments = []
+    for table in generals:
+        for fragment in split_pair_table(
+            table, layout_field="adjective_table_layout", entity_name="Adjective"
+        ):
+            fragment["fragmented_table_id"] = len(fragments) + 1
+            fragments.append(fragment)
+    return fragments
+
+
 def generate_fragmented_tables_node(state: GenerateTableState) -> GenerateTableState:
     general_table = state["general_table"]
 
@@ -75,6 +97,13 @@ def generate_fragmented_tables_node(state: GenerateTableState) -> GenerateTableS
             **state,
             "should_fragment": True,
             "fragmented_tables": _noun_side_fragments(general_table),
+        }
+
+    if state.get("word_category_slug") == "adjective":
+        return {
+            **state,
+            "should_fragment": True,
+            "fragmented_tables": _adjective_side_fragments(state),
         }
 
     result: FragmentationOutput = fragmentation_chain.invoke({

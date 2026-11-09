@@ -146,6 +146,92 @@ NOUN_GENDER_TABLE = TableData(
     noun_table_layout="noun_gender",
 )
 
+ADJ_NUMBER_HEADERS = [
+    "Singular",
+    "Traducción",
+    "Explicación",
+    "Ejemplo",
+    "Plural",
+    "Traducción",
+    "Explicación",
+    "Ejemplo",
+]
+
+ADJ_GENDER_HEADERS = [
+    "Masculino",
+    "Traducción",
+    "Explicación",
+    "Ejemplo",
+    "Femenino",
+    "Traducción",
+    "Explicación",
+    "Ejemplo",
+]
+
+ADJ_NUMBER_TABLE = TableData(
+    title="El número del adjetivo",
+    headers=ADJ_NUMBER_HEADERS,
+    rows=[
+        TableRow(
+            cells=[
+                "el libro *rojo*",
+                "the red book",
+                "Masculine; singular article 'el'",
+                "El libro rojo es nuevo.",
+                "los libros *rojos*",
+                "the red books",
+                "Plural adds -s to the noun and the adjective",
+                "Los libros rojos son nuevos.",
+            ]
+        ),
+        TableRow(
+            cells=[
+                "el dólar *fuerte*",
+                "the strong dollar",
+                "Masculine; singular article 'el'",
+                "El dólar fuerte sube.",
+                "los dólares *fuertes*",
+                "the strong dollars",
+                "Plural adds -es to nouns and adjectives ending in a consonant",
+                "Los dólares fuertes suben.",
+            ]
+        ),
+    ],
+    adjective_table_layout="adj_number_gender",
+)
+
+ADJ_GENDER_TABLE = TableData(
+    title="El género del adjetivo",
+    headers=ADJ_GENDER_HEADERS,
+    rows=[
+        TableRow(
+            cells=[
+                "el chico *alto*",
+                "the tall boy",
+                "Masculine; adjective ends in -o",
+                "El chico alto corre.",
+                "la chica *alta*",
+                "the tall girl",
+                "Feminine; adjective ends in -a",
+                "La chica alta corre.",
+            ]
+        ),
+        TableRow(
+            cells=[
+                "el libro *bueno*",
+                "the good book",
+                "Masculine; adjective ends in -o",
+                "El libro bueno es caro.",
+                "la mesa *buena*",
+                "the good table",
+                "Feminine; adjective ends in -a",
+                "La mesa buena es cara.",
+            ]
+        ),
+    ],
+    adjective_table_layout="adj_number_gender",
+)
+
 PROMPT_VARIABLES = {
     "native_language": "English",
     "target_language": "Spanish",
@@ -163,6 +249,25 @@ class FakeStructuredLLM:
         def respond(prompt_value):
             self.prompts.append(prompt_value.to_string())
             return self.result
+
+        return RunnableLambda(respond)
+
+
+class FakeSequentialLLM:
+    """Returns a canned TableData per call, in order.
+
+    Used for the unified adjective flow, where the category node invokes one
+    prompt for the number table and a second prompt for the gender table.
+    """
+
+    def __init__(self, results):
+        self.results = list(results)
+        self.prompts: list[str] = []
+
+    def with_structured_output(self, schema):
+        def respond(prompt_value):
+            self.prompts.append(prompt_value.to_string())
+            return self.results.pop(0)
 
         return RunnableLambda(respond)
 

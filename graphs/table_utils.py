@@ -1,6 +1,11 @@
 import re
 
-from graphs.models import NounTableLayout, TableData, TableRow
+from graphs.models import (
+    AdjectiveTableLayout,
+    NounTableLayout,
+    TableData,
+    TableRow,
+)
 
 COLUMN_ROLES = {
     "verb": {0: "label", 1: "form", 2: "example", 3: "explanation"},
@@ -23,6 +28,36 @@ NOUN_SIDE_COLUMNS = (
 # Fragment titles are rendered as "<general title> — <side header>" by
 # generate_fragmented_tables_node; the merge below strips the suffix back off.
 NOUN_FRAGMENT_TITLE_SEPARATOR = " — "
+
+ADJECTIVE_COLUMN_COUNT = 8
+ADJECTIVE_SIDE_COLUMN_COUNT = ADJECTIVE_COLUMN_COUNT // 2
+ADJECTIVE_LAYOUTS = frozenset(layout.value for layout in AdjectiveTableLayout)
+# The unified flow produces two pair tables from one rule: a number table
+# (singular/plural) and a gender table (masculine/feminine). Each side pair is
+# identified by the first header of its two 4-column sides.
+ADJECTIVE_NUMBER_SIDE_HEADERS = ("Singular", "Plural")
+ADJECTIVE_GENDER_SIDE_HEADERS = ("Masculine", "Feminine")
+# Each adjective row holds a pair of carrier noun+adjective phrases: columns
+# 0-3 are the left side (singular or masculine) and columns 4-7 are the right
+# side (plural or feminine).
+ADJECTIVE_SIDE_COLUMNS = (
+    {"form": 0, "translation": 1, "explanation": 2, "example": 3},
+    {"form": 4, "translation": 5, "explanation": 6, "example": 7},
+)
+ADJECTIVE_FRAGMENT_TITLE_SEPARATOR = " — "
+
+# Shared shape of every 8-column pair table (noun or adjective): two 4-column
+# sides split at these starts, titles joined with the same separator.
+PAIR_TABLE_COLUMN_COUNT = 8
+PAIR_TABLE_SIDE_COLUMN_COUNT = PAIR_TABLE_COLUMN_COUNT // 2
+PAIR_TABLE_SIDE_STARTS = (0, PAIR_TABLE_SIDE_COLUMN_COUNT)
+PAIR_FRAGMENT_TITLE_SEPARATOR = " — "
+
+# Adjective form cells wrap the adjective in "*" italics inside a "**" carrier
+# phrase (see adjective_rule_content_prompt). The outer bold is stripped first
+# so the marker search does not trip over it.
+_BOLD_WRAPPER_RE = re.compile(r"^\*\*(.+)\*\*$", re.DOTALL)
+_ITALIC_MARKER_RE = re.compile(r"\*([^*]+)\*")
 
 
 def column_roles(word_category_slug: str) -> dict[int, str]:
@@ -56,6 +91,229 @@ def require_noun_layout(layout: str | NounTableLayout | None) -> NounTableLayout
         raise ValueError(
             f"Noun table must set noun_table_layout to {valid}"
         ) from None
+
+
+def require_adjective_layout(
+    layout: str | AdjectiveTableLayout | None,
+) -> AdjectiveTableLayout:
+    """Validate an adjective table layout, accepting raw strings and members."""
+    try:
+        return AdjectiveTableLayout(layout)
+    except ValueError:
+        valid = " or ".join(sorted(ADJECTIVE_LAYOUTS))
+        raise ValueError(
+            f"Adjective table must set adjective_table_layout to {valid}"
+        ) from None
+
+
+def extract_italic_markers(text: str) -> list[str]:
+    """Return the "*" -marked spans inside a carrier-phrase cell.
+
+    Form cells look like "**el libro *rojo* / los libros *rojos***": the outer
+    bold wraps the whole phrase, the italics mark the adjective. Returns the
+    adjectives in order, e.g. ["rojo", "rojos"].
+    """
+    inner = (text or "").strip()
+    bold = _BOLD_WRAPPER_RE.match(inner)
+    if bold is not None:
+        inner = bold.group(1)
+    return [marker.strip() for marker in _ITALIC_MARKER_RE.findall(inner)]
+
+
+def pair_base_title(title: str) -> str:
+    """Strip the " — <side>" fragment suffix back to the general title."""
+    return title.split(PAIR_FRAGMENT_TITLE_SEPARATOR, 1)[0]
+
+
+def _dict_row_position(row: dict | TableRow, index: int) -> tuple[int, int]:
+    position = (
+        row.get("row_position") if isinstance(row, dict) else row.row_position
+    )
+    return (position if position is not None else index, index)
+
+
+def _dict_row_cells(row: dict | TableRow) -> list[str]:
+    return row.get("cells", []) if isinstance(row, dict) else row.cells
+
+
+def split_pair_table(
+    table: dict, *, layout_field: str, entity_name: str
+) -> list[dict]:
+    """Split an 8-column pair table into its two 4-column sides.
+
+    The layout value is carried over untouched (it may be None — the split
+    never invents one). Fragment titles are "<title> — <side header>".
+    """
+    headers = table.get("headers", [])
+    rows = table.get("rows", [])
+    layout = table.get(layout_field)
+
+    if len(headers) != PAIR_TABLE_COLUMN_COUNT:
+        raise ValueError(
+            f"{entity_name} table must have {PAIR_TABLE_COLUMN_COUNT} columns "
+            f"to fragment, got {len(headers)}"
+        )
+    for row in rows:
+        if len(_dict_row_cells(row)) != PAIR_TABLE_COLUMN_COUNT:
+            raise ValueError(
+                f"Every {entity_name.lower()} table row must have "
+                f"{PAIR_TABLE_COLUMN_COUNT} cells to fragment, "
+                f"got {len(_dict_row_cells(row))}"
+            )
+
+    fragments = []
+    for fragment_id, start in enumerate(PAIR_TABLE_SIDE_STARTS, start=1):
+        end = start + PAIR_TABLE_SIDE_COLUMN_COUNT
+        side_headers = headers[start:end]
+        side_title = (
+            f"{table['title']}{PAIR_FRAGMENT_TITLE_SEPARATOR}{side_headers[0]}"
+            if side_headers
+            else table["title"]
+        )
+        fragment_rows = [
+            TableRow(
+                cells=_dict_row_cells(row)[start:end],
+                row_position=row.get("row_position"),
+            )
+            for row in rows
+        ]
+        fragments.append(
+            TableData(
+                title=side_title,
+                headers=side_headers,
+                rows=fragment_rows,
+                fragmented_table_id=fragment_id,
+                **{layout_field: layout},
+            ).model_dump()
+        )
+
+    return fragments
+
+
+def merge_pair_sides(
+    left: dict,
+    right: dict,
+    general: dict | None,
+    *,
+    layout_field: str,
+    pair_error: str,
+) -> TableData:
+    """Zip two 4-column side fragments back into one 8-column pair table."""
+    left_rows = sorted(
+        enumerate(left.get("rows", [])),
+        key=lambda item: _dict_row_position(item[1], item[0]),
+    )
+    right_rows = sorted(
+        enumerate(right.get("rows", [])),
+        key=lambda item: _dict_row_position(item[1], item[0]),
+    )
+    if len(left_rows) != len(right_rows):
+        raise ValueError(pair_error)
+
+    rows = []
+    for (left_index, left_row), (_, right_row) in zip(left_rows, right_rows):
+        left_cells = _dict_row_cells(left_row)
+        right_cells = _dict_row_cells(right_row)
+        left_position = (
+            left_row.get("row_position")
+            if isinstance(left_row, dict)
+            else left_row.row_position
+        )
+        rows.append(
+            TableRow(
+                cells=[*left_cells, *right_cells],
+                row_position=(
+                    left_position if left_position is not None else left_index
+                ),
+            )
+        )
+
+    layout = (
+        left.get(layout_field)
+        or right.get(layout_field)
+        or (general.get(layout_field) if general else None)
+    )
+    title = general["title"] if general is not None else left["title"]
+    if general is None and PAIR_FRAGMENT_TITLE_SEPARATOR in title:
+        title = pair_base_title(title)
+
+    return TableData(
+        title=title,
+        headers=[*left.get("headers", []), *right.get("headers", [])],
+        rows=rows,
+        **{layout_field: layout},
+    )
+
+
+def select_pair_tables(
+    tables: list[TableData],
+    *,
+    layout_field: str,
+    entity_name: str,
+) -> list[TableData]:
+    """Pick the savable tables: merged pairs when fragments exist.
+
+    Fragments are grouped by base title (the general title without the
+    " — <side>" suffix); each group must hold exactly one pair of 4-column
+    sides. Groups merge in fragment-id order so the number pair comes before
+    the gender pair. Without fragments, the general tables pass through.
+    """
+    fragments = [
+        table for table in tables if table.fragmented_table_id is not None
+    ]
+    if not fragments:
+        return [table for table in tables if table.fragmented_table_id is None]
+
+    generals = [
+        table
+        for table in tables
+        if table.fragmented_table_id is None
+        and len(table.headers) == PAIR_TABLE_COLUMN_COUNT
+    ]
+    groups: dict[str, list[TableData]] = {}
+    for table in fragments:
+        groups.setdefault(pair_base_title(table.title), []).append(table)
+
+    merged = []
+    ordered_bases = sorted(
+        groups,
+        key=lambda base: min(t.fragmented_table_id or 0 for t in groups[base]),
+    )
+    for base in ordered_bases:
+        group = sorted(
+            groups[base], key=lambda t: t.fragmented_table_id or 0
+        )
+        if len(group) != 2 or any(
+            len(t.headers) != PAIR_TABLE_SIDE_COLUMN_COUNT for t in group
+        ):
+            raise ValueError(
+                f"{entity_name} fragmented tables for '{base}' must form "
+                "exactly one pair of 4-column sides. Regenerate the table "
+                "before saving."
+            )
+        general = next(
+            (g for g in generals if pair_base_title(g.title) == base), None
+        )
+        merged.append(
+            merge_pair_sides(
+                group[0].model_dump(),
+                group[1].model_dump(),
+                general.model_dump() if general else None,
+                layout_field=layout_field,
+                pair_error=(
+                    f"{entity_name} side tables for '{base}' must contain the "
+                    "same number of pairs. Regenerate the table before saving."
+                ),
+            )
+        )
+    return merged
+
+
+def select_adjective_tables(tables: list[TableData]) -> list[TableData]:
+    """Merge adjective side fragments back into their 8-column pair tables."""
+    return select_pair_tables(
+        tables, layout_field="adjective_table_layout", entity_name="Adjective"
+    )
 
 
 def tokenize_words(text: str) -> list[str]:

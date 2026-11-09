@@ -509,3 +509,45 @@ def build_noun_skeleton_tables(
         tables.append(_format_markdown_table(list(headers), table_rows))
 
     return {"noun": "\n\n".join(tables)}
+
+
+def build_adjective_skeleton_tables(
+    db: Session,
+    grammar_rule_id: uuid.UUID,
+    headers_by_table_no: dict[int, tuple[str, str]],
+) -> dict[str, str]:
+    """Render the skeleton tables for a saved adjective rule.
+
+    The unified flow persists one pair table per table_no (0 for number, 1
+    for gender): two grammar_rule_rows per pair at positions
+    ``pair_index * 2`` and ``pair_index * 2 + 1``. Each group renders under
+    its mapped side headers. Groups without a header mapping (e.g. stale rows
+    from an earlier save) are skipped rather than rendered under wrong
+    headers.
+    """
+    rows = (
+        db.query(GrammarRuleRow)
+        .filter(GrammarRuleRow.grammar_rule_id == grammar_rule_id)
+        .order_by(GrammarRuleRow.table_no, GrammarRuleRow.position)
+        .all()
+    )
+    if not rows:
+        return {"adjective": ""}
+
+    grouped: dict[int, dict[int, dict[int, str]]] = {}
+    for row in rows:
+        pair_index, side_index = divmod(row.position, 2)
+        grouped.setdefault(row.table_no, {}).setdefault(pair_index, {})[side_index] = row.label
+
+    tables = []
+    for table_no in sorted(grouped):
+        headers = headers_by_table_no.get(table_no)
+        if headers is None:
+            continue
+        table_rows = [
+            [pair.get(0, ""), pair.get(1, "")]
+            for _, pair in sorted(grouped[table_no].items())
+        ]
+        tables.append(_format_markdown_table(list(headers), table_rows))
+
+    return {"adjective": "\n\n".join(tables)}

@@ -259,6 +259,130 @@ generate_noun_table_prompt = PromptTemplate.from_template(
     """
 )
 
+generate_adjective_number_table_prompt = PromptTemplate.from_template(
+    """
+    You are a language-learning content expert. Create an adjective number
+    table that teaches the rule below to a learner whose native language is
+    {native_language} and who is learning {target_language}.
+
+    Rule name: {rule_name}
+    Rule description: {rule_description}
+
+    This is the NUMBER table of a unified number+gender pair: a separate
+    GENDER table covers masculine/feminine for the same rule. Set
+    `adjective_table_layout` to "adj_number_gender" and use these eight
+    columns.
+
+    The column names below describe each column's role. Output the headers in
+    {target_language}, keeping this exact order and meaning.
+
+    NUMBER LAYOUT — adjective_table_layout "adj_number_gender"
+    1. Singular
+    2. Translation
+    3. Explanation
+    4. Example
+    5. Plural
+    6. Translation
+    7. Explanation
+    8. Example
+
+    ROW STRUCTURE — one row = one pair
+    The same adjective in singular (columns 1-4) and plural (columns 5-8),
+    each inside a carrier noun+adjective phrase with its definite article
+    (e.g. "**el libro *rojo* / los libros *rojos***").
+    Use a DIFFERENT adjective in each row.
+
+    CONTENT RULES
+    - Table title: written in {target_language}, briefly summarizing the
+      number aspect of the rule. Use a distinct title from the companion
+      gender table.
+    - Column headers: written in {target_language}, in the layout order above.
+    - The form columns (Singular/Plural): the carrier noun+adjective phrase in
+      {target_language}, with the definite article. Never list a bare adjective.
+      Mark the adjective itself with "*" italics inside the "**"
+      phrase, so the learner can spot it.
+    - Translation cells: written in {native_language} and include the article,
+      e.g. "the red book".
+    - Explanation cells: written in {native_language}, as short grammar notes.
+      Left side: the gender cue or the singular article. Right side: how the
+      plural is formed (noun and adjective).
+    - Example cells: exactly one short sentence in {target_language} using that
+      side's phrase. Do not include a native-language translation in the cell.
+    - Pair count:
+      - Single-pattern rule: generate 2-3 pairs.
+      - Multi-pattern rule: generate 4-6 pairs.
+    - Every row must have exactly eight cells.
+    - Do not add, omit, reorder, or split any of the eight columns.
+    - Do not include separate "Common mistake" or "Correction" columns or content.
+    - If the language uses diacritics, use them properly.
+
+    Return only the table (title, headers, rows, adjective_table_layout) — no
+    additional commentary before or after it.
+    """
+)
+
+generate_adjective_gender_table_prompt = PromptTemplate.from_template(
+    """
+    You are a language-learning content expert. Create an adjective gender
+    table that teaches the rule below to a learner whose native language is
+    {native_language} and who is learning {target_language}.
+
+    Rule name: {rule_name}
+    Rule description: {rule_description}
+
+    This is the GENDER table of a unified number+gender pair: the NUMBER table
+    (singular/plural) already exists for the same rule. Set
+    `adjective_table_layout` to "adj_number_gender" and use these eight
+    columns.
+
+    The column names below describe each column's role. Output the headers in
+    {target_language}, keeping this exact order and meaning.
+
+    GENDER LAYOUT — adjective_table_layout "adj_number_gender"
+    1. Masculine
+    2. Translation
+    3. Explanation
+    4. Example
+    5. Feminine
+    6. Translation
+    7. Explanation
+    8. Example
+
+    ROW STRUCTURE — one row = one pair
+    A masculine carrier phrase (columns 1-4) paired with a feminine carrier
+    phrase (columns 5-8) showing the same adjective pattern (e.g. "**el libro
+    *rojo* / la mesa *roja***"). Use a DIFFERENT adjective in each row.
+    Do not reuse these adjectives — they already appear in the number table:
+    {avoid_adjectives}. (If that list is empty, ignore this rule.)
+
+    CONTENT RULES
+    - Table title: written in {target_language}, briefly summarizing the
+      gender aspect of the rule. Use a distinct title from the companion
+      number table.
+    - Column headers: written in {target_language}, in the layout order above.
+    - The form columns (Masculine/Feminine): the carrier noun+adjective phrase
+      in {target_language}, with the definite article. Never list a bare adjective.
+      Mark the adjective itself with "*" italics inside the "**"
+      phrase, so the learner can spot it.
+    - Translation cells: written in {native_language} and include the article,
+      e.g. "the red book".
+    - Explanation cells: written in {native_language}, as short grammar notes.
+      Left side: the masculine cue. Right side: the feminine cue.
+    - Example cells: exactly one short sentence in {target_language} using that
+      side's phrase. Do not include a native-language translation in the cell.
+    - Pair count:
+      - Single-pattern rule: generate 2-3 pairs.
+      - Multi-pattern rule: generate 4-6 pairs.
+    - Every row must have exactly eight cells.
+    - Do not add, omit, reorder, or split any of the eight columns.
+    - Do not include separate "Common mistake" or "Correction" columns or content.
+    - If the language uses diacritics, use them properly.
+
+    Return only the table (title, headers, rows, adjective_table_layout) — no
+    additional commentary before or after it.
+    """
+)
+
 fragmentation_prompt = PromptTemplate.from_template(
     """
         Analyse the following grammar table and decide if it can be split into smaller,

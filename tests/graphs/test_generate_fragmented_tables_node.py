@@ -4,6 +4,9 @@ import graphs.nodes.generate_fragmented_tables_node as node_module
 from graphs.models import FragmentationOutput, TableData, TableRow
 from graphs.nodes.generate_fragmented_tables_node import generate_fragmented_tables_node
 from tests.graphs.generation_helpers import (
+    ADJ_GENDER_TABLE,
+    ADJ_NUMBER_HEADERS,
+    ADJ_NUMBER_TABLE,
     NOUN_GENDER_HEADERS,
     NOUN_GENDER_TABLE,
     NOUN_NUMBER_HEADERS,
@@ -15,6 +18,17 @@ def _noun_state(table: TableData) -> dict:
     return {
         "word_category_slug": "noun",
         "general_table": table.model_dump(),
+    }
+
+
+def _adjective_state() -> dict:
+    return {
+        "word_category_slug": "adjective",
+        "general_table": ADJ_NUMBER_TABLE.model_dump(),
+        "general_tables": [
+            ADJ_NUMBER_TABLE.model_dump(),
+            ADJ_GENDER_TABLE.model_dump(),
+        ],
     }
 
 
@@ -184,3 +198,59 @@ def test_non_noun_categories_keep_the_llm_fragmentation_path(monkeypatch):
     assert calls
     assert result["should_fragment"] is True
     assert result["fragmented_tables"][0]["title"] == "First person"
+
+
+class TestAdjectiveFragmentation:
+    def test_both_general_tables_split_into_four_fragments(self, monkeypatch):
+        monkeypatch.setattr(node_module, "fragmentation_chain", _ExplodingChain())
+
+        result = generate_fragmented_tables_node(_adjective_state())
+
+        assert result["should_fragment"] is True
+        singular, plural, masculine, feminine = result["fragmented_tables"]
+
+        assert singular["title"] == f"{ADJ_NUMBER_TABLE.title} — Singular"
+        assert plural["title"] == f"{ADJ_NUMBER_TABLE.title} — Plural"
+        assert masculine["title"] == f"{ADJ_GENDER_TABLE.title} — Masculino"
+        assert feminine["title"] == f"{ADJ_GENDER_TABLE.title} — Femenino"
+        assert [f["fragmented_table_id"] for f in (singular, plural, masculine, feminine)] == [1, 2, 3, 4]
+        assert [f["adjective_table_layout"] for f in (singular, plural, masculine, feminine)] == ["adj_number_gender"] * 4
+        assert [row["cells"] for row in singular["rows"]] == [
+            row.cells[:4] for row in ADJ_NUMBER_TABLE.rows
+        ]
+        assert [row["cells"] for row in plural["rows"]] == [
+            row.cells[4:] for row in ADJ_NUMBER_TABLE.rows
+        ]
+        assert [row["cells"] for row in masculine["rows"]] == [
+            row.cells[:4] for row in ADJ_GENDER_TABLE.rows
+        ]
+        assert [row["cells"] for row in feminine["rows"]] == [
+            row.cells[4:] for row in ADJ_GENDER_TABLE.rows
+        ]
+
+    def test_missing_general_tables_falls_back_to_the_single_general_table(
+        self, monkeypatch
+    ):
+        monkeypatch.setattr(node_module, "fragmentation_chain", _ExplodingChain())
+        state = {
+            "word_category_slug": "adjective",
+            "general_table": ADJ_NUMBER_TABLE.model_dump(),
+        }
+
+        result = generate_fragmented_tables_node(state)
+
+        assert result["should_fragment"] is True
+        assert len(result["fragmented_tables"]) == 2
+
+    def test_malformed_adjective_table_is_rejected(self):
+        table = ADJ_NUMBER_TABLE.model_copy(
+            update={"headers": ADJ_NUMBER_HEADERS[:7]}
+        )
+        state = {
+            "word_category_slug": "adjective",
+            "general_table": table.model_dump(),
+            "general_tables": [table.model_dump()],
+        }
+
+        with pytest.raises(ValueError, match="8 columns"):
+            generate_fragmented_tables_node(state)

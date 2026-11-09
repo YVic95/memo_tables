@@ -28,6 +28,11 @@ class NounTableLayout(StrEnum):
     noun_number = "noun_number"
     noun_gender = "noun_gender"
 
+class AdjectiveTableLayout(StrEnum):
+    adj_number_gender = "adj_number_gender"
+    adj_agreement = "adj_agreement"
+    adj_other = "adj_other"
+
 class CatalogRule(BaseModel):
     title: str = Field(description="Short name of the grammar/language rule")
     explanation: str = Field(
@@ -118,6 +123,15 @@ class TableData(BaseModel):
             "Layout of a generated noun table: 'noun_number' for the "
             "singular/plural layout or 'noun_gender' for the masculine/feminine "
             "layout. None for non-noun tables."
+        ),
+    )
+    adjective_table_layout: AdjectiveTableLayout | None = Field(
+        default=None,
+        description=(
+            "Layout of a generated adjective table: 'adj_number_gender' for the "
+            "unified number+gender flow (one number table and one gender table), "
+            "'adj_agreement' for noun-adjective agreement, 'adj_other' for other "
+            "adjective rules. None for non-adjective tables."
         ),
     )
 
