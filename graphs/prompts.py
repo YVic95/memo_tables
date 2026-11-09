@@ -10,7 +10,7 @@ propose_missing_rules_prompt = PromptTemplate.from_template(
         speaker should be taught when studying {target_language}. These are the
         ONLY rules available — never invent a rule that is not in the catalog.
 
-        Choose up to five rules from the catalog to teach next. The catalog is
+        Choose up to ten rules from the catalog to teach next. The catalog is
         already ordered by difficulty (CEFR level, then position), so prefer the
         most fundamental missing rules first.
 

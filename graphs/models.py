@@ -47,7 +47,7 @@ class CatalogRule(BaseModel):
     )
 
 class ProposedCatalogRules(BaseModel):
-    rules: list[CatalogRule] = Field(description="Up to 5 rules chosen from the injected catalog candidates")
+    rules: list[CatalogRule] = Field(description="Up to 10 rules chosen from the injected catalog candidates")
 
 class ProposeMissingRulesRequest(BaseModel):
     type: Literal["propose_missing_rules"]

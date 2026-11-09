@@ -9,7 +9,7 @@ rule_proposer_llm = llm.with_structured_output(ProposedCatalogRules)
 
 propose_rules_chain = propose_missing_rules_prompt | rule_proposer_llm
 
-MAX_SUGGESTIONS = 5
+MAX_SUGGESTIONS = 10
 
 NO_MISSING_RULES_MESSAGE = (
     "All rules in the catalog for this language pair have already been created. "

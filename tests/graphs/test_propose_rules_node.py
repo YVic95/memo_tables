@@ -191,7 +191,7 @@ class TestProposeRulesNode:
     ):
         rules = []
         entries = []
-        for i in range(7):
+        for i in range(12):
             rule = _add_catalog_rule(
                 db_session, language_en, language_es, verb_category,
                 slug=f"rule-{i}", level="A1", position=i + 1,
@@ -209,8 +209,8 @@ class TestProposeRulesNode:
 
         result = propose_rules_node(state)
 
-        assert len(result["proposed_rules"]) == 5
-        expected_ids = [str(entries[i].id) for i in range(5)]
+        assert len(result["proposed_rules"]) == 10
+        expected_ids = [str(entries[i].id) for i in range(10)]
         assert [rule["canonical_rule_id"] for rule in result["proposed_rules"]] == expected_ids
 
     @patch("graphs.nodes.propose_rules_node.propose_rules_chain")
