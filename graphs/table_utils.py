@@ -19,8 +19,8 @@ NOUN_LAYOUT_HEADERS = {
     NounTableLayout.noun_number: ("Singular", "Plural"),
     NounTableLayout.noun_gender: ("Masculine", "Feminine"),
 }
-# Each noun row holds a pair: columns 0-3 are the left side (singular or
-# masculine) and columns 4-7 are the right side (plural or feminine).
+# Each noun row holds a pair: columns 0-3 are the first side (singular or
+# masculine) and columns 4-7 are the second side (plural or feminine).
 NOUN_SIDE_COLUMNS = (
     {"form": 0, "translation": 1, "explanation": 2, "example": 3},
     {"form": 4, "translation": 5, "explanation": 6, "example": 7},
@@ -38,7 +38,7 @@ ADJECTIVE_LAYOUTS = frozenset(layout.value for layout in AdjectiveTableLayout)
 ADJECTIVE_NUMBER_SIDE_HEADERS = ("Singular", "Plural")
 ADJECTIVE_GENDER_SIDE_HEADERS = ("Masculine", "Feminine")
 # Each adjective row holds a pair of carrier noun+adjective phrases: columns
-# 0-3 are the left side (singular or masculine) and columns 4-7 are the right
+# 0-3 are the first side (singular or masculine) and columns 4-7 are the second
 # side (plural or feminine).
 ADJECTIVE_SIDE_COLUMNS = (
     {"form": 0, "translation": 1, "explanation": 2, "example": 3},
@@ -135,6 +135,50 @@ def pair_base_title(title: str) -> str:
     return title.split(PAIR_FRAGMENT_TITLE_SEPARATOR, 1)[0]
 
 
+def is_adjective_other_table(table: dict) -> bool:
+    """Whether a table holds other-rule adjectives (one form per row).
+
+    True for the "adj_other" layout, or — when the layout was dropped by an
+    edit round-trip — for any 4-column table. Anything else (8-column pair
+    tables, odd shapes) is not an other-rule table.
+    """
+    if table.get("adjective_table_layout") == AdjectiveTableLayout.adj_other:
+        return True
+    return table.get("adjective_table_layout") is None and len(
+        table.get("headers", [])
+    ) == ADJECTIVE_OTHER_COLUMN_COUNT
+
+
+def is_adjective_number_table(table: dict) -> bool:
+    """Whether an 8-column pair table is the number (singular/plural) side.
+
+    Detected from the first header: the number prompt mandates the Singular
+    concept there ("Singular" is spelled the same in English, Spanish,
+    German, and Portuguese). Any other first header — Masculine/Masculino,
+    ... — means the gender side, which is also the safe default: both sides
+    are stored, so nothing is lost if a language spells it differently.
+    """
+    headers = table.get("headers", [])
+    if len(headers) != ADJECTIVE_COLUMN_COUNT:
+        return False
+    return headers[0].strip().lower() == "singular"
+
+
+def is_adjective_pair_table(table: dict) -> bool:
+    """Whether a table holds an 8-column adjective pair (number/gender).
+
+    True for any table with the pair shape: a set layout that is not
+    "adj_other", or — when the layout was dropped by an edit round-trip —
+    any 8-column table. Anything else (other-rule and odd shapes) falls back
+    to the generic single-row processing.
+    """
+    if is_adjective_other_table(table):
+        return False
+    return table.get("adjective_table_layout") is not None or len(
+        table.get("headers", [])
+    ) == ADJECTIVE_COLUMN_COUNT
+
+
 def _dict_row_position(row: dict | TableRow, index: int) -> tuple[int, int]:
     position = (
         row.get("row_position") if isinstance(row, dict) else row.row_position
@@ -201,55 +245,55 @@ def split_pair_table(
 
 
 def merge_pair_sides(
-    left: dict,
-    right: dict,
+    first_side: dict,
+    second_side: dict,
     general: dict | None,
     *,
     layout_field: str,
     pair_error: str,
 ) -> TableData:
     """Zip two 4-column side fragments back into one 8-column pair table."""
-    left_rows = sorted(
-        enumerate(left.get("rows", [])),
+    first_side_rows = sorted(
+        enumerate(first_side.get("rows", [])),
         key=lambda item: _dict_row_position(item[1], item[0]),
     )
-    right_rows = sorted(
-        enumerate(right.get("rows", [])),
+    second_side_rows = sorted(
+        enumerate(second_side.get("rows", [])),
         key=lambda item: _dict_row_position(item[1], item[0]),
     )
-    if len(left_rows) != len(right_rows):
+    if len(first_side_rows) != len(second_side_rows):
         raise ValueError(pair_error)
 
     rows = []
-    for (left_index, left_row), (_, right_row) in zip(left_rows, right_rows):
-        left_cells = _dict_row_cells(left_row)
-        right_cells = _dict_row_cells(right_row)
-        left_position = (
-            left_row.get("row_position")
-            if isinstance(left_row, dict)
-            else left_row.row_position
+    for (first_side_index, first_side_row), (_, second_side_row) in zip(first_side_rows, second_side_rows):
+        first_side_cells = _dict_row_cells(first_side_row)
+        second_side_cells = _dict_row_cells(second_side_row)
+        first_side_position = (
+            first_side_row.get("row_position")
+            if isinstance(first_side_row, dict)
+            else first_side_row.row_position
         )
         rows.append(
             TableRow(
-                cells=[*left_cells, *right_cells],
+                cells=[*first_side_cells, *second_side_cells],
                 row_position=(
-                    left_position if left_position is not None else left_index
+                    first_side_position if first_side_position is not None else first_side_index
                 ),
             )
         )
 
     layout = (
-        left.get(layout_field)
-        or right.get(layout_field)
+        first_side.get(layout_field)
+        or second_side.get(layout_field)
         or (general.get(layout_field) if general else None)
     )
-    title = general["title"] if general is not None else left["title"]
+    title = general["title"] if general is not None else first_side["title"]
     if general is None and PAIR_FRAGMENT_TITLE_SEPARATOR in title:
         title = pair_base_title(title)
 
     return TableData(
         title=title,
-        headers=[*left.get("headers", []), *right.get("headers", [])],
+        headers=[*first_side.get("headers", []), *second_side.get("headers", [])],
         rows=rows,
         **{layout_field: layout},
     )
@@ -344,45 +388,45 @@ def merge_noun_side_fragments(
     ):
         return fragments
 
-    left, right = sorted(fragments, key=lambda table: table.fragmented_table_id or 0)
-    left_rows = sorted(
-        enumerate(left.rows), key=lambda item: _row_order_key(item[1], item[0])
+    first_side, second_side = sorted(fragments, key=lambda table: table.fragmented_table_id or 0)
+    first_side_rows = sorted(
+        enumerate(first_side.rows), key=lambda item: _row_order_key(item[1], item[0])
     )
-    right_rows = sorted(
-        enumerate(right.rows), key=lambda item: _row_order_key(item[1], item[0])
+    second_side_rows = sorted(
+        enumerate(second_side.rows), key=lambda item: _row_order_key(item[1], item[0])
     )
-    if len(left_rows) != len(right_rows):
+    if len(first_side_rows) != len(second_side_rows):
         raise ValueError(
             "Noun side tables must contain the same number of pairs. "
             "Regenerate the table before saving."
         )
 
     rows = []
-    for (left_index, left_row), (_, right_row) in zip(left_rows, right_rows):
+    for (first_side_index, first_side_row), (_, second_side_row) in zip(first_side_rows, second_side_rows):
         rows.append(
             TableRow(
-                cells=[*left_row.cells, *right_row.cells],
+                cells=[*first_side_row.cells, *second_side_row.cells],
                 row_position=(
-                    left_row.row_position
-                    if left_row.row_position is not None
-                    else left_index
+                    first_side_row.row_position
+                    if first_side_row.row_position is not None
+                    else first_side_index
                 ),
             )
         )
 
     layout = (
-        left.noun_table_layout
-        or right.noun_table_layout
+        first_side.noun_table_layout
+        or second_side.noun_table_layout
         or (general_table.noun_table_layout if general_table else None)
     )
-    title = general_table.title if general_table is not None else left.title
+    title = general_table.title if general_table is not None else first_side.title
     if general_table is None and NOUN_FRAGMENT_TITLE_SEPARATOR in title:
         title = title.split(NOUN_FRAGMENT_TITLE_SEPARATOR, 1)[0]
 
     return [
         TableData(
             title=title,
-            headers=[*left.headers, *right.headers],
+            headers=[*first_side.headers, *second_side.headers],
             rows=rows,
             noun_table_layout=layout,
         )

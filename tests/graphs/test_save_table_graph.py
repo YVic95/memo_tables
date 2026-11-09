@@ -330,3 +330,167 @@ class TestNounGraphInvocation:
 
         sent_items = set(mock_base_translate.invoke.call_args[0][0]["items"].splitlines())
         assert sent_items == {"el libro", "la mesa"}
+
+
+@pytest.fixture()
+def adjective_seeded_context(db_session, language_es, language_en):
+    pair = _create_language_pair(db_session, language_es, language_en)
+
+    category = WordCategory(name="Adjectives", slug="adjective")
+    db_session.add(category)
+    db_session.commit()
+    db_session.refresh(category)
+
+    canon = CanonicalRule(
+        native_language_id=language_en.id,
+        target_language_id=language_es.id,
+        word_category_id=category.id,
+        level="A1",
+        name="Adjective Agreement",
+        description="Adjectives agree",
+        position=1,
+        slug="adj-agreement",
+        is_active=True,
+    )
+    db_session.add(canon)
+    db_session.commit()
+    db_session.refresh(canon)
+
+    rule = GrammarRule(
+        name="Adjective Agreement",
+        description="Adjectives agree",
+        language_id=language_es.id,
+        word_category_id=category.id,
+        canonical_rule_id=canon.id,
+    )
+    db_session.add(rule)
+    db_session.commit()
+    db_session.refresh(rule)
+
+    return {
+        "pair_id": pair.pair_id,
+        "rule_id": rule.id,
+        "category_id": category.id,
+        "target_language_id": language_es.id,
+        "native_language_id": language_en.id,
+    }
+
+
+class TestAdjectiveGraphInvocation:
+    @patch("graphs.nodes.translate_base_words_node.translate_chain")
+    @patch("graphs.nodes.process_all_tables_node.translate_chain")
+    @patch("graphs.nodes.deduce_base_word_node.deduce_chain")
+    def test_unified_tables_persist_base_words_rows_forms_and_sentences(
+        self, mock_deduce, mock_translate, mock_base_translate,
+        db_session, adjective_seeded_context,
+    ):
+        from tests.graphs.generation_helpers import ADJ_GENDER_TABLE, ADJ_NUMBER_TABLE
+
+        mock_translate.invoke.return_value = Translations(translations=[
+            TranslationPair(text="El libro rojo es nuevo.", translation="The red book is new."),
+            TranslationPair(text="Los libros rojos son nuevos.", translation="The red books are new."),
+            TranslationPair(text="El dólar fuerte sube.", translation="The strong dollar rises."),
+            TranslationPair(text="Los dólares fuertes suben.", translation="The strong dollars rise."),
+            TranslationPair(text="El chico alto corre.", translation="The tall boy runs."),
+            TranslationPair(text="La chica alta corre.", translation="The tall girl runs."),
+            TranslationPair(text="El libro bueno es caro.", translation="The good book is expensive."),
+            TranslationPair(text="La mesa buena es cara.", translation="The good table is expensive."),
+        ])
+        state = _make_state(
+            db_session,
+            adjective_seeded_context,
+            tables=[ADJ_NUMBER_TABLE.model_dump(), ADJ_GENDER_TABLE.model_dump()],
+            word_category_slug="adjective",
+        )
+
+        graph.invoke(state)
+
+        base_words = sorted(db_session.query(BaseWord).all(), key=lambda word: word.text)
+        assert [word.text for word in base_words] == [
+            "el chico *alto*",
+            "el dólar *fuerte*",
+            "el libro *bueno*",
+            "el libro *rojo*",
+            "la chica *alta*",
+            "la mesa *buena*",
+        ]
+        assert all(
+            word.word_category_id == adjective_seeded_context["category_id"]
+            for word in base_words
+        )
+        assert db_session.query(WordRuleAssignment).count() == 6
+
+        rows = db_session.query(GrammarRuleRow).order_by(
+            GrammarRuleRow.table_no, GrammarRuleRow.position
+        ).all()
+        assert [(row.label, row.table_no, row.position) for row in rows] == [
+            ("el libro *rojo*", 0, 0),
+            ("los libros *rojos*", 0, 1),
+            ("el dólar *fuerte*", 0, 2),
+            ("los dólares *fuertes*", 0, 3),
+            ("el chico *alto*", 1, 0),
+            ("la chica *alta*", 1, 1),
+            ("el libro *bueno*", 1, 2),
+            ("la mesa *buena*", 1, 3),
+        ]
+
+        forms = {form.form for form in db_session.query(WordForm).all()}
+        assert forms == {
+            "el libro *rojo*", "los libros *rojos*",
+            "el dólar *fuerte*", "los dólares *fuertes*",
+            "el chico *alto*", "la chica *alta*",
+            "el libro *bueno*", "la mesa *buena*",
+        }
+        assert db_session.query(Sentence).count() == 8
+        assert db_session.query(WordFormSentence).count() == 8
+
+        translations = {
+            translation.base_word_id: translation.translation
+            for translation in db_session.query(WordTranslation).all()
+        }
+        by_text = {word.text: word.id for word in base_words}
+        assert translations[by_text["el libro *rojo*"]] == "the red book"
+        assert translations[by_text["la mesa *buena*"]] == "the good table"
+
+        mock_deduce.invoke.assert_not_called()
+        mock_base_translate.invoke.assert_not_called()
+
+    @patch("graphs.nodes.translate_base_words_node.translate_chain")
+    @patch("graphs.nodes.process_all_tables_node.translate_chain")
+    @patch("graphs.nodes.deduce_base_word_node.deduce_chain")
+    def test_other_table_persists_one_row_per_form(
+        self, mock_deduce, mock_translate, mock_base_translate,
+        db_session, adjective_seeded_context,
+    ):
+        from tests.graphs.generation_helpers import ADJ_OTHER_TABLE
+
+        mock_translate.invoke.return_value = Translations(translations=[
+            TranslationPair(text="Este libro es mío.", translation="This book is mine."),
+            TranslationPair(text="Ese libro es tuyo.", translation="That book is yours."),
+            TranslationPair(text="Aquel libro es suyo.", translation="That book over there is his."),
+        ])
+        state = _make_state(
+            db_session,
+            adjective_seeded_context,
+            tables=[ADJ_OTHER_TABLE.model_dump()],
+            word_category_slug="adjective",
+        )
+
+        graph.invoke(state)
+
+        assert {word.text for word in db_session.query(BaseWord).all()} == {
+            "Este", "Ese", "Aquel",
+        }
+        rows = db_session.query(GrammarRuleRow).order_by(GrammarRuleRow.position).all()
+        assert [(row.label, row.table_no, row.position) for row in rows] == [
+            ("Este", 0, 0),
+            ("Ese", 0, 2),
+            ("Aquel", 0, 4),
+        ]
+        assert {form.form for form in db_session.query(WordForm).all()} == {
+            "Este", "Ese", "Aquel",
+        }
+        assert db_session.query(Sentence).count() == 3
+
+        mock_deduce.invoke.assert_not_called()
+        mock_base_translate.invoke.assert_not_called()

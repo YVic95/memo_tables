@@ -966,3 +966,28 @@ class TestCountSavedData:
         counts = count_saved_data(db_session, grammar_rule.id)
 
         assert counts["base_words"] == 1
+
+
+class TestBuildAdjectiveOtherSkeletonTables:
+    def test_other_table_renders_a_single_form_column(
+        self, db_session, grammar_rule
+    ):
+        from crud.table_data import build_adjective_skeleton_tables
+
+        create_grammar_rule_row(db_session, grammar_rule.id, "Este", None, 0, 0)
+        create_grammar_rule_row(db_session, grammar_rule.id, "Ese", None, 0, 2)
+        create_grammar_rule_row(db_session, grammar_rule.id, "Aquel", None, 0, 4)
+
+        result = build_adjective_skeleton_tables(
+            db_session, grammar_rule.id, {0: ("Adjetivo",)}
+        )
+
+        assert result == {
+            "adjective": (
+                "| Adjetivo |\n"
+                "| -------- |\n"
+                "| Este     |\n"
+                "| Ese      |\n"
+                "| Aquel    |"
+            )
+        }

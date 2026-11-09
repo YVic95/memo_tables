@@ -15,7 +15,13 @@ from models.word_rule_assignments import WordRuleAssignment
 from models.sentences import Sentence
 from models.sentence_translations import SentenceTranslation
 from models.word_form_sentences import WordFormSentence
-from tests.graphs.generation_helpers import NOUN_GENDER_TABLE, NOUN_NUMBER_TABLE
+from tests.graphs.generation_helpers import (
+    ADJ_GENDER_TABLE,
+    ADJ_NUMBER_TABLE,
+    ADJ_OTHER_TABLE,
+    NOUN_GENDER_TABLE,
+    NOUN_NUMBER_TABLE,
+)
 
 
 @pytest.fixture()
@@ -556,3 +562,187 @@ class TestRollback:
         assert db_session.query(GrammarRuleRow).count() == 0
         assert db_session.query(WordForm).count() == 0
         assert db_session.query(Sentence).count() == 0
+
+def _seed_adjective_base_word(db_session, rule, language_es, text):
+    return _seed_base_word_with_assignment(db_session, rule, language_es, text=text)
+
+
+def _adjective_state(db_session, rule, language_es, language_en, tables, form_to_base_word_id=None):
+    return _make_state(
+        db_session, rule, language_es, language_en, "adjective",
+        tables=tables,
+        form_to_base_word_id=form_to_base_word_id or {},
+    )
+
+
+ADJ_TRANSLATIONS = Translations(translations=[
+    TranslationPair(text="El libro rojo es nuevo.", translation="The red book is new."),
+    TranslationPair(text="Los libros rojos son nuevos.", translation="The red books are new."),
+    TranslationPair(text="El dólar fuerte sube.", translation="The strong dollar rises."),
+    TranslationPair(text="Los dólares fuertes suben.", translation="The strong dollars rise."),
+    TranslationPair(text="El chico alto corre.", translation="The tall boy runs."),
+    TranslationPair(text="La chica alta corre.", translation="The tall girl runs."),
+    TranslationPair(text="El libro bueno es caro.", translation="The good book is expensive."),
+    TranslationPair(text="La mesa buena es cara.", translation="The good table is expensive."),
+    TranslationPair(text="Este libro es mío.", translation="This book is mine."),
+    TranslationPair(text="Ese libro es tuyo.", translation="That book is yours."),
+    TranslationPair(text="Aquel libro es suyo.", translation="That book over there is his."),
+])
+
+
+class TestAdjectivePairTable:
+    @patch("graphs.nodes.process_all_tables_node.translate_chain")
+    def test_creates_two_rows_per_pair_with_distinct_table_nos(
+        self, mock_chain, db_session, general_rule, language_es, language_en
+    ):
+        mock_chain.invoke.return_value = ADJ_TRANSLATIONS
+        state = _adjective_state(
+            db_session, general_rule, language_es, language_en,
+            tables=[ADJ_NUMBER_TABLE.model_dump(), ADJ_GENDER_TABLE.model_dump()],
+        )
+
+        process_all_tables_node(state)
+
+        rows = db_session.query(GrammarRuleRow).order_by(
+            GrammarRuleRow.table_no, GrammarRuleRow.position
+        ).all()
+        assert [(row.label, row.table_no, row.position) for row in rows] == [
+            ("el libro *rojo*", 0, 0),
+            ("los libros *rojos*", 0, 1),
+            ("el dólar *fuerte*", 0, 2),
+            ("los dólares *fuertes*", 0, 3),
+            ("el chico *alto*", 1, 0),
+            ("la chica *alta*", 1, 1),
+            ("el libro *bueno*", 1, 2),
+            ("la mesa *buena*", 1, 3),
+        ]
+
+    @patch("graphs.nodes.process_all_tables_node.translate_chain")
+    def test_row_translations_use_generated_translation_cells(
+        self, mock_chain, db_session, general_rule, language_es, language_en
+    ):
+        mock_chain.invoke.return_value = Translations(translations=[])
+        state = _adjective_state(
+            db_session, general_rule, language_es, language_en,
+            tables=[ADJ_NUMBER_TABLE.model_dump()],
+        )
+
+        process_all_tables_node(state)
+
+        translations = db_session.query(GrammarRuleRowTranslation).all()
+        assert {t.label_translation for t in translations} == {
+            "the red book",
+            "the red books",
+            "the strong dollar",
+            "the strong dollars",
+        }
+
+    @patch("graphs.nodes.process_all_tables_node.translate_chain")
+    def test_saves_both_sides_examples_and_links_forms(
+        self, mock_chain, db_session, general_rule, language_es, language_en
+    ):
+        mock_chain.invoke.return_value = ADJ_TRANSLATIONS
+        rojo = _seed_adjective_base_word(db_session, general_rule, language_es, "el libro *rojo*")
+        rojos = _seed_adjective_base_word(db_session, general_rule, language_es, "los libros *rojos*")
+        state = _adjective_state(
+            db_session, general_rule, language_es, language_en,
+            tables=[ADJ_NUMBER_TABLE.model_dump()],
+            form_to_base_word_id={
+                "el libro *rojo*": rojo.id,
+                "los libros *rojos*": rojos.id,
+            },
+        )
+
+        process_all_tables_node(state)
+
+        sentences = db_session.query(Sentence).order_by(Sentence.row_position).all()
+        assert [s.template for s in sentences] == [
+            "El libro rojo es nuevo.",
+            "Los libros rojos son nuevos.",
+            "El dólar fuerte sube.",
+            "Los dólares fuertes suben.",
+        ]
+        assert [s.row_position for s in sentences] == [0, 1, 2, 3]
+
+        links = db_session.query(WordFormSentence).all()
+        linked = {
+            (
+                db_session.query(WordForm).filter(WordForm.id == link.word_form_id).one().form,
+                db_session.query(Sentence).filter(Sentence.id == link.sentence_id).one().template,
+            )
+            for link in links
+        }
+        assert ("el libro *rojo*", "El libro rojo es nuevo.") in linked
+        assert ("los libros *rojos*", "Los libros rojos son nuevos.") in linked
+
+        sent_items = set(mock_chain.invoke.call_args[0][0]["items"].splitlines())
+        assert "Los libros rojos son nuevos." in sent_items
+        assert "Los dólares fuertes suben." in sent_items
+
+    @patch("graphs.nodes.process_all_tables_node.translate_chain")
+    def test_collects_no_verb_style_token_translations(
+        self, mock_chain, db_session, general_rule, language_es, language_en
+    ):
+        mock_chain.invoke.return_value = Translations(translations=[])
+        state = _adjective_state(
+            db_session, general_rule, language_es, language_en,
+            tables=[ADJ_NUMBER_TABLE.model_dump()],
+        )
+
+        process_all_tables_node(state)
+
+        sent_items = set(mock_chain.invoke.call_args[0][0]["items"].splitlines())
+        assert "rojo" not in sent_items
+        assert "libro" not in sent_items
+
+
+class TestAdjectiveOtherTable:
+    @patch("graphs.nodes.process_all_tables_node.translate_chain")
+    def test_creates_one_row_per_form_with_even_positions(
+        self, mock_chain, db_session, general_rule, language_es, language_en
+    ):
+        mock_chain.invoke.return_value = ADJ_TRANSLATIONS
+        state = _adjective_state(
+            db_session, general_rule, language_es, language_en,
+            tables=[ADJ_OTHER_TABLE.model_dump()],
+        )
+
+        process_all_tables_node(state)
+
+        rows = db_session.query(GrammarRuleRow).order_by(GrammarRuleRow.position).all()
+        assert [(row.label, row.description, row.table_no, row.position) for row in rows] == [
+            ("Este", "Masculine singular demonstrative for nearby things", 0, 0),
+            ("Ese", "Masculine singular demonstrative for things near the listener", 0, 2),
+            ("Aquel", "Masculine singular demonstrative for distant things", 0, 4),
+        ]
+        translations = db_session.query(GrammarRuleRowTranslation).all()
+        assert {t.label_translation for t in translations} == {
+            "this (near the speaker)",
+            "that (near the listener)",
+            "that (far from both)",
+        }
+
+    @patch("graphs.nodes.process_all_tables_node.translate_chain")
+    def test_creates_word_forms_sentences_and_links(
+        self, mock_chain, db_session, general_rule, language_es, language_en
+    ):
+        mock_chain.invoke.return_value = ADJ_TRANSLATIONS
+        este = _seed_adjective_base_word(db_session, general_rule, language_es, "Este")
+        state = _adjective_state(
+            db_session, general_rule, language_es, language_en,
+            tables=[ADJ_OTHER_TABLE.model_dump()],
+            form_to_base_word_id={"este": este.id},
+        )
+
+        process_all_tables_node(state)
+
+        forms = {form.form for form in db_session.query(WordForm).all()}
+        assert forms == {"Este"}
+        sentences = db_session.query(Sentence).order_by(Sentence.row_position).all()
+        assert [s.template for s in sentences] == [
+            "Este libro es mío.",
+            "Ese libro es tuyo.",
+            "Aquel libro es suyo.",
+        ]
+        assert [s.row_position for s in sentences] == [0, 2, 4]
+        assert db_session.query(WordFormSentence).count() == 1

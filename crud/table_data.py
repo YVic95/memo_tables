@@ -544,10 +544,16 @@ def build_adjective_skeleton_tables(
         headers = headers_by_table_no.get(table_no)
         if headers is None:
             continue
-        table_rows = [
-            [pair.get(0, ""), pair.get(1, "")]
-            for _, pair in sorted(grouped[table_no].items())
-        ]
+        if len(headers) == 1:
+            table_rows = [
+                [pair.get(0, "")]
+                for _, pair in sorted(grouped[table_no].items())
+            ]
+        else:
+            table_rows = [
+                [pair.get(0, ""), pair.get(1, "")]
+                for _, pair in sorted(grouped[table_no].items())
+            ]
         tables.append(_format_markdown_table(list(headers), table_rows))
 
     return {"adjective": "\n\n".join(tables)}

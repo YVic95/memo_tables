@@ -9,7 +9,14 @@ from graphs.nodes.deduce_base_word_node import (
 )
 from graphs.models import DeducedBaseWords, DeducedBaseWord
 from models.word_categories import WordCategory
-from tests.graphs.generation_helpers import NOUN_GENDER_TABLE, NOUN_NUMBER_TABLE
+from tests.graphs.generation_helpers import (
+    ADJ_AGREEMENT_TABLE,
+    ADJ_GENDER_TABLE,
+    ADJ_NUMBER_TABLE,
+    ADJ_OTHER_TABLE,
+    NOUN_GENDER_TABLE,
+    NOUN_NUMBER_TABLE,
+)
 
 
 def _base_words(*entries):
@@ -380,6 +387,146 @@ class TestDeduceNounBaseWordNode:
             word_category_slug="noun",
             target_language_id=language_es.id,
             tables=[table.model_dump()],
+        )
+
+        result = deduce_base_word_node(state)
+
+        assert result["base_words_to_save"] == []
+        assert result["base_word_translations"] == {}
+
+
+class TestDeduceAdjectiveBaseWordNode:
+    def _adj_state(self, db_session, grammar_rule, language_es, tables):
+        return _make_state(
+            db_session,
+            grammar_rule,
+            word_category_slug="adjective",
+            target_language_id=language_es.id,
+            tables=tables,
+        )
+
+    def test_number_layout_saves_singular_as_dictionary_form(
+        self, db_session, grammar_rule, language_es
+    ):
+        state = self._adj_state(
+            db_session, grammar_rule, language_es, [ADJ_NUMBER_TABLE.model_dump()]
+        )
+
+        result = deduce_base_word_node(state)
+
+        by_text = {item["text"]: item for item in result["base_words_to_save"]}
+        assert set(by_text) == {"el libro *rojo*", "el dólar *fuerte*"}
+        assert by_text["el libro *rojo*"]["forms"] == [
+            "el libro *rojo*",
+            "los libros *rojos*",
+        ]
+        assert result["base_word_translations"] == {
+            "el libro *rojo*": "the red book",
+            "el dólar *fuerte*": "the strong dollar",
+        }
+        assert all(
+            item["word_category_id"] == grammar_rule.word_category_id
+            for item in result["base_words_to_save"]
+        )
+
+    def test_gender_layout_saves_both_sides(
+        self, db_session, grammar_rule, language_es
+    ):
+        state = self._adj_state(
+            db_session, grammar_rule, language_es, [ADJ_GENDER_TABLE.model_dump()]
+        )
+
+        result = deduce_base_word_node(state)
+
+        by_text = {item["text"]: item for item in result["base_words_to_save"]}
+        assert set(by_text) == {
+            "el chico *alto*",
+            "la chica *alta*",
+            "el libro *bueno*",
+            "la mesa *buena*",
+        }
+        assert by_text["el chico *alto*"]["forms"] == ["el chico *alto*"]
+        assert result["base_word_translations"]["la chica *alta*"] == "the tall girl"
+
+    def test_agreement_layout_saves_both_sides(
+        self, db_session, grammar_rule, language_es
+    ):
+        state = self._adj_state(
+            db_session, grammar_rule, language_es, [ADJ_AGREEMENT_TABLE.model_dump()]
+        )
+
+        result = deduce_base_word_node(state)
+
+        by_text = {item["text"]: item for item in result["base_words_to_save"]}
+        assert set(by_text) == {
+            "el libro *rojo*",
+            "la mesa *roja*",
+            "los chicos *altos*",
+            "las chicas *altas*",
+        }
+
+    def test_other_layout_saves_one_base_word_per_row(
+        self, db_session, grammar_rule, language_es
+    ):
+        state = self._adj_state(
+            db_session, grammar_rule, language_es, [ADJ_OTHER_TABLE.model_dump()]
+        )
+
+        result = deduce_base_word_node(state)
+
+        by_text = {item["text"]: item for item in result["base_words_to_save"]}
+        assert set(by_text) == {"Este", "Ese", "Aquel"}
+        assert by_text["Este"]["forms"] == ["este"]
+        assert result["base_word_translations"] == {
+            "Este": "this (near the speaker)",
+            "Ese": "that (near the listener)",
+            "Aquel": "that (far from both)",
+        }
+
+    def test_missing_layout_with_eight_columns_uses_header_heuristic(
+        self, db_session, grammar_rule, language_es
+    ):
+        table = ADJ_NUMBER_TABLE.model_copy(update={"adjective_table_layout": None})
+        state = self._adj_state(
+            db_session, grammar_rule, language_es, [table.model_dump()]
+        )
+
+        result = deduce_base_word_node(state)
+
+        assert {item["text"] for item in result["base_words_to_save"]} == {
+            "el libro *rojo*",
+            "el dólar *fuerte*",
+        }
+
+    @patch("graphs.nodes.deduce_base_word_node.deduce_chain")
+    def test_does_not_call_the_llm_deduction_chain(
+        self, mock_chain, db_session, grammar_rule, language_es
+    ):
+        state = self._adj_state(
+            db_session,
+            grammar_rule,
+            language_es,
+            [
+                ADJ_NUMBER_TABLE.model_dump(),
+                ADJ_GENDER_TABLE.model_dump(),
+                ADJ_OTHER_TABLE.model_dump(),
+            ],
+        )
+
+        result = deduce_base_word_node(state)
+
+        mock_chain.invoke.assert_not_called()
+        assert len(result["base_words_to_save"]) == 2 + 4 + 3
+        assert len(result["base_word_translations"]) == 2 + 4 + 3
+
+    def test_returns_empty_maps_when_no_forms(
+        self, db_session, grammar_rule, language_es
+    ):
+        table = ADJ_OTHER_TABLE.model_copy(
+            update={"rows": [{"cells": ["", "", "", ""]}]}
+        )
+        state = self._adj_state(
+            db_session, grammar_rule, language_es, [table.model_dump()]
         )
 
         result = deduce_base_word_node(state)

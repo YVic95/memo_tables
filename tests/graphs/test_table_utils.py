@@ -34,6 +34,16 @@ class TestColumnRoles:
         for slug in ("noun", "adjective", "adverb", "pronoun", "unknown"):
             assert column_roles(slug) == DEFAULT_COLUMN_ROLES
 
+    def test_other_table_column_map_covers_all_four_roles(self):
+        from graphs.table_utils import ADJECTIVE_OTHER_COLUMNS
+
+        assert ADJECTIVE_OTHER_COLUMNS == {
+            "form": 0,
+            "translation": 1,
+            "explanation": 2,
+            "example": 3,
+        }
+
 
 class TestRequireAdjectiveLayout:
     def test_accepts_all_adjective_layouts(self):
@@ -202,3 +212,64 @@ class TestSelectAdjectiveTables:
         assert merged.rows[0].row_position == 5
         assert merged.title == "T"
         assert ADJECTIVE_COLUMN_COUNT == 8
+
+
+class TestAdjectiveTableKinds:
+    def _table(self, headers, layout="adj_number_gender"):
+        return {
+            "title": "T",
+            "headers": headers,
+            "rows": [],
+            "adjective_table_layout": layout,
+        }
+
+    def test_other_layout_is_other(self):
+        from graphs.table_utils import is_adjective_other_table
+
+        assert is_adjective_other_table(self._table(["A", "B", "C", "D"], "adj_other"))
+
+    def test_four_columns_without_layout_fall_back_to_other(self):
+        from graphs.table_utils import is_adjective_other_table
+
+        assert is_adjective_other_table(self._table(["A", "B", "C", "D"], None))
+
+    def test_pair_tables_are_not_other(self):
+        from graphs.table_utils import is_adjective_other_table
+
+        assert not is_adjective_other_table(
+            self._table(["Singular"] * 4 + ["Plural"] * 4, "adj_number_gender")
+        )
+        assert not is_adjective_other_table(
+            self._table(["Singular"] * 4 + ["Plural"] * 4, None)
+        )
+
+    def test_three_column_tables_are_not_other(self):
+        from graphs.table_utils import is_adjective_other_table
+
+        assert not is_adjective_other_table(self._table(["A", "B", "C"], None))
+
+    def test_singular_first_header_means_number_table(self):
+        from graphs.table_utils import is_adjective_number_table
+
+        assert is_adjective_number_table(
+            self._table(["Singular"] + ["x"] * 3 + ["Plural"] + ["x"] * 3)
+        )
+        assert not is_adjective_number_table(
+            self._table(["Masculino"] + ["x"] * 3 + ["Femenino"] + ["x"] * 3)
+        )
+        assert not is_adjective_number_table(self._table(["A", "B", "C", "D"]))
+
+    def test_pair_detection(self):
+        from graphs.table_utils import is_adjective_pair_table
+
+        assert is_adjective_pair_table(
+            self._table(["Singular"] * 4 + ["Plural"] * 4, "adj_number_gender")
+        )
+        assert is_adjective_pair_table(
+            self._table(["Masculino"] * 4 + ["Femenino"] * 4, "adj_agreement")
+        )
+        assert is_adjective_pair_table(
+            self._table(["Singular"] * 4 + ["Plural"] * 4, None)
+        )
+        assert not is_adjective_pair_table(self._table(["A", "B", "C", "D"], "adj_other"))
+        assert not is_adjective_pair_table(self._table(["A", "B", "C"], None))

@@ -3,9 +3,13 @@ from graphs.models import Translations
 from graphs.prompts import translate_words_prompt
 from graphs.states import SaveTableState
 from graphs.table_utils import (
+    ADJECTIVE_OTHER_COLUMNS,
+    ADJECTIVE_SIDE_COLUMNS,
     NOUN_SIDE_COLUMNS,
     cell_at_role,
     column_roles,
+    is_adjective_other_table,
+    is_adjective_pair_table,
     noun_side_cell,
     role_to_column,
     tokenize_words,
@@ -32,8 +36,26 @@ def _collect_translation_strings(state: SaveTableState) -> set[str]:
     strings: set[str] = set()
     is_verb = state["word_category_slug"] == "verb"
     is_noun = state["word_category_slug"] == "noun"
+    is_adjective = state["word_category_slug"] == "adjective"
     role_lookup = role_to_column(column_roles(state["word_category_slug"]))
     for table in state["tables"]:
+        if is_adjective:
+            if is_adjective_other_table(table):
+                for row in table.get("rows", []):
+                    cells = row.get("cells", [])
+                    for role in ("form", "example"):
+                        cell = cell_at_role(cells, ADJECTIVE_OTHER_COLUMNS, role)
+                        if cell is not None and cell.strip():
+                            strings.add(cell)
+                continue
+            if is_adjective_pair_table(table):
+                for row in table.get("rows", []):
+                    cells = row.get("cells", [])
+                    for columns in ADJECTIVE_SIDE_COLUMNS:
+                        example = cell_at_role(cells, columns, "example")
+                        if example is not None and example.strip():
+                            strings.add(example)
+                continue
         for row in table.get("rows", []):
             cells = row.get("cells", [])
             if is_noun:
@@ -68,25 +90,25 @@ def _word_form_for_surface_form(
     return get_or_create_word_form(db, assignment.id, grammar_row_id, surface_form, commit=False)
 
 
-def _process_noun_table(
+def _process_pair_table(
     db,
     table: dict,
+    table_no: int,
     grammar_rule_id,
     native_language_id,
     target_language_id,
     word_category_id,
     form_to_base_word_id,
     translations: dict[str, str],
+    side_columns,
 ) -> None:
-    table_no = table.get("fragmented_table_id") or 0
-
     for index, row in enumerate(table.get("rows", [])):
         cells = row.get("cells", [])
         pair_position = row.get("row_position")
         if pair_position is None:
             pair_position = index
 
-        for side_index, columns in enumerate(NOUN_SIDE_COLUMNS):
+        for side_index, columns in enumerate(side_columns):
             form = noun_side_cell(cells, columns, "form")
             translation = noun_side_cell(cells, columns, "translation")
             explanation = noun_side_cell(cells, columns, "explanation")
@@ -150,51 +172,153 @@ def _process_noun_table(
                 create_word_form_sentence(db, word_form.id, sentence.id, commit=False)
 
 
-def process_all_tables_node(state: SaveTableState) -> SaveTableState:
-    db = state["db"]
-    grammar_rule_id = state["grammar_rule_id"]
-    native_language_id = state["native_language_id"]
-    target_language_id = state["target_language_id"]
-    form_to_base_word_id = state["form_to_base_word_id"]
-    is_verb = state["word_category_slug"] == "verb"
-    is_noun = state["word_category_slug"] == "noun"
+def _process_noun_table(
+    db,
+    table: dict,
+    grammar_rule_id,
+    native_language_id,
+    target_language_id,
+    word_category_id,
+    form_to_base_word_id,
+    translations: dict[str, str],
+) -> None:
+    _process_pair_table(
+        db,
+        table,
+        table.get("fragmented_table_id") or 0,
+        grammar_rule_id,
+        native_language_id,
+        target_language_id,
+        word_category_id,
+        form_to_base_word_id,
+        translations,
+        NOUN_SIDE_COLUMNS,
+    )
 
-    rule = get_grammar_rule_by_id(db, grammar_rule_id)
-    if rule is None:
-        raise ValueError(f"Grammar rule {grammar_rule_id} not found")
 
-    role_lookup = role_to_column(column_roles(state["word_category_slug"]))
+def _process_adjective_pair_table(
+    db,
+    table: dict,
+    table_no: int,
+    grammar_rule_id,
+    native_language_id,
+    target_language_id,
+    word_category_id,
+    form_to_base_word_id,
+    translations: dict[str, str],
+) -> None:
+    _process_pair_table(
+        db,
+        table,
+        table_no,
+        grammar_rule_id,
+        native_language_id,
+        target_language_id,
+        word_category_id,
+        form_to_base_word_id,
+        translations,
+        ADJECTIVE_SIDE_COLUMNS,
+    )
 
-    translation_strings = _collect_translation_strings(state)
-    translations: dict[str, str] = {}
-    if translation_strings:
-        target_language_name = get_language_name_by_id(db, target_language_id)
-        native_language_name = get_language_name_by_id(db, native_language_id)
-        result: Translations = translate_chain.invoke(
-            {
-                "target_language": target_language_name,
-                "native_language": native_language_name,
-                "items": "\n".join(sorted(translation_strings)),
-            }
+
+def _process_adjective_other_table(
+    db,
+    table: dict,
+    table_no: int,
+    grammar_rule_id,
+    native_language_id,
+    target_language_id,
+    word_category_id,
+    form_to_base_word_id,
+    translations: dict[str, str],
+) -> None:
+    """Persist one grammar row per other-rule form.
+
+    Positions stay on even slots (pair_slot * 2) so the skeleton groups each
+    form as the left side of its own pair, mirroring the pair tables.
+    """
+    for index, row in enumerate(table.get("rows", [])):
+        cells = row.get("cells", [])
+        pair_slot = row.get("row_position")
+        if pair_slot is None:
+            pair_slot = index
+        position = pair_slot * 2
+
+        form = noun_side_cell(cells, ADJECTIVE_OTHER_COLUMNS, "form")
+        translation = noun_side_cell(cells, ADJECTIVE_OTHER_COLUMNS, "translation")
+        explanation = noun_side_cell(cells, ADJECTIVE_OTHER_COLUMNS, "explanation")
+        example = noun_side_cell(cells, ADJECTIVE_OTHER_COLUMNS, "example")
+        label = form or ""
+
+        grammar_row = create_grammar_rule_row(
+            db,
+            grammar_rule_id,
+            label,
+            explanation or None,
+            table_no,
+            position,
+            commit=False,
         )
-        translations = {item.text.strip(): item.translation for item in result.translations}
+        create_grammar_rule_row_translation(
+            db,
+            grammar_row.id,
+            native_language_id,
+            translation or label,
+            explanation or None,
+            commit=False,
+        )
 
-    if is_noun:
-        for table in state["tables"]:
-            _process_noun_table(
-                db,
-                table,
-                grammar_rule_id,
-                native_language_id,
-                target_language_id,
-                rule.word_category_id,
-                form_to_base_word_id,
-                translations,
+        word_form = None
+        if form:
+            word_form = _word_form_for_surface_form(
+                db, form_to_base_word_id, grammar_rule_id, form, grammar_row.id
             )
-        return state
+            if word_form is not None:
+                get_or_create_word_form_translation(
+                    db,
+                    word_form.id,
+                    native_language_id,
+                    translation or form,
+                    commit=False,
+                )
 
-    for table in state["tables"]:
-        table_no = table.get("fragmented_table_id") or 0
+        if not example:
+            continue
+
+        sentence = create_sentence(
+            db,
+            example,
+            target_language_id,
+            word_category_id,
+            grammar_rule_id,
+            position,
+            commit=False,
+        )
+        create_sentence_translation(
+            db,
+            sentence.id,
+            native_language_id,
+            translations.get(example, example),
+            commit=False,
+        )
+
+        if word_form is not None:
+            create_word_form_sentence(db, word_form.id, sentence.id, commit=False)
+
+
+def _process_generic_table(
+    db,
+    table: dict,
+    table_no: int,
+    grammar_rule_id,
+    native_language_id,
+    target_language_id,
+    word_category_id,
+    form_to_base_word_id,
+    translations: dict[str, str],
+    role_lookup: dict[str, int],
+    is_verb: bool,
+) -> None:
 
         for index, row in enumerate(table.get("rows", [])):
             cells = row.get("cells", [])
@@ -245,7 +369,7 @@ def process_all_tables_node(state: SaveTableState) -> SaveTableState:
                     db,
                     example,
                     target_language_id,
-                    rule.word_category_id,
+                    word_category_id,
                     grammar_rule_id,
                     position,
                     commit=False,
@@ -287,5 +411,102 @@ def process_all_tables_node(state: SaveTableState) -> SaveTableState:
                             commit=False,
                         )
                         create_word_form_sentence(db, token_word_form.id, sentence.id, commit=False)
+
+
+
+def process_all_tables_node(state: SaveTableState) -> SaveTableState:
+    db = state["db"]
+    grammar_rule_id = state["grammar_rule_id"]
+    native_language_id = state["native_language_id"]
+    target_language_id = state["target_language_id"]
+    form_to_base_word_id = state["form_to_base_word_id"]
+    is_verb = state["word_category_slug"] == "verb"
+    is_noun = state["word_category_slug"] == "noun"
+
+    rule = get_grammar_rule_by_id(db, grammar_rule_id)
+    if rule is None:
+        raise ValueError(f"Grammar rule {grammar_rule_id} not found")
+
+    role_lookup = role_to_column(column_roles(state["word_category_slug"]))
+
+    translation_strings = _collect_translation_strings(state)
+    translations: dict[str, str] = {}
+    if translation_strings:
+        target_language_name = get_language_name_by_id(db, target_language_id)
+        native_language_name = get_language_name_by_id(db, native_language_id)
+        result: Translations = translate_chain.invoke(
+            {
+                "target_language": target_language_name,
+                "native_language": native_language_name,
+                "items": "\n".join(sorted(translation_strings)),
+            }
+        )
+        translations = {item.text.strip(): item.translation for item in result.translations}
+
+    if is_noun:
+        for table in state["tables"]:
+            _process_noun_table(
+                db,
+                table,
+                grammar_rule_id,
+                native_language_id,
+                target_language_id,
+                rule.word_category_id,
+                form_to_base_word_id,
+                translations,
+            )
+        return state
+
+    if state["word_category_slug"] == "adjective":
+        for table_index, table in enumerate(state["tables"]):
+            table_no = table.get("fragmented_table_id")
+            if table_no is None:
+                table_no = table_index
+            if is_adjective_other_table(table):
+                processor = _process_adjective_other_table
+            elif is_adjective_pair_table(table):
+                processor = _process_adjective_pair_table
+            else:
+                _process_generic_table(
+                    db,
+                    table,
+                    table_no,
+                    grammar_rule_id,
+                    native_language_id,
+                    target_language_id,
+                    rule.word_category_id,
+                    form_to_base_word_id,
+                    translations,
+                    role_lookup,
+                    is_verb,
+                )
+                continue
+            processor(
+                db,
+                table,
+                table_no,
+                grammar_rule_id,
+                native_language_id,
+                target_language_id,
+                rule.word_category_id,
+                form_to_base_word_id,
+                translations,
+            )
+        return state
+
+    for table in state["tables"]:
+        _process_generic_table(
+            db,
+            table,
+            table.get("fragmented_table_id") or 0,
+            grammar_rule_id,
+            native_language_id,
+            target_language_id,
+            rule.word_category_id,
+            form_to_base_word_id,
+            translations,
+            role_lookup,
+            is_verb,
+        )
 
     return state

@@ -12,7 +12,14 @@ from models.word_categories import WordCategory
 from models.canonical_rules import CanonicalRule
 from models.grammar_rules import GrammarRule
 from graphs.models import SaveTablesRequest
-from tests.graphs.generation_helpers import NOUN_NUMBER_HEADERS, NOUN_NUMBER_TABLE
+from tests.graphs.generation_helpers import (
+    ADJ_GENDER_TABLE,
+    ADJ_NUMBER_HEADERS,
+    ADJ_NUMBER_TABLE,
+    ADJ_OTHER_TABLE,
+    NOUN_NUMBER_HEADERS,
+    NOUN_NUMBER_TABLE,
+)
 from routers.save_tables_agent import save_tables
 
 
@@ -806,3 +813,206 @@ class TestNounFragmentMerge:
         assert exc_info.value.status_code == 400
         assert "same number of pairs" in exc_info.value.detail.lower()
         mock_graph.invoke.assert_not_called()
+
+
+@pytest.fixture()
+def adjective_seed_data(db_session):
+    lang_es = Language(code="es", name="Spanish")
+    lang_en = Language(code="en", name="English")
+    db_session.add_all([lang_es, lang_en])
+    db_session.commit()
+    db_session.refresh(lang_es)
+    db_session.refresh(lang_en)
+
+    pair = LanguagePair(
+        native_language_id=lang_en.id,
+        target_language_id=lang_es.id,
+    )
+    db_session.add(pair)
+    db_session.commit()
+    db_session.refresh(pair)
+
+    cat = WordCategory(name="Adjectives", slug="adjective")
+    db_session.add(cat)
+    db_session.commit()
+    db_session.refresh(cat)
+
+    canon = CanonicalRule(
+        native_language_id=lang_en.id,
+        target_language_id=lang_es.id,
+        word_category_id=cat.id,
+        level="A1",
+        name="Adjective Agreement",
+        description="Adjectives agree",
+        position=1,
+        slug="adj-agreement",
+        is_active=True,
+    )
+    db_session.add(canon)
+    db_session.commit()
+    db_session.refresh(canon)
+
+    rule = GrammarRule(
+        name="Adjective Agreement",
+        description="Adjectives agree",
+        language_id=lang_es.id,
+        word_category_id=cat.id,
+        canonical_rule_id=canon.id,
+    )
+    db_session.add(rule)
+    db_session.commit()
+    db_session.refresh(rule)
+
+    return {
+        "pair_id": pair.pair_id,
+        "rule_id": rule.id,
+    }
+
+
+def _adj_request(seed_data, tables):
+    return SaveTablesRequest(
+        language_pair_id=seed_data["pair_id"],
+        session_id=uuid.uuid4(),
+        grammar_rule_id=seed_data["rule_id"],
+        tables=tables,
+    )
+
+
+def _adj_side_fragment(base, side, fragment_id):
+    headers = base["headers"][:4] if side == 0 else base["headers"][4:]
+    return {
+        "title": f"{base['title']} — {headers[0]}",
+        "headers": headers,
+        "rows": [
+            {"cells": row["cells"][:4] if side == 0 else row["cells"][4:], "row_position": i}
+            for i, row in enumerate(base["rows"])
+        ],
+        "fragmented_table_id": fragment_id,
+        "adjective_table_layout": base["adjective_table_layout"],
+    }
+
+
+class TestAdjectiveSaveTables:
+    def test_unified_fragments_merge_into_two_pair_tables(
+        self, mock_graph, db_session, adjective_seed_data
+    ):
+        number = ADJ_NUMBER_TABLE.model_dump()
+        gender = ADJ_GENDER_TABLE.model_dump()
+        body = _adj_request(adjective_seed_data, tables=[
+            number,
+            gender,
+            _adj_side_fragment(number, 0, 1),
+            _adj_side_fragment(number, 1, 2),
+            _adj_side_fragment(gender, 0, 3),
+            _adj_side_fragment(gender, 1, 4),
+        ])
+
+        result = save_tables(body, db_session)
+
+        state = mock_graph.invoke.call_args.args[0]
+        assert len(state["tables"]) == 2
+        merged_number, merged_gender = state["tables"]
+        assert merged_number["title"] == ADJ_NUMBER_TABLE.title
+        assert merged_gender["title"] == ADJ_GENDER_TABLE.title
+        assert merged_number["adjective_table_layout"] == "adj_number_gender"
+        assert [row["cells"] for row in merged_number["rows"]] == [
+            row.cells for row in ADJ_NUMBER_TABLE.rows
+        ]
+        assert [row["cells"] for row in merged_gender["rows"]] == [
+            row.cells for row in ADJ_GENDER_TABLE.rows
+        ]
+        assert "Saved 2 tables" in result["message"]
+
+    def test_other_table_passes_through_unsplit(
+        self, mock_graph, db_session, adjective_seed_data
+    ):
+        body = _adj_request(
+            adjective_seed_data, tables=[ADJ_OTHER_TABLE.model_dump()]
+        )
+
+        result = save_tables(body, db_session)
+
+        state = mock_graph.invoke.call_args.args[0]
+        assert len(state["tables"]) == 1
+        assert state["tables"][0]["headers"] == ADJ_OTHER_TABLE.headers
+        assert "Saved 1 table" in result["message"]
+
+    def test_other_table_with_wrong_column_count_returns_400(
+        self, mock_graph, db_session, adjective_seed_data
+    ):
+        table = ADJ_OTHER_TABLE.model_dump()
+        table["headers"] = table["headers"] + ["Extra"]
+        body = _adj_request(adjective_seed_data, tables=[table])
+
+        with pytest.raises(HTTPException) as exc_info:
+            save_tables(body, db_session)
+
+        assert exc_info.value.status_code == 400
+        assert "4 columns" in exc_info.value.detail
+        mock_graph.invoke.assert_not_called()
+
+    def test_pair_table_with_wrong_column_count_returns_400(
+        self, mock_graph, db_session, adjective_seed_data
+    ):
+        table = ADJ_NUMBER_TABLE.model_dump()
+        table["headers"] = table["headers"][:7]
+        body = _adj_request(adjective_seed_data, tables=[table])
+
+        with pytest.raises(HTTPException) as exc_info:
+            save_tables(body, db_session)
+
+        assert exc_info.value.status_code == 400
+        assert "8 columns" in exc_info.value.detail
+        mock_graph.invoke.assert_not_called()
+
+    def test_missing_layout_with_unreadable_shape_returns_400(
+        self, mock_graph, db_session, adjective_seed_data
+    ):
+        table = ADJ_NUMBER_TABLE.model_dump()
+        table["adjective_table_layout"] = None
+        table["headers"] = table["headers"][:3]
+        table["rows"] = [{"cells": row["cells"][:3]} for row in table["rows"]]
+        body = _adj_request(adjective_seed_data, tables=[table])
+
+        with pytest.raises(HTTPException) as exc_info:
+            save_tables(body, db_session)
+
+        assert exc_info.value.status_code == 400
+        assert "regenerate" in exc_info.value.detail.lower()
+        mock_graph.invoke.assert_not_called()
+
+    def test_mismatched_fragment_row_counts_returns_400(
+        self, mock_graph, db_session, adjective_seed_data
+    ):
+        number = ADJ_NUMBER_TABLE.model_dump()
+        fragments = [
+            _adj_side_fragment(number, 0, 1),
+            {**_adj_side_fragment(number, 1, 2), "rows": []},
+        ]
+        body = _adj_request(adjective_seed_data, tables=[number, *fragments])
+
+        with pytest.raises(HTTPException) as exc_info:
+            save_tables(body, db_session)
+
+        assert exc_info.value.status_code == 400
+        assert "same number of pairs" in exc_info.value.detail.lower()
+        mock_graph.invoke.assert_not_called()
+
+    @patch("routers.save_tables_agent.build_adjective_skeleton_tables")
+    @patch("routers.save_tables_agent.count_saved_data")
+    def test_other_skeleton_uses_single_form_column(
+        self, mock_count, mock_build_skeleton, mock_graph, db_session, adjective_seed_data
+    ):
+        mock_count.return_value = {"sentences": 0, "word_forms": 0, "base_words": 0}
+        mock_build_skeleton.return_value = {"adjective": "| Adjetivo |"}
+        body = _adj_request(
+            adjective_seed_data, tables=[ADJ_OTHER_TABLE.model_dump()]
+        )
+
+        result = save_tables(body, db_session)
+
+        mock_build_skeleton.assert_called_once_with(
+            db_session, adjective_seed_data["rule_id"], {0: ("Adjetivo",)}
+        )
+        assert result["skeleton_titles"] == {"adjective": ["Los demostrativos"]}
+        assert result["skeleton_table"] == {"adjective": "| Adjetivo |"}

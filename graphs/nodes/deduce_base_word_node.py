@@ -3,10 +3,15 @@ from graphs.models import DeducedBaseWords
 from graphs.prompts import deduce_base_word_prompt
 from graphs.states import SaveTableState
 from graphs.table_utils import (
+    ADJECTIVE_COLUMN_COUNT,
+    ADJECTIVE_SIDE_COLUMNS,
     NOUN_SIDE_COLUMNS,
     NounTableLayout,
+    AdjectiveTableLayout,
     cell_at_role,
     column_roles,
+    is_adjective_number_table,
+    is_adjective_other_table,
     noun_side_cell,
     require_noun_layout,
     role_to_column,
@@ -148,9 +153,136 @@ def _noun_base_words_and_translations(
     )
 
 
+def _adjective_table_kind(table: dict) -> str:
+    """Classify an adjective table for deterministic base-word extraction.
+
+    Returns "other" for other-rule tables, "pair-number" for singular/plural
+    pair tables, "pair-gender" for masculine/feminine pair tables (agreement
+    tables always land here), or "generic" for shapes the deterministic path
+    cannot read — those fall through to the LLM deduction path.
+    """
+    if is_adjective_other_table(table):
+        return "other"
+    layout = table.get("adjective_table_layout")
+    headers = table.get("headers", [])
+    if layout == AdjectiveTableLayout.adj_agreement:
+        return "pair-gender"
+    if layout == AdjectiveTableLayout.adj_number_gender or (
+        layout is None and len(headers) == ADJECTIVE_COLUMN_COUNT
+    ):
+        if is_adjective_number_table(table):
+            return "pair-number"
+        return "pair-gender"
+    return "generic"
+
+
+def _adjective_base_words_and_translations(
+    tables: list[dict],
+    language_id,
+    word_category_id,
+):
+    """Build adjective base words directly from the form/translation cells.
+
+    Number pair tables contribute one base word per pair, using the singular
+    phrase as the dictionary form. Gender and agreement pair tables contribute
+    both sides as separate base words. Other-rule tables contribute one base
+    word per row. Form cells carry the carrier phrase with the "*" adjective
+    marker, mirroring how nouns keep the article in the base word text.
+    """
+    base_words: dict[str, dict] = {}
+    translations: dict[str, str] = {}
+
+    def add(form: str, surface_forms: list[str], translation: str) -> None:
+        if not form:
+            return
+        key = form.lower()
+        entry = base_words.setdefault(
+            key,
+            {
+                "text": form,
+                "language_id": language_id,
+                "word_category_id": word_category_id,
+                "forms": set(),
+            },
+        )
+        entry["forms"].update(form.lower() for form in surface_forms if form)
+        if translation and key not in translations:
+            translations[key] = translation
+
+    for table in tables:
+        kind = _adjective_table_kind(table)
+
+        if kind == "other":
+            for row in table.get("rows", []):
+                cells = row.get("cells", [])
+                form = cells[0].strip() if len(cells) > 0 else ""
+                translation = cells[1].strip() if len(cells) > 1 else ""
+                if form:
+                    add(form, [form], translation)
+            continue
+
+        for row in table.get("rows", []):
+            cells = row.get("cells", [])
+            singular_or_masculine = ADJECTIVE_SIDE_COLUMNS[0]
+            plural_or_feminine = ADJECTIVE_SIDE_COLUMNS[1]
+            singular_or_masculine_form = noun_side_cell(cells, singular_or_masculine, "form")
+            plural_or_feminine_form = noun_side_cell(cells, plural_or_feminine, "form")
+            singular_or_masculine_translation = noun_side_cell(
+                cells, singular_or_masculine, "translation"
+            )
+            plural_or_feminine_translation = noun_side_cell(
+                cells, plural_or_feminine, "translation"
+            )
+
+            if kind == "pair-number":
+                if singular_or_masculine_form:
+                    add(
+                        singular_or_masculine_form,
+                        [singular_or_masculine_form, plural_or_feminine_form],
+                        singular_or_masculine_translation,
+                    )
+                elif plural_or_feminine_form:
+                    add(
+                        plural_or_feminine_form,
+                        [plural_or_feminine_form],
+                        plural_or_feminine_translation,
+                    )
+                continue
+
+            if singular_or_masculine_form:
+                add(
+                    singular_or_masculine_form,
+                    [singular_or_masculine_form],
+                    singular_or_masculine_translation,
+                )
+            if plural_or_feminine_form:
+                add(
+                    plural_or_feminine_form,
+                    [plural_or_feminine_form],
+                    plural_or_feminine_translation,
+                )
+
+    result = []
+    for entry in base_words.values():
+        result.append(
+            {
+                "text": entry["text"],
+                "language_id": entry["language_id"],
+                "word_category_id": entry["word_category_id"],
+                "forms": sorted(entry["forms"]),
+            }
+        )
+
+    return (
+        sorted(result, key=lambda base_word: base_word["text"].lower()),
+        {base_words[key]["text"]: value for key, value in translations.items()},
+    )
+
+
 def deduce_base_word_node(state: SaveTableState) -> SaveTableState:
     is_verb = state["word_category_slug"] == "verb"
     is_noun = state["word_category_slug"] == "noun"
+    is_adjective = state["word_category_slug"] == "adjective"
 
     rule = get_grammar_rule_by_id(state["db"], state["grammar_rule_id"])
     if rule is None:
@@ -167,6 +299,21 @@ def deduce_base_word_node(state: SaveTableState) -> SaveTableState:
             "base_words_to_save": base_words,
             "base_word_translations": translations,
         }
+
+    if is_adjective:
+        kinds = {_adjective_table_kind(table) for table in state["tables"]}
+        if kinds and kinds <= {"pair-number", "pair-gender", "other"}:
+            base_words, translations = _adjective_base_words_and_translations(
+                state["tables"],
+                state["target_language_id"],
+                rule.word_category_id,
+            )
+            return {
+                **state,
+                "base_words_to_save": base_words,
+                "base_word_translations": translations,
+            }
+        # Unknown shapes fall through to the generic LLM deduction path.
 
     role_lookup = role_to_column(column_roles(state["word_category_slug"]))
 
