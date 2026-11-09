@@ -63,12 +63,6 @@ PAIR_TABLE_SIDE_COLUMN_COUNT = PAIR_TABLE_COLUMN_COUNT // 2
 PAIR_TABLE_SIDE_STARTS = (0, PAIR_TABLE_SIDE_COLUMN_COUNT)
 PAIR_FRAGMENT_TITLE_SEPARATOR = " — "
 
-# Adjective form cells wrap the adjective in "*" italics inside a "**" carrier
-# phrase (see adjective_rule_content_prompt). The outer bold is stripped first
-# so the marker search does not trip over it.
-_BOLD_WRAPPER_RE = re.compile(r"^\*\*(.+)\*\*$", re.DOTALL)
-_ITALIC_MARKER_RE = re.compile(r"\*([^*]+)\*")
-
 
 def column_roles(word_category_slug: str) -> dict[int, str]:
     return COLUMN_ROLES.get(word_category_slug, DEFAULT_COLUMN_ROLES)
@@ -114,20 +108,6 @@ def require_adjective_layout(
         raise ValueError(
             f"Adjective table must set adjective_table_layout to {valid}"
         ) from None
-
-
-def extract_italic_markers(text: str) -> list[str]:
-    """Return the "*" -marked spans inside a carrier-phrase cell.
-
-    Form cells look like "**el libro *rojo* / los libros *rojos***": the outer
-    bold wraps the whole phrase, the italics mark the adjective. Returns the
-    adjectives in order, e.g. ["rojo", "rojos"].
-    """
-    inner = (text or "").strip()
-    bold = _BOLD_WRAPPER_RE.match(inner)
-    if bold is not None:
-        inner = bold.group(1)
-    return [marker.strip() for marker in _ITALIC_MARKER_RE.findall(inner)]
 
 
 def pair_base_title(title: str) -> str:

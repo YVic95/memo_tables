@@ -203,7 +203,10 @@ class TestAdjectiveTableGeneration:
         )
         assert fake_llm.prompts[1] == generate_adjective_gender_table_prompt.format(
             **PROMPT_VARIABLES,
-            avoid_adjectives="rojo, rojos, fuerte, fuertes",
+            avoid_phrases=(
+                "el libro rojo, los libros rojos, "
+                "el dólar fuerte, los dólares fuertes"
+            ),
         )
 
     def test_adjective_slug_returns_both_general_tables(self, monkeypatch):
@@ -215,11 +218,11 @@ class TestAdjectiveTableGeneration:
             ADJ_GENDER_TABLE.model_dump(),
         ]
 
-    def test_adjective_tables_use_different_adjectives(self, monkeypatch):
+    def test_adjective_tables_use_different_phrases(self, monkeypatch):
         _, fake_llm = self._run_adjective(monkeypatch)
 
-        for marker in ("rojo", "rojos", "fuerte", "fuertes"):
-            assert marker in fake_llm.prompts[1]
+        for phrase in ("el libro rojo", "los libros rojos", "el dólar fuerte"):
+            assert phrase in fake_llm.prompts[1]
 
     def test_adjective_table_without_a_layout_is_rejected(self, monkeypatch):
         table = ADJ_NUMBER_TABLE.model_copy(update={"adjective_table_layout": None})
@@ -345,7 +348,7 @@ class TestAdjectivePromptContent:
         assert "1. Masculine" in template
         assert "5. Feminine" in template
 
-    def test_both_prompts_require_carrier_phrases_with_marked_adjectives(self):
+    def test_both_prompts_require_carrier_phrases_without_markers(self):
         for template in (
             generate_adjective_number_table_prompt.template,
             generate_adjective_gender_table_prompt.template,
@@ -353,8 +356,19 @@ class TestAdjectivePromptContent:
             assert "carrier noun" in template
             assert "Never list a bare adjective" in template
             assert "definite article" in template
-            assert "*rojo*" in template
             assert "a DIFFERENT adjective in each row" in template
+            assert "*rojo*" not in template
+            assert "*roja*" not in template
+
+    def test_number_prompt_shows_plain_singular_plural_exemplars(self):
+        template = generate_adjective_number_table_prompt.template
+
+        assert "el libro rojo / los libros rojos" in template
+
+    def test_gender_prompt_shows_plain_masculine_feminine_exemplars(self):
+        template = generate_adjective_gender_table_prompt.template
+
+        assert "el libro rojo / la mesa roja" in template
 
     def test_both_prompts_require_eight_cells_and_pair_counts(self):
         for template in (
@@ -377,11 +391,11 @@ class TestAdjectivePromptContent:
             "Other layout: every row must have exactly four cells" in template
         )
 
-    def test_gender_prompt_avoids_the_number_table_adjectives(self):
+    def test_gender_prompt_avoids_the_number_table_phrases(self):
         template = generate_adjective_gender_table_prompt.template
 
-        assert "{avoid_adjectives}" in template
-        assert "Do not reuse these adjectives" in template
+        assert "{avoid_phrases}" in template
+        assert "Do not reuse these adjectives or carrier nouns" in template
 
     def test_entry_prompt_offers_the_number_and_agreement_tables(self):
         template = generate_adjective_number_table_prompt.template
@@ -402,7 +416,9 @@ class TestAdjectivePromptContent:
 
         assert "1. Masculine" in template
         assert "5. Feminine" in template
-        assert "**el libro *rojo* / la mesa *roja***" in template
+        assert "el libro rojo / la mesa roja" in template
+        assert "**el libro" not in template
+        assert "*roja*" not in template
         assert "one adjective in its masculine and feminine forms" in template
 
     def test_entry_prompt_offers_the_other_table(self):
@@ -411,6 +427,23 @@ class TestAdjectivePromptContent:
         assert '"adj_other"' in template
         assert "OTHER LAYOUT" in template
         assert "demonstrative" in template.lower()
+
+    def test_other_choice_takes_precedence_for_closed_sets(self):
+        template = generate_adjective_number_table_prompt.template
+
+        assert "ALWAYS use this table for such rules" in template
+        assert "even if" in template
+        assert "closed set of" in template
+
+    def test_number_and_agreement_are_scoped_to_regular_adjectives(self):
+        template = generate_adjective_number_table_prompt.template
+
+        assert "regular adjectives" in template
+
+    def test_gender_prompt_keeps_the_same_adjective_kind(self):
+        template = generate_adjective_gender_table_prompt.template
+
+        assert "same KIND of adjectives" in template
 
     def test_other_section_describes_the_four_columns(self):
         template = generate_adjective_number_table_prompt.template

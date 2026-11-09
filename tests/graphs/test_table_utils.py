@@ -6,7 +6,6 @@ from graphs.table_utils import (
     COLUMN_ROLES,
     DEFAULT_COLUMN_ROLES,
     column_roles,
-    extract_italic_markers,
     merge_pair_sides,
     pair_base_title,
     require_adjective_layout,
@@ -54,21 +53,6 @@ class TestRequireAdjectiveLayout:
         for layout in ("noun_number", None, "adj_case"):
             with pytest.raises(ValueError, match="adjective_table_layout"):
                 require_adjective_layout(layout)
-
-
-class TestExtractItalicMarkers:
-    def test_extracts_adjectives_from_a_bold_carrier_phrase(self):
-        assert extract_italic_markers("**el libro *rojo* / los libros *rojos***") == [
-            "rojo",
-            "rojos",
-        ]
-
-    def test_plain_cells_yield_no_markers(self):
-        assert extract_italic_markers("el libro") == []
-        assert extract_italic_markers("") == []
-
-    def test_bold_without_italics_yields_no_markers(self):
-        assert extract_italic_markers("**el libro rojo**") == []
 
 
 class TestSplitPairTable:

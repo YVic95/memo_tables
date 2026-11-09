@@ -149,7 +149,8 @@ class TestAdjectiveRuleContentPrompt:
         template = adjective_rule_content_prompt.template
 
         assert "*rojo*" in template
-        assert "**el libro *rojo* / los libros *rojos***" in template
+        assert "el libro *rojo* / los libros *rojos*" in template
+        assert "**el libro" not in template
 
     def test_keeps_the_shared_heading_and_formatting_structure(self):
         template = adjective_rule_content_prompt.template

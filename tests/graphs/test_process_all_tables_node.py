@@ -607,14 +607,14 @@ class TestAdjectivePairTable:
             GrammarRuleRow.table_no, GrammarRuleRow.position
         ).all()
         assert [(row.label, row.table_no, row.position) for row in rows] == [
-            ("el libro *rojo*", 0, 0),
-            ("los libros *rojos*", 0, 1),
-            ("el dólar *fuerte*", 0, 2),
-            ("los dólares *fuertes*", 0, 3),
-            ("el chico *alto*", 1, 0),
-            ("la chica *alta*", 1, 1),
-            ("el libro *bueno*", 1, 2),
-            ("la mesa *buena*", 1, 3),
+            ("el libro rojo", 0, 0),
+            ("los libros rojos", 0, 1),
+            ("el dólar fuerte", 0, 2),
+            ("los dólares fuertes", 0, 3),
+            ("el chico alto", 1, 0),
+            ("la chica alta", 1, 1),
+            ("el libro bueno", 1, 2),
+            ("la mesa buena", 1, 3),
         ]
 
     @patch("graphs.nodes.process_all_tables_node.translate_chain")
@@ -642,14 +642,14 @@ class TestAdjectivePairTable:
         self, mock_chain, db_session, general_rule, language_es, language_en
     ):
         mock_chain.invoke.return_value = ADJ_TRANSLATIONS
-        rojo = _seed_adjective_base_word(db_session, general_rule, language_es, "el libro *rojo*")
-        rojos = _seed_adjective_base_word(db_session, general_rule, language_es, "los libros *rojos*")
+        rojo = _seed_adjective_base_word(db_session, general_rule, language_es, "el libro rojo")
+        rojos = _seed_adjective_base_word(db_session, general_rule, language_es, "los libros rojos")
         state = _adjective_state(
             db_session, general_rule, language_es, language_en,
             tables=[ADJ_NUMBER_TABLE.model_dump()],
             form_to_base_word_id={
-                "el libro *rojo*": rojo.id,
-                "los libros *rojos*": rojos.id,
+                "el libro rojo": rojo.id,
+                "los libros rojos": rojos.id,
             },
         )
 
@@ -672,8 +672,8 @@ class TestAdjectivePairTable:
             )
             for link in links
         }
-        assert ("el libro *rojo*", "El libro rojo es nuevo.") in linked
-        assert ("los libros *rojos*", "Los libros rojos son nuevos.") in linked
+        assert ("el libro rojo", "El libro rojo es nuevo.") in linked
+        assert ("los libros rojos", "Los libros rojos son nuevos.") in linked
 
         sent_items = set(mock_chain.invoke.call_args[0][0]["items"].splitlines())
         assert "Los libros rojos son nuevos." in sent_items

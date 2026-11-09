@@ -276,17 +276,21 @@ generate_adjective_number_table_prompt = PromptTemplate.from_template(
     CHOOSE THE TABLE
     Decide which of the three tables fits the rule, then set
     `adjective_table_layout` to the matching value and use that layout's
-    columns.
-    - NUMBER table ("adj_number_gender") — for a rule about adjective number
-      inflection (singular/plural) or gender inflection that does not teach
-      noun-adjective agreement. The gender companion table is generated
+    columns. Check the OTHER table first: closed adjective sets always win,
+    no matter what else the rule mentions.
+    - OTHER table ("adj_other") — for a rule about a closed set of
+      adjectives (demonstrative, possessive, superlative, comparative,
+      ...). The table lists each form directly: adjective, translation,
+      explanation, example. ALWAYS use this table for such rules, even if
+      the rule also mentions number or gender.
+    - NUMBER table ("adj_number_gender") — for a rule about general
+      inflection of regular adjectives (singular/plural or gender endings)
+      that does not teach noun-adjective agreement and is not about a
+      closed set above. The gender companion table is generated
       separately afterwards.
     - AGREEMENT table ("adj_agreement") — for a rule about nouns and
-      adjectives agreeing in gender and number.
+      regular adjectives agreeing in gender and number.
       If the rule covers BOTH gender and number, use the AGREEMENT table.
-    - OTHER table ("adj_other") — for any other adjective rule
-      (demonstrative, possessive, superlative, comparative, ...). The table
-      lists each form directly: adjective, translation, explanation, example.
 
     The column names below describe each column's role. Output the headers in
     {target_language}, keeping this exact order and meaning.
@@ -324,12 +328,12 @@ generate_adjective_number_table_prompt = PromptTemplate.from_template(
       the rule is about.
     - Number layout: the same adjective in singular (columns 1-4) and plural
       (columns 5-8), each inside a carrier noun+adjective phrase with its
-      definite article (e.g. "**el libro *rojo* / los libros *rojos***").
+      definite article (e.g. "el libro rojo / los libros rojos").
       Use a DIFFERENT adjective in each row.
     - Agreement layout: one adjective in its masculine and feminine forms
       (columns 1-4 and 5-8), each inside a full noun+adjective agreement
       phrase with its definite article.
-      For example: "**el libro *rojo* / la mesa *roja***".
+      For example: "el libro rojo / la mesa roja".
       Use a DIFFERENT adjective in each row.
 
     CONTENT RULES
@@ -340,9 +344,7 @@ generate_adjective_number_table_prompt = PromptTemplate.from_template(
     - The form columns (Singular/Plural or Masculine/Feminine, i.e. the number
       and agreement layouts): the carrier
       noun+adjective phrase in {target_language}, with the definite article.
-      Never list a bare adjective.
-      Mark the adjective itself with "*" italics inside the "**"
-      phrase, so the learner can spot it.
+      Never list a bare adjective. Cells hold plain text with no markers.
     - Other layout: the Adjective column holds the bare form in
       {target_language} with an uppercase first letter (e.g. "Este"); the
       Translation column holds the {native_language} translation; the
@@ -386,7 +388,9 @@ generate_adjective_gender_table_prompt = PromptTemplate.from_template(
     This is the GENDER table of a unified number+gender pair: the NUMBER table
     (singular/plural) already exists for the same rule. Set
     `adjective_table_layout` to "adj_number_gender" and use these eight
-    columns.
+    columns. Use the same KIND of adjectives as the number table (regular,
+    possessive, demonstrative, ...): only the dimension changes. The avoid
+    list below still applies, so choose fresh items of that same kind.
 
     The column names below describe each column's role. Output the headers in
     {target_language}, keeping this exact order and meaning.
@@ -403,10 +407,10 @@ generate_adjective_gender_table_prompt = PromptTemplate.from_template(
 
     ROW STRUCTURE — one row = one pair
     A masculine carrier phrase (columns 1-4) paired with a feminine carrier
-    phrase (columns 5-8) showing the same adjective pattern (e.g. "**el libro
-    *rojo* / la mesa *roja***"). Use a DIFFERENT adjective in each row.
-    Do not reuse these adjectives — they already appear in the number table:
-    {avoid_adjectives}. (If that list is empty, ignore this rule.)
+    phrase (columns 5-8) showing the same adjective pattern. For example:
+    "el libro rojo / la mesa roja". Use a DIFFERENT adjective in each row.
+    Do not reuse these adjectives or carrier nouns — they already appear in
+    the number table: {avoid_phrases}. (If that list is empty, ignore this rule.)
 
     CONTENT RULES
     - Table title: written in {target_language}, briefly summarizing the
@@ -415,8 +419,7 @@ generate_adjective_gender_table_prompt = PromptTemplate.from_template(
     - Column headers: written in {target_language}, in the layout order above.
     - The form columns (Masculine/Feminine): the carrier noun+adjective phrase
       in {target_language}, with the definite article. Never list a bare adjective.
-      Mark the adjective itself with "*" italics inside the "**"
-      phrase, so the learner can spot it.
+      Cells hold plain text with no markers.
     - Translation cells: written in {native_language} and include the article,
       e.g. "the red book".
     - Explanation cells: written in {native_language}, as short grammar notes.
@@ -640,8 +643,8 @@ adjective_rule_content_prompt = PromptTemplate.from_template(
         - Every adjective MUST appear inside a carrier noun phrase in
           {target_language} with its definite article (for example el/la/los/las
           in Spanish). Never list a bare adjective.
-        - Mark the adjective itself with "*" italics inside the "**" phrase, so the
-          learner can spot it, e.g. **el libro *rojo***. The italic hook lets the
+        - Mark the adjective itself with "*" italics, so the
+          learner can spot it, e.g. el libro *rojo*. The italic hook lets the
           admin panel highlight the adjective in theme color.
 
         Follow this structure exactly:
@@ -662,12 +665,12 @@ adjective_rule_content_prompt = PromptTemplate.from_template(
         noun, and keep the "*" italics on the adjective.
 
         - For a singular/plural rule, show both forms, e.g.:
-          1. **el libro *rojo* / los libros *rojos*** — the red book / the red books
-          2. **el dólar *fuerte* / los dólares *fuertes*** — the strong dollar / the strong dollars
+          1. el libro *rojo* / los libros *rojos* — the red book / the red books
+          2. el dólar *fuerte* / los dólares *fuertes* — the strong dollar / the strong dollars
         - For a gender rule, pair a masculine and a feminine phrase, e.g.:
-          1. **el libro *rojo* / la mesa *roja*** — the red book (masculine) / the red table (feminine)
+          1. el libro *rojo* / la mesa *roja* — the red book (masculine) / the red table (feminine)
         - For an agreement rule, show the noun and adjective agreeing, e.g.:
-          1. **el libro *rojo* / la mesa *roja*** — the red book / the red table
+          1. el libro *rojo* / la mesa *roja* — the red book / the red table
 
         Choose adjectives that illustrate the rule clearly, including important spelling,
         agreement, or position patterns.

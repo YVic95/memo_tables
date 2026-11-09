@@ -186,8 +186,8 @@ def _adjective_base_words_and_translations(
     Number pair tables contribute one base word per pair, using the singular
     phrase as the dictionary form. Gender and agreement pair tables contribute
     both sides as separate base words. Other-rule tables contribute one base
-    word per row. Form cells carry the carrier phrase with the "*" adjective
-    marker, mirroring how nouns keep the article in the base word text.
+    word per row. Form cells carry the plain carrier phrase, mirroring how
+    nouns keep the article in the base word text.
     """
     base_words: dict[str, dict] = {}
     translations: dict[str, str] = {}

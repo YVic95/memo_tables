@@ -13,7 +13,6 @@ from graphs.table_utils import (
     ADJECTIVE_OTHER_COLUMN_COUNT,
     ADJECTIVE_SIDE_COLUMNS,
     NOUN_COLUMN_COUNT,
-    extract_italic_markers,
     require_adjective_layout,
     require_noun_layout,
 )
@@ -78,21 +77,27 @@ def _validate_adjective_other_table(table: TableData) -> None:
             )
 
 
-def _adjectives_used(number_table: TableData) -> list[str]:
-    """Italic-marked adjectives in the number table's form cells, in order."""
-    markers: list[str] = []
+def _used_carrier_phrases(number_table: TableData) -> list[str]:
+    """Form-cell phrases of the number table, in order, markers stripped.
+
+    Table cells hold plain phrases ("el libro rojo"); any "*" markers from
+    older generations are stripped so the gender prompt receives clean text.
+    """
+    phrases: list[str] = []
     for row in number_table.rows:
         for columns in ADJECTIVE_SIDE_COLUMNS:
             form_index = columns["form"]
             if form_index < len(row.cells):
-                markers.extend(extract_italic_markers(row.cells[form_index]))
+                phrase = row.cells[form_index].replace("*", "").strip()
+                if phrase:
+                    phrases.append(phrase)
     seen: set[str] = set()
     unique: list[str] = []
-    for marker in markers:
-        key = marker.lower()
+    for phrase in phrases:
+        key = phrase.lower()
         if key not in seen:
             seen.add(key)
-            unique.append(marker)
+            unique.append(phrase)
     return unique
 
 
@@ -128,9 +133,9 @@ def _generate_adjective_tables(state: GenerateTableState) -> tuple[TableData, ..
     if entry_table.adjective_table_layout == AdjectiveTableLayout.adj_agreement:
         return (entry_table,)
 
-    avoid = ", ".join(_adjectives_used(entry_table))
+    avoid = ", ".join(_used_carrier_phrases(entry_table))
     gender_table = _invoke_table_prompt(
-        generate_adjective_gender_table_prompt, state, {"avoid_adjectives": avoid}
+        generate_adjective_gender_table_prompt, state, {"avoid_phrases": avoid}
     )
     _validate_adjective_table(gender_table)
     return (entry_table, gender_table)

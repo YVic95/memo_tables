@@ -174,11 +174,11 @@ ADJ_NUMBER_TABLE = TableData(
     rows=[
         TableRow(
             cells=[
-                "el libro *rojo*",
+                "el libro rojo",
                 "the red book",
                 "Masculine; singular article 'el'",
                 "El libro rojo es nuevo.",
-                "los libros *rojos*",
+                "los libros rojos",
                 "the red books",
                 "Plural adds -s to the noun and the adjective",
                 "Los libros rojos son nuevos.",
@@ -186,11 +186,11 @@ ADJ_NUMBER_TABLE = TableData(
         ),
         TableRow(
             cells=[
-                "el dólar *fuerte*",
+                "el dólar fuerte",
                 "the strong dollar",
                 "Masculine; singular article 'el'",
                 "El dólar fuerte sube.",
-                "los dólares *fuertes*",
+                "los dólares fuertes",
                 "the strong dollars",
                 "Plural adds -es to nouns and adjectives ending in a consonant",
                 "Los dólares fuertes suben.",
@@ -206,11 +206,11 @@ ADJ_GENDER_TABLE = TableData(
     rows=[
         TableRow(
             cells=[
-                "el chico *alto*",
+                "el chico alto",
                 "the tall boy",
                 "Masculine; adjective ends in -o",
                 "El chico alto corre.",
-                "la chica *alta*",
+                "la chica alta",
                 "the tall girl",
                 "Feminine; adjective ends in -a",
                 "La chica alta corre.",
@@ -218,11 +218,11 @@ ADJ_GENDER_TABLE = TableData(
         ),
         TableRow(
             cells=[
-                "el libro *bueno*",
+                "el libro bueno",
                 "the good book",
                 "Masculine; adjective ends in -o",
                 "El libro bueno es caro.",
-                "la mesa *buena*",
+                "la mesa buena",
                 "the good table",
                 "Feminine; adjective ends in -a",
                 "La mesa buena es cara.",
@@ -249,11 +249,11 @@ ADJ_AGREEMENT_TABLE = TableData(
     rows=[
         TableRow(
             cells=[
-                "el libro *rojo*",
+                "el libro rojo",
                 "the red book",
                 "Masculine singular: noun and adjective agree",
                 "El libro rojo es nuevo.",
-                "la mesa *roja*",
+                "la mesa roja",
                 "the red table",
                 "Feminine singular: noun and adjective agree",
                 "La mesa roja es grande.",
@@ -261,11 +261,11 @@ ADJ_AGREEMENT_TABLE = TableData(
         ),
         TableRow(
             cells=[
-                "los chicos *altos*",
+                "los chicos altos",
                 "the tall boys",
                 "Masculine plural: noun and adjective agree",
                 "Los chicos altos corren.",
-                "las chicas *altas*",
+                "las chicas altas",
                 "the tall girls",
                 "Feminine plural: noun and adjective agree",
                 "Las chicas altas corren.",

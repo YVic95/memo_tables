@@ -407,12 +407,12 @@ class TestAdjectiveGraphInvocation:
 
         base_words = sorted(db_session.query(BaseWord).all(), key=lambda word: word.text)
         assert [word.text for word in base_words] == [
-            "el chico *alto*",
-            "el dólar *fuerte*",
-            "el libro *bueno*",
-            "el libro *rojo*",
-            "la chica *alta*",
-            "la mesa *buena*",
+            "el chico alto",
+            "el dólar fuerte",
+            "el libro bueno",
+            "el libro rojo",
+            "la chica alta",
+            "la mesa buena",
         ]
         assert all(
             word.word_category_id == adjective_seeded_context["category_id"]
@@ -424,22 +424,22 @@ class TestAdjectiveGraphInvocation:
             GrammarRuleRow.table_no, GrammarRuleRow.position
         ).all()
         assert [(row.label, row.table_no, row.position) for row in rows] == [
-            ("el libro *rojo*", 0, 0),
-            ("los libros *rojos*", 0, 1),
-            ("el dólar *fuerte*", 0, 2),
-            ("los dólares *fuertes*", 0, 3),
-            ("el chico *alto*", 1, 0),
-            ("la chica *alta*", 1, 1),
-            ("el libro *bueno*", 1, 2),
-            ("la mesa *buena*", 1, 3),
+            ("el libro rojo", 0, 0),
+            ("los libros rojos", 0, 1),
+            ("el dólar fuerte", 0, 2),
+            ("los dólares fuertes", 0, 3),
+            ("el chico alto", 1, 0),
+            ("la chica alta", 1, 1),
+            ("el libro bueno", 1, 2),
+            ("la mesa buena", 1, 3),
         ]
 
         forms = {form.form for form in db_session.query(WordForm).all()}
         assert forms == {
-            "el libro *rojo*", "los libros *rojos*",
-            "el dólar *fuerte*", "los dólares *fuertes*",
-            "el chico *alto*", "la chica *alta*",
-            "el libro *bueno*", "la mesa *buena*",
+            "el libro rojo", "los libros rojos",
+            "el dólar fuerte", "los dólares fuertes",
+            "el chico alto", "la chica alta",
+            "el libro bueno", "la mesa buena",
         }
         assert db_session.query(Sentence).count() == 8
         assert db_session.query(WordFormSentence).count() == 8
@@ -449,8 +449,8 @@ class TestAdjectiveGraphInvocation:
             for translation in db_session.query(WordTranslation).all()
         }
         by_text = {word.text: word.id for word in base_words}
-        assert translations[by_text["el libro *rojo*"]] == "the red book"
-        assert translations[by_text["la mesa *buena*"]] == "the good table"
+        assert translations[by_text["el libro rojo"]] == "the red book"
+        assert translations[by_text["la mesa buena"]] == "the good table"
 
         mock_deduce.invoke.assert_not_called()
         mock_base_translate.invoke.assert_not_called()

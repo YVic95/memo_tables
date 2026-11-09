@@ -415,14 +415,14 @@ class TestDeduceAdjectiveBaseWordNode:
         result = deduce_base_word_node(state)
 
         by_text = {item["text"]: item for item in result["base_words_to_save"]}
-        assert set(by_text) == {"el libro *rojo*", "el dólar *fuerte*"}
-        assert by_text["el libro *rojo*"]["forms"] == [
-            "el libro *rojo*",
-            "los libros *rojos*",
+        assert set(by_text) == {"el libro rojo", "el dólar fuerte"}
+        assert by_text["el libro rojo"]["forms"] == [
+            "el libro rojo",
+            "los libros rojos",
         ]
         assert result["base_word_translations"] == {
-            "el libro *rojo*": "the red book",
-            "el dólar *fuerte*": "the strong dollar",
+            "el libro rojo": "the red book",
+            "el dólar fuerte": "the strong dollar",
         }
         assert all(
             item["word_category_id"] == grammar_rule.word_category_id
@@ -440,13 +440,13 @@ class TestDeduceAdjectiveBaseWordNode:
 
         by_text = {item["text"]: item for item in result["base_words_to_save"]}
         assert set(by_text) == {
-            "el chico *alto*",
-            "la chica *alta*",
-            "el libro *bueno*",
-            "la mesa *buena*",
+            "el chico alto",
+            "la chica alta",
+            "el libro bueno",
+            "la mesa buena",
         }
-        assert by_text["el chico *alto*"]["forms"] == ["el chico *alto*"]
-        assert result["base_word_translations"]["la chica *alta*"] == "the tall girl"
+        assert by_text["el chico alto"]["forms"] == ["el chico alto"]
+        assert result["base_word_translations"]["la chica alta"] == "the tall girl"
 
     def test_agreement_layout_saves_both_sides(
         self, db_session, grammar_rule, language_es
@@ -459,10 +459,10 @@ class TestDeduceAdjectiveBaseWordNode:
 
         by_text = {item["text"]: item for item in result["base_words_to_save"]}
         assert set(by_text) == {
-            "el libro *rojo*",
-            "la mesa *roja*",
-            "los chicos *altos*",
-            "las chicas *altas*",
+            "el libro rojo",
+            "la mesa roja",
+            "los chicos altos",
+            "las chicas altas",
         }
 
     def test_other_layout_saves_one_base_word_per_row(
@@ -494,8 +494,8 @@ class TestDeduceAdjectiveBaseWordNode:
         result = deduce_base_word_node(state)
 
         assert {item["text"] for item in result["base_words_to_save"]} == {
-            "el libro *rojo*",
-            "el dólar *fuerte*",
+            "el libro rojo",
+            "el dólar fuerte",
         }
 
     @patch("graphs.nodes.deduce_base_word_node.deduce_chain")
