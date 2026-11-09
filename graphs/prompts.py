@@ -270,12 +270,13 @@ generate_adjective_number_table_prompt = PromptTemplate.from_template(
 
     This is the entry table of the adjective flow: depending on the rule it
     produces either the NUMBER table of a unified number+gender pair (a
-    separate GENDER table follows) or a single AGREEMENT table.
+    separate GENDER table follows), a single AGREEMENT table, or a single
+    OTHER table.
 
     CHOOSE THE TABLE
-    Decide which of the two tables fits the rule, then set
+    Decide which of the three tables fits the rule, then set
     `adjective_table_layout` to the matching value and use that layout's
-    eight columns.
+    columns.
     - NUMBER table ("adj_number_gender") — for a rule about adjective number
       inflection (singular/plural) or gender inflection that does not teach
       noun-adjective agreement. The gender companion table is generated
@@ -283,6 +284,9 @@ generate_adjective_number_table_prompt = PromptTemplate.from_template(
     - AGREEMENT table ("adj_agreement") — for a rule about nouns and
       adjectives agreeing in gender and number.
       If the rule covers BOTH gender and number, use the AGREEMENT table.
+    - OTHER table ("adj_other") — for any other adjective rule
+      (demonstrative, possessive, superlative, comparative, ...). The table
+      lists each form directly: adjective, translation, explanation, example.
 
     The column names below describe each column's role. Output the headers in
     {target_language}, keeping this exact order and meaning.
@@ -307,7 +311,17 @@ generate_adjective_number_table_prompt = PromptTemplate.from_template(
     7. Explanation
     8. Example
 
-    ROW STRUCTURE — one row = one pair
+    OTHER LAYOUT — adjective_table_layout "adj_other"
+    1. Adjective
+    2. Translation
+    3. Explanation
+    4. Example
+
+    ROW STRUCTURE
+    - Number and agreement layouts: one row = one pair (see below).
+    - Other layout: one row = one form (columns 1-4): the adjective, its
+      translation, a usage note, and an example sentence. Cover every form
+      the rule is about.
     - Number layout: the same adjective in singular (columns 1-4) and plural
       (columns 5-8), each inside a carrier noun+adjective phrase with its
       definite article (e.g. "**el libro *rojo* / los libros *rojos***").
@@ -323,13 +337,20 @@ generate_adjective_number_table_prompt = PromptTemplate.from_template(
       Use a distinct title from the companion gender table when the number
       layout is chosen.
     - Column headers: written in {target_language}, in the chosen layout's order.
-    - The form columns (Singular/Plural or Masculine/Feminine): the carrier
-      noun+adjective phrase in
-      {target_language}, with the definite article. Never list a bare adjective.
+    - The form columns (Singular/Plural or Masculine/Feminine, i.e. the number
+      and agreement layouts): the carrier
+      noun+adjective phrase in {target_language}, with the definite article.
+      Never list a bare adjective.
       Mark the adjective itself with "*" italics inside the "**"
       phrase, so the learner can spot it.
-    - Translation cells: written in {native_language} and include the article,
-      e.g. "the red book".
+    - Other layout: the Adjective column holds the bare form in
+      {target_language} with an uppercase first letter (e.g. "Este"); the
+      Translation column holds the {native_language} translation; the
+      Explanation column holds a short usage note in {native_language}; the
+      Example column holds exactly one short sentence in {target_language}
+      using the form, with no native-language translation in the cell.
+    - Translation cells: written in {native_language} and include the article
+      where one applies, e.g. "the red book".
     - Explanation cells: written in {native_language}, as short grammar notes.
       Number layout, left side: the gender cue or the singular article. Right
       side: how the plural is formed (noun and adjective). Agreement layout,
@@ -340,8 +361,11 @@ generate_adjective_number_table_prompt = PromptTemplate.from_template(
     - Pair count:
       - Single-pattern rule: generate 2-3 pairs.
       - Multi-pattern rule: generate 4-6 pairs.
-    - Every row must have exactly eight cells.
-    - Do not add, omit, reorder, or split any of the eight columns.
+      - Other layout: list every form the rule covers; there is no row cap,
+        and the table is never split.
+    - Number and agreement layouts: every row must have exactly eight cells.
+      Other layout: every row must have exactly four cells.
+    - Do not add, omit, reorder, or split any columns of the chosen layout.
     - Do not include separate "Common mistake" or "Correction" columns or content.
     - If the language uses diacritics, use them properly.
 

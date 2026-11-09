@@ -15,6 +15,7 @@ from tests.graphs.generation_helpers import (
     ADJ_AGREEMENT_TABLE,
     ADJ_GENDER_TABLE,
     ADJ_NUMBER_TABLE,
+    ADJ_OTHER_TABLE,
     NOUN_GENDER_HEADERS,
     NOUN_GENDER_TABLE,
     NOUN_NUMBER_HEADERS,
@@ -230,18 +231,6 @@ class TestAdjectiveTableGeneration:
                 FakeSequentialLLM([table, ADJ_GENDER_TABLE]),
             )
 
-    def test_adjective_table_with_a_non_unified_layout_is_rejected(self, monkeypatch):
-        table = ADJ_NUMBER_TABLE.model_copy(
-            update={"adjective_table_layout": "adj_other"}
-        )
-
-        with pytest.raises(ValueError, match="adj_other"):
-            _run_node(
-                monkeypatch,
-                _state("adjective"),
-                FakeSequentialLLM([table, ADJ_GENDER_TABLE]),
-            )
-
     def test_adjective_table_with_a_wrong_header_count_is_rejected(self, monkeypatch):
         table = ADJ_NUMBER_TABLE.model_copy(
             update={"headers": list(ADJ_NUMBER_TABLE.headers[:7])}
@@ -372,10 +361,21 @@ class TestAdjectivePromptContent:
             generate_adjective_number_table_prompt.template,
             generate_adjective_gender_table_prompt.template,
         ):
-            assert "Every row must have exactly eight cells" in template
+            assert "exactly eight cells" in template
             assert "Single-pattern rule: generate 2-3 pairs" in template
             assert "Multi-pattern rule: generate 4-6 pairs" in template
             assert "distinct title" in template
+
+    def test_entry_prompt_scopes_cell_counts_per_layout(self):
+        template = generate_adjective_number_table_prompt.template
+
+        assert (
+            "Number and agreement layouts: every row must have exactly eight cells"
+            in template
+        )
+        assert (
+            "Other layout: every row must have exactly four cells" in template
+        )
 
     def test_gender_prompt_avoids_the_number_table_adjectives(self):
         template = generate_adjective_gender_table_prompt.template
@@ -404,3 +404,51 @@ class TestAdjectivePromptContent:
         assert "5. Feminine" in template
         assert "**el libro *rojo* / la mesa *roja***" in template
         assert "one adjective in its masculine and feminine forms" in template
+
+    def test_entry_prompt_offers_the_other_table(self):
+        template = generate_adjective_number_table_prompt.template
+
+        assert '"adj_other"' in template
+        assert "OTHER LAYOUT" in template
+        assert "demonstrative" in template.lower()
+
+    def test_other_section_describes_the_four_columns(self):
+        template = generate_adjective_number_table_prompt.template
+
+        assert "1. Adjective" in template
+        assert "4. Example" in template
+        assert "one row = one form" in template
+        assert "every row must have exactly four cells" in template
+        assert "there is no row cap" in template
+
+
+class TestAdjectiveOtherTable:
+    def _run_other(self, monkeypatch):
+        fake_llm = FakeStructuredLLM(ADJ_OTHER_TABLE)
+        monkeypatch.setattr(
+            "graphs.nodes.generate_category_table_node.llm", fake_llm
+        )
+        return generate_category_table_node(_state("adjective")), fake_llm
+
+    def test_other_choice_yields_a_single_four_column_table(self, monkeypatch):
+        result, fake_llm = self._run_other(monkeypatch)
+
+        assert len(fake_llm.prompts) == 1
+        assert result["general_table"] == ADJ_OTHER_TABLE.model_dump()
+        assert result["general_tables"] == [ADJ_OTHER_TABLE.model_dump()]
+
+    def test_other_table_with_a_wrong_header_count_is_rejected(self, monkeypatch):
+        table = ADJ_OTHER_TABLE.model_copy(
+            update={"headers": list(ADJ_OTHER_TABLE.headers[:3])}
+        )
+
+        with pytest.raises(ValueError, match="4 columns"):
+            _run_node(monkeypatch, _state("adjective"), FakeStructuredLLM(table))
+
+    def test_other_table_with_a_three_cell_row_is_rejected(self, monkeypatch):
+        table = ADJ_OTHER_TABLE.model_copy(
+            update={"rows": [TableRow(cells=["Este", "this", "near me"])]}
+        )
+
+        with pytest.raises(ValueError, match="4 cells"):
+            _run_node(monkeypatch, _state("adjective"), FakeStructuredLLM(table))

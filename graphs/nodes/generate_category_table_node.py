@@ -10,6 +10,7 @@ from graphs.prompts import (
 from graphs.states import GenerateTableState
 from graphs.table_utils import (
     ADJECTIVE_COLUMN_COUNT,
+    ADJECTIVE_OTHER_COLUMN_COUNT,
     ADJECTIVE_SIDE_COLUMNS,
     NOUN_COLUMN_COUNT,
     extract_italic_markers,
@@ -55,6 +56,28 @@ def _validate_adjective_table(table: TableData) -> None:
             )
 
 
+def _validate_adjective_other_table(table: TableData) -> None:
+    """Validate an other-rules table: the adj_other layout and 4x4 shape."""
+    require_adjective_layout(table.adjective_table_layout)
+    if table.adjective_table_layout != AdjectiveTableLayout.adj_other:
+        raise ValueError(
+            "Other-rule adjective tables must set adjective_table_layout to "
+            f'"{AdjectiveTableLayout.adj_other.value}", got '
+            f'"{table.adjective_table_layout}"'
+        )
+    if len(table.headers) != ADJECTIVE_OTHER_COLUMN_COUNT:
+        raise ValueError(
+            f"Adjective other table must have {ADJECTIVE_OTHER_COLUMN_COUNT} "
+            f"columns, got {len(table.headers)}"
+        )
+    for row in table.rows:
+        if len(row.cells) != ADJECTIVE_OTHER_COLUMN_COUNT:
+            raise ValueError(
+                "Every adjective other table row must have "
+                f"{ADJECTIVE_OTHER_COLUMN_COUNT} cells, got {len(row.cells)}"
+            )
+
+
 def _adjectives_used(number_table: TableData) -> list[str]:
     """Italic-marked adjectives in the number table's form cells, in order."""
     markers: list[str] = []
@@ -87,30 +110,30 @@ def _invoke_table_prompt(prompt, state: GenerateTableState, extra: dict) -> Tabl
 def _generate_adjective_tables(state: GenerateTableState) -> tuple[TableData, ...]:
     """Run the adjective flow from the entry table's layout choice.
 
-    The entry prompt returns either the NUMBER table of a unified pair
-    ("adj_number_gender", followed by the gender companion with fresh items)
-    or a single AGREEMENT table ("adj_agreement"). The "adj_other" layout
-    belongs to a later ticket and is rejected here.
+    The entry prompt returns the NUMBER table of a unified pair
+    ("adj_number_gender", followed by the gender companion with fresh items),
+    a single AGREEMENT table ("adj_agreement"), or a single OTHER table
+    ("adj_other", never fragmented downstream).
     """
-    first_table = _invoke_table_prompt(
+    entry_table = _invoke_table_prompt(
         generate_adjective_number_table_prompt, state, {}
     )
-    _validate_adjective_table(first_table)
+    require_adjective_layout(entry_table.adjective_table_layout)
 
-    if first_table.adjective_table_layout == AdjectiveTableLayout.adj_other:
-        raise ValueError(
-            'Adjective tables with layout "adj_other" are not generated yet. '
-            "Regenerate the table once other-rule tables land."
-        )
-    if first_table.adjective_table_layout == AdjectiveTableLayout.adj_agreement:
-        return (first_table,)
+    if entry_table.adjective_table_layout == AdjectiveTableLayout.adj_other:
+        _validate_adjective_other_table(entry_table)
+        return (entry_table,)
 
-    avoid = ", ".join(_adjectives_used(first_table))
+    _validate_adjective_table(entry_table)
+    if entry_table.adjective_table_layout == AdjectiveTableLayout.adj_agreement:
+        return (entry_table,)
+
+    avoid = ", ".join(_adjectives_used(entry_table))
     gender_table = _invoke_table_prompt(
         generate_adjective_gender_table_prompt, state, {"avoid_adjectives": avoid}
     )
     _validate_adjective_table(gender_table)
-    return (first_table, gender_table)
+    return (entry_table, gender_table)
 
 
 def generate_category_table_node(state: GenerateTableState) -> GenerateTableState:

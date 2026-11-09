@@ -275,6 +275,45 @@ ADJ_AGREEMENT_TABLE = TableData(
     adjective_table_layout="adj_agreement",
 )
 
+ADJ_OTHER_HEADERS = [
+    "Adjetivo",
+    "Traducción",
+    "Explicación",
+    "Ejemplo",
+]
+
+ADJ_OTHER_TABLE = TableData(
+    title="Los demostrativos",
+    headers=ADJ_OTHER_HEADERS,
+    rows=[
+        TableRow(
+            cells=[
+                "Este",
+                "this (near the speaker)",
+                "Masculine singular demonstrative for nearby things",
+                "Este libro es mío.",
+            ]
+        ),
+        TableRow(
+            cells=[
+                "Ese",
+                "that (near the listener)",
+                "Masculine singular demonstrative for things near the listener",
+                "Ese libro es tuyo.",
+            ]
+        ),
+        TableRow(
+            cells=[
+                "Aquel",
+                "that (far from both)",
+                "Masculine singular demonstrative for distant things",
+                "Aquel libro es suyo.",
+            ]
+        ),
+    ],
+    adjective_table_layout="adj_other",
+)
+
 PROMPT_VARIABLES = {
     "native_language": "English",
     "target_language": "Spanish",

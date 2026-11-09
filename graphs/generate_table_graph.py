@@ -1,6 +1,7 @@
 import os
 from dotenv import load_dotenv
 from langgraph.graph import StateGraph, START, END
+from graphs.models import AdjectiveTableLayout
 from graphs.states import GenerateTableState
 from graphs.nodes.fetch_rule_category_node import fetch_rule_category_node
 from graphs.nodes.generate_category_table_node import generate_category_table_node
@@ -31,7 +32,11 @@ def route_after_table(state: GenerateTableState) -> str:
     table = state["general_table"]
     if not table:
         return END
-    if state.get("word_category_slug") in ("noun", "adjective"):
+    if state.get("word_category_slug") == "adjective":
+        if table.get("adjective_table_layout") == AdjectiveTableLayout.adj_other:
+            return END
+        return "fragment"
+    if state.get("word_category_slug") == "noun":
         return "fragment"
     if len(table.get("rows", [])) > FRAGMENT_THRESHOLD:
         return "fragment"

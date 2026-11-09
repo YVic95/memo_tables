@@ -46,6 +46,16 @@ ADJECTIVE_SIDE_COLUMNS = (
 )
 ADJECTIVE_FRAGMENT_TITLE_SEPARATOR = " — "
 
+# Other-rules tables (demonstrative, possessive, superlative, ...) are a
+# single 4-column table: adjective, translation, explanation, example.
+ADJECTIVE_OTHER_COLUMN_COUNT = 4
+ADJECTIVE_OTHER_COLUMNS = {
+    "form": 0,
+    "translation": 1,
+    "explanation": 2,
+    "example": 3,
+}
+
 # Shared shape of every 8-column pair table (noun or adjective): two 4-column
 # sides split at these starts, titles joined with the same separator.
 PAIR_TABLE_COLUMN_COUNT = 8

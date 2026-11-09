@@ -15,6 +15,7 @@ from tests.graphs.generation_helpers import (
     ADJ_AGREEMENT_TABLE,
     ADJ_GENDER_TABLE,
     ADJ_NUMBER_TABLE,
+    ADJ_OTHER_TABLE,
     NOUN_GENDER_HEADERS,
     NOUN_GENDER_TABLE,
     NOUN_NUMBER_TABLE,
@@ -230,5 +231,48 @@ class TestRouteAfterTable:
         assert route_after_table(_generate_table_state("adjective", 0)) == "fragment"
         assert route_after_table(_generate_table_state("adjective", 3)) == "fragment"
 
+    def test_adjective_other_table_never_fragments(self):
+        state = _generate_table_state("adjective", 10)
+        state["general_table"]["adjective_table_layout"] = "adj_other"
+
+        assert route_after_table(state) == END
+
+    def test_adjective_pair_layouts_always_fragment(self):
+        for layout in ("adj_number_gender", "adj_agreement"):
+            state = _generate_table_state("adjective", 10)
+            state["general_table"]["adjective_table_layout"] = layout
+
+            assert route_after_table(state) == "fragment"
+
     def test_missing_table_stops(self):
         assert route_after_table({"word_category_slug": "noun", "general_table": None}) == END
+
+
+class TestAdjectiveOtherTableGeneration:
+    def test_other_rule_yields_exactly_one_four_column_table(
+        self, monkeypatch, db_session, language_es, language_en
+    ):
+        rule = _adjective_grammar_rule(db_session, language_es, language_en)
+        many_rows_table = ADJ_OTHER_TABLE.model_copy(
+            update={
+                "rows": ADJ_OTHER_TABLE.rows * 3,
+            }
+        )
+        fake_llm = FakeStructuredLLM(many_rows_table)
+        monkeypatch.setattr(
+            "graphs.nodes.generate_category_table_node.llm", fake_llm
+        )
+
+        result = graph.invoke({
+            "db": db_session,
+            "grammar_rule_id": rule.id,
+            "native_language": PROMPT_VARIABLES["native_language"],
+            "target_language": PROMPT_VARIABLES["target_language"],
+        })
+
+        assert result["word_category_slug"] == "adjective"
+        assert result["general_table"] == many_rows_table.model_dump()
+        assert result["general_tables"] == [many_rows_table.model_dump()]
+        assert all(len(row["cells"]) == 4 for row in result["general_table"]["rows"])
+        assert result["general_table"]["adjective_table_layout"] == "adj_other"
+        assert not result.get("fragmented_tables")
