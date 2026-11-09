@@ -96,7 +96,11 @@ function renderTableData(tableData, readOnly = false) {
         const tr = document.createElement('tr');
         row.cells.forEach(cell => {
             const td = document.createElement('td');
-            td.textContent = cell;
+            // Inline markdown (*adjective* markers, **phrases**) with HTML
+            // escaped first; headers/titles stay plain text on purpose.
+            // highlightAll: a table cell's `*` markers are always adjectives
+            // (translations live in their own column).
+            td.innerHTML = markdownInline(cell, { highlightAll: true });
             tr.appendChild(td);
         });
         tbody.appendChild(tr);

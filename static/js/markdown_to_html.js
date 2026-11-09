@@ -1,3 +1,73 @@
+function escapeHtml(s) {
+    return String(s ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function markdownInline(s, options = {}) {
+    // Inline `**bold**` / `*italic*` with correct nesting. An italic span
+    // inside a bold phrase marks an adjective (see the adjective prompts)
+    // and gets the highlight class; standalone italics (translations) stay
+    // plain — unless `highlightAll` is set, which table cells use because
+    // their only `*` markers are adjectives. Raw HTML is escaped first so
+    // only markdown-derived markup lands in the DOM.
+    const highlightAll = options.highlightAll === true;
+    const text = escapeHtml(s);
+    let out = '';
+    let i = 0;
+    const n = text.length;
+    let strong = false;
+    let em = false;
+    const emOpenTag = () => (
+        (strong || highlightAll) ? '<em class="adj-highlight">' : '<em>'
+    );
+    while (i < n) {
+        if (text.startsWith('**', i)) {
+            if (em && (i + 2 >= n || text[i + 2] === '*')) {
+                // "***" (or "**" at the end) with italics open: the single
+                // star closes the adjective first, e.g. "*rojos***".
+                out += '</em>';
+                em = false;
+                i += 1;
+                continue;
+            }
+            if (!strong && text.indexOf('**', i + 2) === -1) {
+                out += '**';
+                i += 2;
+                continue;
+            }
+            out += strong ? '</strong>' : '<strong>';
+            strong = !strong;
+            i += 2;
+            continue;
+        }
+        if (text[i] === '*') {
+            if (em) {
+                out += '</em>';
+                em = false;
+                i += 1;
+                continue;
+            }
+            if (text.indexOf('*', i + 1) === -1) {
+                out += '*';
+                i += 1;
+                continue;
+            }
+            out += emOpenTag();
+            em = true;
+            i += 1;
+            continue;
+        }
+        out += text[i];
+        i += 1;
+    }
+    if (em) out += '</em>';
+    if (strong) out += '</strong>';
+    return out;
+}
+
 function markdownToHtml(text) {
     if (!text) return '';
 
@@ -15,9 +85,7 @@ function markdownToHtml(text) {
     });
 
     function inline(s) {
-        return s
-            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-            .replace(/\*(.+?)\*/g, '<em>$1</em>');
+        return markdownInline(s);
     }
 
     function parsePipeTable(startIdx) {

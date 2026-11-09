@@ -1148,6 +1148,11 @@ button[type="submit"]#save-language-selection:hover,
     font-style: italic;
 }
 
+em.adj-highlight {
+    color: #4A5D3A;
+    font-style: italic;
+}
+
 .full-rule-body ol,
 .full-rule-body ul {
     margin: 8px 0;

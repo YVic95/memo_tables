@@ -116,3 +116,67 @@ describe('displayGeneratedTables', () => {
     );
   });
 });
+
+describe('renderTableData cell content', () => {
+  function loadRealRenderer() {
+    const created = [];
+    const sandbox = {
+      console: { log() {}, error() {} },
+      tableMetadata,
+      onTableSelected() {},
+      tableSerializer: { tableToMarkdown: () => '' },
+      enterInsertMode() {},
+      deleteTableFromChat() {},
+      document: {
+        createElement(tagName) {
+          const el = {
+            tagName,
+            className: '',
+            textContent: '',
+            innerHTML: '',
+            dataset: {},
+            children: [],
+            appendChild(child) { this.children.push(child); return child; },
+            addEventListener() {},
+            classList: { add() {}, remove() {}, toggle() { return false; } },
+            querySelector() { return null; },
+          };
+          created.push(el);
+          return el;
+        },
+        getElementById() { return null; },
+      },
+    };
+
+    vm.createContext(sandbox);
+    const root = path.join(__dirname, '../../static/js/');
+    vm.runInContext(fs.readFileSync(path.join(root, 'markdown_to_html.js'), 'utf8'), sandbox);
+    vm.runInContext(fs.readFileSync(path.join(root, 'table_renderer.js'), 'utf8'), sandbox);
+    return { sandbox, created };
+  }
+
+  function cellHtml(created) {
+    return created
+      .filter((el) => el.tagName === 'td')
+      .map((el) => el.innerHTML);
+  }
+
+  it('highlights marked adjectives and keeps cells injection-safe', () => {
+    const { sandbox, created } = loadRealRenderer();
+
+    sandbox.renderTableData({
+      title: 'El número del adjetivo',
+      headers: ['Singular', 'Traducción', 'Explicación', 'Ejemplo'],
+      rows: [
+        { cells: ['el libro *rojo*', 'the red book', 'note', 'El libro rojo es nuevo.'] },
+        { cells: ['<img src=x onerror=alert(1)>', 'the red book', 'note', 'x'] },
+      ],
+    });
+
+    const html = cellHtml(created);
+    assert.match(html[0], /<em class="adj-highlight">rojo<\/em>/);
+    assert.doesNotMatch(html[0], /\*rojo\*/);
+    assert.doesNotMatch(html[4], /<img/);
+    assert.match(html[4], /&lt;img/);
+  });
+});
