@@ -268,10 +268,21 @@ generate_adjective_number_table_prompt = PromptTemplate.from_template(
     Rule name: {rule_name}
     Rule description: {rule_description}
 
-    This is the NUMBER table of a unified number+gender pair: a separate
-    GENDER table covers masculine/feminine for the same rule. Set
-    `adjective_table_layout` to "adj_number_gender" and use these eight
-    columns.
+    This is the entry table of the adjective flow: depending on the rule it
+    produces either the NUMBER table of a unified number+gender pair (a
+    separate GENDER table follows) or a single AGREEMENT table.
+
+    CHOOSE THE TABLE
+    Decide which of the two tables fits the rule, then set
+    `adjective_table_layout` to the matching value and use that layout's
+    eight columns.
+    - NUMBER table ("adj_number_gender") — for a rule about adjective number
+      inflection (singular/plural) or gender inflection that does not teach
+      noun-adjective agreement. The gender companion table is generated
+      separately afterwards.
+    - AGREEMENT table ("adj_agreement") — for a rule about nouns and
+      adjectives agreeing in gender and number.
+      If the rule covers BOTH gender and number, use the AGREEMENT table.
 
     The column names below describe each column's role. Output the headers in
     {target_language}, keeping this exact order and meaning.
@@ -286,26 +297,44 @@ generate_adjective_number_table_prompt = PromptTemplate.from_template(
     7. Explanation
     8. Example
 
+    AGREEMENT LAYOUT — adjective_table_layout "adj_agreement"
+    1. Masculine
+    2. Translation
+    3. Explanation
+    4. Example
+    5. Feminine
+    6. Translation
+    7. Explanation
+    8. Example
+
     ROW STRUCTURE — one row = one pair
-    The same adjective in singular (columns 1-4) and plural (columns 5-8),
-    each inside a carrier noun+adjective phrase with its definite article
-    (e.g. "**el libro *rojo* / los libros *rojos***").
-    Use a DIFFERENT adjective in each row.
+    - Number layout: the same adjective in singular (columns 1-4) and plural
+      (columns 5-8), each inside a carrier noun+adjective phrase with its
+      definite article (e.g. "**el libro *rojo* / los libros *rojos***").
+      Use a DIFFERENT adjective in each row.
+    - Agreement layout: one adjective in its masculine and feminine forms
+      (columns 1-4 and 5-8), each inside a full noun+adjective agreement
+      phrase with its definite article.
+      For example: "**el libro *rojo* / la mesa *roja***".
+      Use a DIFFERENT adjective in each row.
 
     CONTENT RULES
-    - Table title: written in {target_language}, briefly summarizing the
-      number aspect of the rule. Use a distinct title from the companion
-      gender table.
-    - Column headers: written in {target_language}, in the layout order above.
-    - The form columns (Singular/Plural): the carrier noun+adjective phrase in
+    - Table title: written in {target_language}, briefly summarizing the rule.
+      Use a distinct title from the companion gender table when the number
+      layout is chosen.
+    - Column headers: written in {target_language}, in the chosen layout's order.
+    - The form columns (Singular/Plural or Masculine/Feminine): the carrier
+      noun+adjective phrase in
       {target_language}, with the definite article. Never list a bare adjective.
       Mark the adjective itself with "*" italics inside the "**"
       phrase, so the learner can spot it.
     - Translation cells: written in {native_language} and include the article,
       e.g. "the red book".
     - Explanation cells: written in {native_language}, as short grammar notes.
-      Left side: the gender cue or the singular article. Right side: how the
-      plural is formed (noun and adjective).
+      Number layout, left side: the gender cue or the singular article. Right
+      side: how the plural is formed (noun and adjective). Agreement layout,
+      left side: the masculine agreement cue. Right side: the feminine
+      agreement cue.
     - Example cells: exactly one short sentence in {target_language} using that
       side's phrase. Do not include a native-language translation in the cell.
     - Pair count:

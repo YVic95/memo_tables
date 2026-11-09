@@ -4,12 +4,15 @@ from models.canonical_rules import CanonicalRule
 from models.grammar_rules import GrammarRule
 from models.word_categories import WordCategory
 
+from graphs.models import TableData
+
 from graphs.generate_table_graph import graph, route_after_table
 from graphs.prompts import (
     generate_adjective_number_table_prompt,
     generate_noun_table_prompt,
 )
 from tests.graphs.generation_helpers import (
+    ADJ_AGREEMENT_TABLE,
     ADJ_GENDER_TABLE,
     ADJ_NUMBER_TABLE,
     NOUN_GENDER_HEADERS,
@@ -93,6 +96,46 @@ class TestAdjectiveTableGeneration:
         assert [f["adjective_table_layout"] for f in (singular, plural, masculine, feminine)] == [
             "adj_number_gender"
         ] * 4
+
+    def test_agreement_rule_yields_one_general_table_and_two_fragments(
+        self, monkeypatch, db_session, language_es, language_en
+    ):
+        from graphs.table_utils import select_adjective_tables
+
+        rule = _adjective_grammar_rule(db_session, language_es, language_en)
+        fake_llm = FakeStructuredLLM(ADJ_AGREEMENT_TABLE)
+        monkeypatch.setattr(
+            "graphs.nodes.generate_category_table_node.llm", fake_llm
+        )
+
+        result = graph.invoke({
+            "db": db_session,
+            "grammar_rule_id": rule.id,
+            "native_language": PROMPT_VARIABLES["native_language"],
+            "target_language": PROMPT_VARIABLES["target_language"],
+        })
+
+        assert result["word_category_slug"] == "adjective"
+        assert result["general_table"] == ADJ_AGREEMENT_TABLE.model_dump()
+        assert result["general_tables"] == [ADJ_AGREEMENT_TABLE.model_dump()]
+        assert len(fake_llm.prompts) == 1
+
+        assert result["should_fragment"] is True
+        masculine, feminine = result["fragmented_tables"]
+        assert masculine["title"] == f"{ADJ_AGREEMENT_TABLE.title} — Masculino"
+        assert feminine["title"] == f"{ADJ_AGREEMENT_TABLE.title} — Femenino"
+
+        merged = select_adjective_tables(
+            [
+                ADJ_AGREEMENT_TABLE,
+                *[TableData(**f) for f in result["fragmented_tables"]],
+            ]
+        )
+        assert len(merged) == 1
+        assert [row.cells for row in merged[0].rows] == [
+            row.cells for row in ADJ_AGREEMENT_TABLE.rows
+        ]
+        assert merged[0].adjective_table_layout == "adj_agreement"
 
 
 class TestNounTableGeneration:

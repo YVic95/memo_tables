@@ -232,6 +232,49 @@ ADJ_GENDER_TABLE = TableData(
     adjective_table_layout="adj_number_gender",
 )
 
+ADJ_AGREEMENT_HEADERS = [
+    "Masculino",
+    "Traducción",
+    "Explicación",
+    "Ejemplo",
+    "Femenino",
+    "Traducción",
+    "Explicación",
+    "Ejemplo",
+]
+
+ADJ_AGREEMENT_TABLE = TableData(
+    title="La concordancia del adjetivo",
+    headers=ADJ_AGREEMENT_HEADERS,
+    rows=[
+        TableRow(
+            cells=[
+                "el libro *rojo*",
+                "the red book",
+                "Masculine singular: noun and adjective agree",
+                "El libro rojo es nuevo.",
+                "la mesa *roja*",
+                "the red table",
+                "Feminine singular: noun and adjective agree",
+                "La mesa roja es grande.",
+            ]
+        ),
+        TableRow(
+            cells=[
+                "los chicos *altos*",
+                "the tall boys",
+                "Masculine plural: noun and adjective agree",
+                "Los chicos altos corren.",
+                "las chicas *altas*",
+                "the tall girls",
+                "Feminine plural: noun and adjective agree",
+                "Las chicas altas corren.",
+            ]
+        ),
+    ],
+    adjective_table_layout="adj_agreement",
+)
+
 PROMPT_VARIABLES = {
     "native_language": "English",
     "target_language": "Spanish",

@@ -40,14 +40,8 @@ def _validate_noun_table(table: TableData) -> None:
 
 
 def _validate_adjective_table(table: TableData) -> None:
-    """Validate one unified-flow table: the adj_number_gender layout, 8x8."""
+    """Validate one adjective table: a known layout and 8 columns/cells."""
     require_adjective_layout(table.adjective_table_layout)
-    if table.adjective_table_layout != AdjectiveTableLayout.adj_number_gender:
-        raise ValueError(
-            "Unified adjective tables must set adjective_table_layout to "
-            f'"{AdjectiveTableLayout.adj_number_gender.value}", got '
-            f'"{table.adjective_table_layout}"'
-        )
     if len(table.headers) != ADJECTIVE_COLUMN_COUNT:
         raise ValueError(
             f"Adjective table must have {ADJECTIVE_COLUMN_COUNT} columns, "
@@ -90,33 +84,44 @@ def _invoke_table_prompt(prompt, state: GenerateTableState, extra: dict) -> Tabl
     })
 
 
-def _generate_adjective_tables(state: GenerateTableState) -> tuple[TableData, TableData]:
-    """Run the unified flow: number table first, then gender with fresh items."""
-    number_table = _invoke_table_prompt(
+def _generate_adjective_tables(state: GenerateTableState) -> tuple[TableData, ...]:
+    """Run the adjective flow from the entry table's layout choice.
+
+    The entry prompt returns either the NUMBER table of a unified pair
+    ("adj_number_gender", followed by the gender companion with fresh items)
+    or a single AGREEMENT table ("adj_agreement"). The "adj_other" layout
+    belongs to a later ticket and is rejected here.
+    """
+    first_table = _invoke_table_prompt(
         generate_adjective_number_table_prompt, state, {}
     )
-    _validate_adjective_table(number_table)
+    _validate_adjective_table(first_table)
 
-    avoid = ", ".join(_adjectives_used(number_table))
+    if first_table.adjective_table_layout == AdjectiveTableLayout.adj_other:
+        raise ValueError(
+            'Adjective tables with layout "adj_other" are not generated yet. '
+            "Regenerate the table once other-rule tables land."
+        )
+    if first_table.adjective_table_layout == AdjectiveTableLayout.adj_agreement:
+        return (first_table,)
+
+    avoid = ", ".join(_adjectives_used(first_table))
     gender_table = _invoke_table_prompt(
         generate_adjective_gender_table_prompt, state, {"avoid_adjectives": avoid}
     )
     _validate_adjective_table(gender_table)
-    return number_table, gender_table
+    return (first_table, gender_table)
 
 
 def generate_category_table_node(state: GenerateTableState) -> GenerateTableState:
     slug = state.get("word_category_slug")
 
     if slug == "adjective":
-        number_table, gender_table = _generate_adjective_tables(state)
+        tables = _generate_adjective_tables(state)
         return {
             **state,
-            "general_table": number_table.model_dump(),
-            "general_tables": [
-                number_table.model_dump(),
-                gender_table.model_dump(),
-            ],
+            "general_table": tables[0].model_dump(),
+            "general_tables": [table.model_dump() for table in tables],
         }
 
     prompt = CATEGORY_PROMPTS.get(slug, generate_table_prompt)

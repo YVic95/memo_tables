@@ -4,6 +4,7 @@ import graphs.nodes.generate_fragmented_tables_node as node_module
 from graphs.models import FragmentationOutput, TableData, TableRow
 from graphs.nodes.generate_fragmented_tables_node import generate_fragmented_tables_node
 from tests.graphs.generation_helpers import (
+    ADJ_AGREEMENT_TABLE,
     ADJ_GENDER_TABLE,
     ADJ_NUMBER_HEADERS,
     ADJ_NUMBER_TABLE,
@@ -254,3 +255,31 @@ class TestAdjectiveFragmentation:
 
         with pytest.raises(ValueError, match="8 columns"):
             generate_fragmented_tables_node(state)
+
+
+class TestAgreementFragmentation:
+    def test_agreement_table_splits_into_masculine_and_feminine(self, monkeypatch):
+        monkeypatch.setattr(node_module, "fragmentation_chain", _ExplodingChain())
+        state = {
+            "word_category_slug": "adjective",
+            "general_table": ADJ_AGREEMENT_TABLE.model_dump(),
+            "general_tables": [ADJ_AGREEMENT_TABLE.model_dump()],
+        }
+
+        result = generate_fragmented_tables_node(state)
+
+        assert result["should_fragment"] is True
+        masculine, feminine = result["fragmented_tables"]
+        assert masculine["title"] == f"{ADJ_AGREEMENT_TABLE.title} — Masculino"
+        assert feminine["title"] == f"{ADJ_AGREEMENT_TABLE.title} — Femenino"
+        assert [f["fragmented_table_id"] for f in (masculine, feminine)] == [1, 2]
+        assert [f["adjective_table_layout"] for f in (masculine, feminine)] == [
+            "adj_agreement",
+            "adj_agreement",
+        ]
+        assert [row["cells"] for row in masculine["rows"]] == [
+            row.cells[:4] for row in ADJ_AGREEMENT_TABLE.rows
+        ]
+        assert [row["cells"] for row in feminine["rows"]] == [
+            row.cells[4:] for row in ADJ_AGREEMENT_TABLE.rows
+        ]

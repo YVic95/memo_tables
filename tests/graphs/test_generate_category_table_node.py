@@ -12,6 +12,7 @@ from graphs.prompts import (
     generate_verb_table_prompt,
 )
 from tests.graphs.generation_helpers import (
+    ADJ_AGREEMENT_TABLE,
     ADJ_GENDER_TABLE,
     ADJ_NUMBER_TABLE,
     NOUN_GENDER_HEADERS,
@@ -231,10 +232,10 @@ class TestAdjectiveTableGeneration:
 
     def test_adjective_table_with_a_non_unified_layout_is_rejected(self, monkeypatch):
         table = ADJ_NUMBER_TABLE.model_copy(
-            update={"adjective_table_layout": "adj_agreement"}
+            update={"adjective_table_layout": "adj_other"}
         )
 
-        with pytest.raises(ValueError, match="adj_number_gender"):
+        with pytest.raises(ValueError, match="adj_other"):
             _run_node(
                 monkeypatch,
                 _state("adjective"),
@@ -264,6 +265,29 @@ class TestAdjectiveTableGeneration:
                 _state("adjective"),
                 FakeSequentialLLM([table, ADJ_GENDER_TABLE]),
             )
+
+
+class TestAdjectiveAgreementTable:
+    def _run_agreement(self, monkeypatch):
+        fake_llm = FakeStructuredLLM(ADJ_AGREEMENT_TABLE)
+        monkeypatch.setattr(
+            "graphs.nodes.generate_category_table_node.llm", fake_llm
+        )
+        return generate_category_table_node(_state("adjective")), fake_llm
+
+    def test_agreement_choice_yields_a_single_general_table(self, monkeypatch):
+        result, fake_llm = self._run_agreement(monkeypatch)
+
+        assert len(fake_llm.prompts) == 1
+        assert result["general_table"] == ADJ_AGREEMENT_TABLE.model_dump()
+        assert result["general_tables"] == [ADJ_AGREEMENT_TABLE.model_dump()]
+
+    def test_agreement_table_uses_the_entry_prompt(self, monkeypatch):
+        _, fake_llm = self._run_agreement(monkeypatch)
+
+        assert fake_llm.prompts[0] == generate_adjective_number_table_prompt.format(
+            **PROMPT_VARIABLES
+        )
 
 
 class TestNounPromptContent:
@@ -358,3 +382,25 @@ class TestAdjectivePromptContent:
 
         assert "{avoid_adjectives}" in template
         assert "Do not reuse these adjectives" in template
+
+    def test_entry_prompt_offers_the_number_and_agreement_tables(self):
+        template = generate_adjective_number_table_prompt.template
+
+        assert "CHOOSE THE TABLE" in template
+        assert '"adj_number_gender"' in template
+        assert '"adj_agreement"' in template
+        assert "AGREEMENT LAYOUT" in template
+
+    def test_entry_prompt_routes_both_dimensions_to_agreement(self):
+        template = generate_adjective_number_table_prompt.template
+
+        assert "If the rule covers BOTH gender and number" in template
+        assert "use the AGREEMENT table" in template
+
+    def test_agreement_section_describes_full_phrases_in_masculine_feminine(self):
+        template = generate_adjective_number_table_prompt.template
+
+        assert "1. Masculine" in template
+        assert "5. Feminine" in template
+        assert "**el libro *rojo* / la mesa *roja***" in template
+        assert "one adjective in its masculine and feminine forms" in template
