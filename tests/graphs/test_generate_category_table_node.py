@@ -3,10 +3,14 @@ import uuid
 import pytest
 
 from graphs.models import TableData, TableRow
-from graphs.nodes.generate_category_table_node import generate_category_table_node
+from graphs.nodes.generate_category_table_node import (
+    generate_category_table_node,
+    is_special_topic_adjective_rule,
+)
 from graphs.prompts import (
     generate_adjective_gender_table_prompt,
     generate_adjective_number_table_prompt,
+    generate_adjective_other_table_prompt,
     generate_noun_table_prompt,
     generate_table_prompt,
     generate_verb_table_prompt,
@@ -426,7 +430,17 @@ class TestAdjectivePromptContent:
 
         assert '"adj_other"' in template
         assert "OTHER LAYOUT" in template
-        assert "demonstrative" in template.lower()
+        for topic in (
+            "demonstrative",
+            "possessive",
+            "comparative",
+            "superlative",
+            "apocope",
+            "indefinite",
+            "interrogative",
+            "ordinal",
+        ):
+            assert topic in template.lower()
 
     def test_other_choice_takes_precedence_for_closed_sets(self):
         template = generate_adjective_number_table_prompt.template
@@ -453,6 +467,7 @@ class TestAdjectivePromptContent:
         assert "one row = one form" in template
         assert "every row must have exactly four cells" in template
         assert "there is no row cap" in template
+        assert "representative forms" in template
 
 
 class TestAdjectiveOtherTable:
@@ -469,6 +484,89 @@ class TestAdjectiveOtherTable:
         assert len(fake_llm.prompts) == 1
         assert result["general_table"] == ADJ_OTHER_TABLE.model_dump()
         assert result["general_tables"] == [ADJ_OTHER_TABLE.model_dump()]
+
+    def test_special_topic_rule_is_pre_routed_to_the_other_prompt(self, monkeypatch):
+        fake_llm = FakeStructuredLLM(ADJ_OTHER_TABLE)
+        monkeypatch.setattr(
+            "graphs.nodes.generate_category_table_node.llm", fake_llm
+        )
+        state = _state(
+            "adjective",
+            rule_name="Possessive adjectives",
+            rule_description="Forms agree in gender and number.",
+        )
+
+        result = generate_category_table_node(state)
+
+        assert len(fake_llm.prompts) == 1
+        assert fake_llm.prompts[0] == generate_adjective_other_table_prompt.format(
+            **{
+                **PROMPT_VARIABLES,
+                "rule_name": "Possessive adjectives",
+                "rule_description": "Forms agree in gender and number.",
+            }
+        )
+        assert result["general_table"]["adjective_table_layout"] == "adj_other"
+        assert result["general_tables"] == [ADJ_OTHER_TABLE.model_dump()]
+
+    def test_special_topic_keyword_routing_is_scoped_to_spanish(self, monkeypatch):
+        fake_llm = FakeSequentialLLM([ADJ_NUMBER_TABLE, ADJ_GENDER_TABLE])
+        monkeypatch.setattr(
+            "graphs.nodes.generate_category_table_node.llm", fake_llm
+        )
+        state = _state(
+            "adjective",
+            rule_name="Comparative Adjectives",
+            rule_description="",
+        )
+        state["target_language"] = "French"
+
+        generate_category_table_node(state)
+
+        assert len(fake_llm.prompts) == 2
+        assert fake_llm.prompts[0] == generate_adjective_number_table_prompt.format(
+            **{
+                **PROMPT_VARIABLES,
+                "target_language": "French",
+                "rule_name": "Comparative Adjectives",
+            }
+        )
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "Demonstrative Adjectives",
+            "Possessive Adjectives",
+            "Comparative Adjectives",
+            "Superlative Adjectives",
+            "Absolute Superlative",
+            "Irregular Comparatives",
+            "Apocope of Adjectives",
+            "Indefinite Adjectives",
+            "Interrogative Adjectives",
+            "Ordinal Adjectives",
+        ],
+    )
+    def test_routes_spanish_catalog_special_topics_to_other(self, name):
+        assert is_special_topic_adjective_rule(name, "")
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "Singular and Plural of adjectives",
+            "Gender of Adjectives",
+            "Noun-Adjective Agreement",
+        ],
+    )
+    def test_does_not_route_regular_inflection_rules_to_other(self, name):
+        assert not is_special_topic_adjective_rule(
+            name, "Regular adjective forms and agreement"
+        )
+
+    def test_detects_special_topic_in_the_rule_description(self):
+        assert is_special_topic_adjective_rule(
+            "Adjectives", "Demonstrative forms vary by gender and number."
+        )
 
     def test_other_table_with_a_wrong_header_count_is_rejected(self, monkeypatch):
         table = ADJ_OTHER_TABLE.model_copy(

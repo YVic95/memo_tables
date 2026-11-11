@@ -149,8 +149,9 @@ class TestAdjectiveRuleContentPrompt:
         template = adjective_rule_content_prompt.template
 
         assert "*rojo*" in template
-        assert "el libro *rojo* / los libros *rojos*" in template
-        assert "**el libro" not in template
+        assert "**el libro *rojo* / los libros *rojos***" in template
+        assert "bold each complete target-language phrase" in template
+        assert "Do not italicize the translation" in template
 
     def test_keeps_the_shared_heading_and_formatting_structure(self):
         template = adjective_rule_content_prompt.template

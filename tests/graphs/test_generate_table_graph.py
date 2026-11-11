@@ -9,6 +9,7 @@ from graphs.models import TableData
 from graphs.generate_table_graph import graph, route_after_table
 from graphs.prompts import (
     generate_adjective_number_table_prompt,
+    generate_adjective_other_table_prompt,
     generate_noun_table_prompt,
 )
 from tests.graphs.generation_helpers import (
@@ -253,6 +254,9 @@ class TestAdjectiveOtherTableGeneration:
         self, monkeypatch, db_session, language_es, language_en
     ):
         rule = _adjective_grammar_rule(db_session, language_es, language_en)
+        rule.name = "Possessive adjectives and agreement"
+        rule.description = "Possessive forms agree in number and gender"
+        db_session.commit()
         many_rows_table = ADJ_OTHER_TABLE.model_copy(
             update={
                 "rows": ADJ_OTHER_TABLE.rows * 3,
@@ -276,3 +280,11 @@ class TestAdjectiveOtherTableGeneration:
         assert all(len(row["cells"]) == 4 for row in result["general_table"]["rows"])
         assert result["general_table"]["adjective_table_layout"] == "adj_other"
         assert not result.get("fragmented_tables")
+        assert len(fake_llm.prompts) == 1
+        assert fake_llm.prompts[0] == generate_adjective_other_table_prompt.format(
+            **{
+                **PROMPT_VARIABLES,
+                "rule_name": rule.name,
+                "rule_description": rule.description,
+            }
+        )
