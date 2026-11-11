@@ -115,6 +115,50 @@ describe('displayGeneratedTables', () => {
       [0, 1],
     );
   });
+
+  it('displays and persists both adjective general tables and all side fragments', () => {
+    const { sandbox, calls } = loadTableRenderer();
+    const numberTable = {
+      title: 'Adjective number',
+      adjective_table_layout: 'adj_number_gender',
+      headers: ['Singular', 'Tr', 'Expl', 'Ex', 'Plural', 'Tr', 'Expl', 'Ex'],
+      rows: [],
+    };
+    const genderTable = {
+      title: 'Adjective gender',
+      adjective_table_layout: 'adj_number_gender',
+      headers: ['Masculine', 'Tr', 'Expl', 'Ex', 'Feminine', 'Tr', 'Expl', 'Ex'],
+      rows: [],
+    };
+    const fragments = ['Singular', 'Plural', 'Masculine', 'Feminine'].map(
+      (side, index) => ({
+        title: `Adjective ${side}`,
+        adjective_table_layout: 'adj_number_gender',
+        headers: [side, 'Tr', 'Expl', 'Ex'],
+        rows: [{ cells: [`form ${side}`, 'translation', 'note', 'example'], row_position: index + 2 }],
+      }),
+    );
+
+    sandbox.displayGeneratedTables({
+      general_table: numberTable,
+      general_tables: [numberTable, genderTable],
+      fragmented_tables: fragments,
+    });
+
+    assert.deepEqual(
+      calls.rendered.map((table) => table.title),
+      [numberTable.title, genderTable.title, ...fragments.map((table) => table.title)],
+    );
+    assert.deepEqual(
+      calls.persisted[0].general_tables.map((table) => table.title),
+      [numberTable.title, genderTable.title],
+    );
+    assert.equal(fragments[2].rows[0].row_position, 4);
+    assert.deepEqual(
+      fragments.map((table) => table.fragmented_table_id),
+      [1, 2, 3, 4],
+    );
+  });
 });
 
 describe('renderTableData cell content', () => {

@@ -20,9 +20,18 @@ function getLatestTables() {
     });
 
     const tables = Array.from(latestTables.values());
+    const supersededIds = new Set(
+        tables
+            .map(table => table.edited_from)
+            .filter(id => id !== undefined && id !== null)
+            .map(String),
+    );
+    const currentTables = tables.filter(
+        table => table.tableId == null || !supersededIds.has(String(table.tableId)),
+    );
 
     if (tableOrder.length > 0) {
-        tables.sort((a, b) => {
+        currentTables.sort((a, b) => {
             const indexA = a.tableId !== undefined ? tableOrder.indexOf(a.tableId) : -1;
             const indexB = b.tableId !== undefined ? tableOrder.indexOf(b.tableId) : -1;
             const rankA = indexA === -1 ? tableOrder.length : indexA;
@@ -31,7 +40,7 @@ function getLatestTables() {
         });
     }
 
-    return tables;
+    return currentTables;
 }
 
 function showTablePreview() {

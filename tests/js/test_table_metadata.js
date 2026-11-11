@@ -4,6 +4,7 @@ const vm = require('node:vm');
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const {
+  keepsGrammarRowPosition,
   preserveTableMetadata,
 } = require('../../static/js/table_metadata.js');
 
@@ -162,6 +163,44 @@ describe('chat table edit metadata preservation', () => {
     assert.equal(calls.rendered[0], parsedTable);
     assert.equal(calls.persisted[0].replacement, parsedTable);
   });
+
+  it('keeps adjective_table_layout and row_position through the LLM edit path', async () => {
+    const { sandbox } = loadChatTableEdit();
+    const editedTable = {
+      title: 'El número del adjetivo — Singular',
+      headers: ['Singular', 'Traducción', 'Explicación', 'Ejemplo'],
+      rows: [{ cells: ['el libro rojo', 'the red book', 'Masculine', 'El libro es rojo.'] }],
+    };
+    sandbox.editTable = async () => ({ edited_table: editedTable, edit_history: [] });
+
+    runInSandbox(
+      sandbox,
+      `
+        tableEditElements = {
+          input: { value: '', disabled: false },
+          sendBtn: { disabled: false },
+          reapplyBtn: { classList: { add() {}, remove() {} } },
+          editTableBtn: { classList: { add() {}, remove() {} } },
+        };
+        selectedTable = {
+          tableId: 7,
+          title: 'El número del adjetivo — Singular',
+          isFragmented: true,
+          fragmented_table_id: 1,
+          adjective_table_layout: 'adj_number_gender',
+          rows: [{ row_position: 4 }],
+        };
+        hasEditHistory = false;
+      `,
+    );
+
+    await runInSandbox(sandbox, 'submitEdit("Use another phrase")');
+
+    assert.equal(editedTable.adjective_table_layout, 'adj_number_gender');
+    assert.equal(editedTable.isFragmented, true);
+    assert.equal(editedTable.fragmented_table_id, 1);
+    assert.equal(editedTable.rows[0].row_position, 4);
+  });
 });
 
 describe('preserveTableMetadata', () => {
@@ -186,6 +225,27 @@ describe('preserveTableMetadata', () => {
       edited.rows.map((row) => row.row_position),
       [0, 1],
     );
+  });
+
+  it('keeps adjective layout and pair positions on fragmented tables', () => {
+    const edited = {
+      title: 'Adjective number — Singular',
+      headers: ['Singular', 'Translation', 'Explanation', 'Example'],
+      rows: [{ cells: ['el libro rojo'] }],
+    };
+    const source = {
+      adjective_table_layout: 'adj_number_gender',
+      isFragmented: true,
+      fragmented_table_id: 1,
+      rows: [{ row_position: 6 }],
+    };
+
+    preserveTableMetadata(edited, source);
+
+    assert.equal(edited.adjective_table_layout, 'adj_number_gender');
+    assert.equal(edited.fragmented_table_id, 1);
+    assert.equal(edited.rows[0].row_position, 6);
+    assert.equal(keepsGrammarRowPosition(source, source.rows[0]), true);
   });
 
   it('leaves a regular noun table without fragmentation metadata', () => {

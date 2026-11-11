@@ -51,7 +51,12 @@ function persistTableMessage(tablePayload) {
         return;
     }
 
-    persistChatMessage('assistant', 'table', { table: tablePayload.general_table });
+    const generalTables = tablePayload.general_tables?.length
+        ? tablePayload.general_tables
+        : (tablePayload.general_table ? [tablePayload.general_table] : []);
+    generalTables.forEach(table => {
+        persistChatMessage('assistant', 'table', { table });
+    });
 
     if (fragmented.length > 0) {
         persistChatMessage('assistant', 'table', {

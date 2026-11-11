@@ -118,8 +118,12 @@ function assignTableId(tableData) {
 }
 
 function displayGeneratedTables(response) {
-    const main = renderTableData(assignTableId(response.general_table));
-    appendToChat(main);
+    const generalTables = response.general_tables?.length
+        ? response.general_tables
+        : (response.general_table ? [response.general_table] : []);
+    generalTables.forEach(table => {
+        appendToChat(renderTableData(assignTableId(table)));
+    });
 
     if (response.fragmented_tables && response.fragmented_tables.length > 0) {
         const separator = document.createElement('hr');
@@ -135,7 +139,7 @@ function displayGeneratedTables(response) {
             table.isFragmented = true;
             table.fragmented_table_id = index + 1;
             table.rows.forEach((row, rowIndex) => {
-                if (tableMetadata.keepsNounRowPosition(table, row)) {
+                if (tableMetadata.keepsGrammarRowPosition(table, row)) {
                     return;
                 }
                 row.row_position = rowIndex;
@@ -151,6 +155,7 @@ function displayGeneratedTables(response) {
     }
 
     persistTableMessage({
+        general_tables: generalTables,
         general_table: response.general_table,
         fragmented_tables: response.fragmented_tables || [],
     });

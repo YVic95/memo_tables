@@ -122,6 +122,23 @@ describe('analyzeRestoreMessages', () => {
     assert.deepEqual(Array.from(restored.consumedLists), []);
     assert.equal(restored.hasProposedRules, true);
   });
+
+  it('marks edited table ids as superseded so restore can omit the originals', () => {
+    const restored = analyzeRestoreMessages([
+      {
+        position: 1,
+        message_type: 'table',
+        content: { table: { tableId: 10 } },
+      },
+      {
+        position: 2,
+        message_type: 'table',
+        content: { table: { tableId: 11, edited_from: 10 } },
+      },
+    ]);
+
+    assert.deepEqual(Array.from(restored.supersededTableIds), [10]);
+  });
 });
 
 describe('renderRestoredMessage', () => {

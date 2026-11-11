@@ -100,6 +100,7 @@ function analyzeRestoreMessages(messages) {
         hasProposedRules: false,
         latestRuleId: null,
         deletedTableIds: new Set(),
+        supersededTableIds: new Set(),
         consumedLists: new Set(),
         selectionEchoPositions: new Set(),
         selectedTitleByList: new Map(),
@@ -122,6 +123,9 @@ function analyzeRestoreMessages(messages) {
         } else if (msg.message_type === 'table' && msg.content) {
             if (msg.content.table && msg.content.table.tableId != null) {
                 result.restoredTablePositions.set(msg.content.table.tableId, msg.position);
+                if (msg.content.table.edited_from != null) {
+                    result.supersededTableIds.add(msg.content.table.edited_from);
+                }
             } else if (Array.isArray(msg.content.tables)) {
                 msg.content.tables.forEach(table => {
                     if (table && table.tableId != null) {
@@ -232,6 +236,9 @@ function renderRestoredTable(content, restored, position) {
     function isCurrentTable(table) {
         if (table.tableId == null) {
             return true;
+        }
+        if (restored.supersededTableIds.has(table.tableId)) {
+            return false;
         }
         return restoredTablePositions.get(table.tableId) === position;
     }
