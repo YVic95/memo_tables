@@ -118,9 +118,7 @@ function assignTableId(tableData) {
 }
 
 function displayGeneratedTables(response) {
-    const generalTables = response.general_tables?.length
-        ? response.general_tables
-        : (response.general_table ? [response.general_table] : []);
+    const generalTables = response.general_tables ?? [];
     generalTables.forEach(table => {
         appendToChat(renderTableData(assignTableId(table)));
     });
@@ -156,7 +154,6 @@ function displayGeneratedTables(response) {
 
     persistTableMessage({
         general_tables: generalTables,
-        general_table: response.general_table,
         fragmented_tables: response.fragmented_tables || [],
     });
 }

@@ -73,7 +73,7 @@ describe('displayGeneratedTables', () => {
     };
 
     sandbox.displayGeneratedTables({
-      general_table: generalTable,
+      general_tables: [generalTable],
       fragmented_tables: [singularTable, pluralTable],
     });
 
@@ -87,11 +87,25 @@ describe('displayGeneratedTables', () => {
     assert.equal(pluralTable.fragmented_table_id, 2);
     assert.equal(singularTable.rows[0].row_position, 3);
     assert.equal(pluralTable.rows[0].row_position, 3);
-    assert.equal(calls.persisted[0].general_table, generalTable);
+    assert.deepEqual(calls.persisted[0].general_tables, [generalTable]);
+    assert.equal(Object.hasOwn(calls.persisted[0], 'general_table'), false);
     assert.deepEqual(calls.persisted[0].fragmented_tables, [
       singularTable,
       pluralTable,
     ]);
+  });
+
+  it('ignores the removed singular generated-table field', () => {
+    const { sandbox, calls } = loadTableRenderer();
+
+    sandbox.displayGeneratedTables({
+      general_table: { title: 'Legacy', headers: [], rows: [] },
+      fragmented_tables: [],
+    });
+
+    assert.deepEqual(calls.rendered, []);
+    assert.equal(calls.persisted[0].general_tables.length, 0);
+    assert.equal(Object.hasOwn(calls.persisted[0], 'general_table'), false);
   });
 
   it('still reindexes verb fragment rows', () => {
@@ -106,7 +120,7 @@ describe('displayGeneratedTables', () => {
     };
 
     sandbox.displayGeneratedTables({
-      general_table: { title: 'Presente', headers: [], rows: [] },
+      general_tables: [{ title: 'Presente', headers: [], rows: [] }],
       fragmented_tables: [verbFragment],
     });
 
@@ -140,7 +154,6 @@ describe('displayGeneratedTables', () => {
     );
 
     sandbox.displayGeneratedTables({
-      general_table: numberTable,
       general_tables: [numberTable, genderTable],
       fragmented_tables: fragments,
     });
