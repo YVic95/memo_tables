@@ -76,7 +76,7 @@ class TestAdjectiveTableGeneration:
         })
 
         assert result["word_category_slug"] == "adjective"
-        assert result["general_table"] == ADJ_NUMBER_TABLE.model_dump()
+        assert "general_table" not in result
         assert result["general_tables"] == [
             ADJ_NUMBER_TABLE.model_dump(),
             ADJ_GENDER_TABLE.model_dump(),
@@ -118,7 +118,7 @@ class TestAdjectiveTableGeneration:
         })
 
         assert result["word_category_slug"] == "adjective"
-        assert result["general_table"] == ADJ_AGREEMENT_TABLE.model_dump()
+        assert "general_table" not in result
         assert result["general_tables"] == [ADJ_AGREEMENT_TABLE.model_dump()]
         assert len(fake_llm.prompts) == 1
 
@@ -155,10 +155,12 @@ class TestNounTableGeneration:
         })
 
         assert result["word_category_slug"] == "noun"
-        assert result["general_table"] == NOUN_GENDER_TABLE.model_dump()
-        assert result["general_table"]["noun_table_layout"] == "noun_gender"
-        assert result["general_table"]["headers"] == NOUN_GENDER_HEADERS
-        assert all(len(row["cells"]) == 8 for row in result["general_table"]["rows"])
+        assert "general_table" not in result
+        assert result["general_tables"] == [NOUN_GENDER_TABLE.model_dump()]
+        table = result["general_tables"][0]
+        assert table["noun_table_layout"] == "noun_gender"
+        assert table["headers"] == NOUN_GENDER_HEADERS
+        assert all(len(row["cells"]) == 8 for row in table["rows"])
         assert fake_llm.prompts[0] == generate_noun_table_prompt.format(**PROMPT_VARIABLES)
 
         assert result["should_fragment"] is True
@@ -199,15 +201,48 @@ class TestNounTableGeneration:
             assert len(fragment["rows"]) == 1
             assert len(fragment["rows"][0]["cells"]) == 4
 
+    def test_generic_generation_stores_its_single_table_in_general_tables(
+        self, monkeypatch, db_session, grammar_rule
+    ):
+        class FakeGenerationChain:
+            def invoke(self, _prompt_variables):
+                return TableData(
+                    title="Generic table",
+                    headers=["Form", "Meaning"],
+                    rows=[],
+                )
+
+        category = db_session.get(WordCategory, grammar_rule.word_category_id)
+        category.slug = "preposition"
+        db_session.commit()
+        monkeypatch.setattr(
+            "graphs.nodes.generate_general_table_node.generate_table_chain",
+            FakeGenerationChain(),
+        )
+
+        result = graph.invoke({
+            "db": db_session,
+            "grammar_rule_id": grammar_rule.id,
+            "native_language": "English",
+            "target_language": "Spanish",
+        })
+
+        assert result["general_tables"] == [
+            {"title": "Generic table", "headers": ["Form", "Meaning"], "rows": [],
+             "fragmented_table_id": None, "noun_table_layout": None,
+             "adjective_table_layout": None}
+        ]
+        assert "general_table" not in result
+
 
 def _generate_table_state(word_category_slug: str, row_count: int) -> dict:
     return {
         "word_category_slug": word_category_slug,
-        "general_table": {
+        "general_tables": [{
             "title": "Table",
             "headers": ["A", "B"],
             "rows": [{"cells": ["x", "y"]} for _ in range(row_count)],
-        },
+        }],
     }
 
 
@@ -224,6 +259,16 @@ class TestRouteAfterTable:
     def test_verb_above_threshold_fragments(self):
         assert route_after_table(_generate_table_state("verb", 4)) == "fragment"
 
+    def test_single_table_routing_uses_the_first_general_table(self):
+        state = _generate_table_state("verb", 3)
+        state["general_tables"].append({
+            "title": "Second table",
+            "headers": ["A", "B"],
+            "rows": [{"cells": ["x", "y"]} for _ in range(5)],
+        })
+
+        assert route_after_table(state) == END
+
     def test_other_categories_keep_the_row_threshold(self):
         assert route_after_table(_generate_table_state("verb", 3)) == END
         assert route_after_table(_generate_table_state("verb", 4)) == "fragment"
@@ -234,19 +279,19 @@ class TestRouteAfterTable:
 
     def test_adjective_other_table_never_fragments(self):
         state = _generate_table_state("adjective", 10)
-        state["general_table"]["adjective_table_layout"] = "adj_other"
+        state["general_tables"][0]["adjective_table_layout"] = "adj_other"
 
         assert route_after_table(state) == END
 
     def test_adjective_pair_layouts_always_fragment(self):
         for layout in ("adj_number_gender", "adj_agreement"):
             state = _generate_table_state("adjective", 10)
-            state["general_table"]["adjective_table_layout"] = layout
+            state["general_tables"][0]["adjective_table_layout"] = layout
 
             assert route_after_table(state) == "fragment"
 
     def test_missing_table_stops(self):
-        assert route_after_table({"word_category_slug": "noun", "general_table": None}) == END
+        assert route_after_table({"word_category_slug": "noun", "general_tables": []}) == END
 
 
 class TestAdjectiveOtherTableGeneration:
@@ -275,10 +320,11 @@ class TestAdjectiveOtherTableGeneration:
         })
 
         assert result["word_category_slug"] == "adjective"
-        assert result["general_table"] == many_rows_table.model_dump()
+        assert "general_table" not in result
         assert result["general_tables"] == [many_rows_table.model_dump()]
-        assert all(len(row["cells"]) == 4 for row in result["general_table"]["rows"])
-        assert result["general_table"]["adjective_table_layout"] == "adj_other"
+        table = result["general_tables"][0]
+        assert all(len(row["cells"]) == 4 for row in table["rows"])
+        assert table["adjective_table_layout"] == "adj_other"
         assert not result.get("fragmented_tables")
         assert len(fake_llm.prompts) == 1
         assert fake_llm.prompts[0] == generate_adjective_other_table_prompt.format(

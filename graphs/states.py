@@ -36,8 +36,7 @@ class GenerateTableState(TypedDict):
     rule_name: Optional[str]
     rule_description: Optional[str]
     word_category_slug: Optional[str]
-    general_table: Optional[dict]
-    general_tables: Optional[list[dict]]
+    general_tables: NotRequired[list[dict]]
     should_fragment: Optional[bool]
     fragmented_tables: Optional[list[dict]]
 

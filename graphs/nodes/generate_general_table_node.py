@@ -2,6 +2,7 @@ from graphs.llm import llm
 from graphs.models import TableData
 from graphs.prompts import generate_table_prompt
 from graphs.states import GenerateTableState
+from graphs.table_utils import general_tables_from_table
 from crud.rules import get_grammar_rule_by_id
 
 table_llm = llm.with_structured_output(TableData)
@@ -23,5 +24,5 @@ def generate_general_table_node(state: GenerateTableState) -> GenerateTableState
         **state,
         "rule_name": rule.name,
         "rule_description": rule.description,
-        "general_table": result.model_dump(),
+        "general_tables": general_tables_from_table(result),
     }

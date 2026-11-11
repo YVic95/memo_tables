@@ -29,9 +29,10 @@ def route_by_category(state: GenerateTableState) -> str:
 
 
 def route_after_table(state: GenerateTableState) -> str:
-    table = state["general_table"]
-    if not table:
+    tables = state.get("general_tables") or []
+    if not tables:
         return END
+    table = tables[0]
     if state.get("word_category_slug") == "adjective":
         if table.get("adjective_table_layout") == AdjectiveTableLayout.adj_other:
             return END

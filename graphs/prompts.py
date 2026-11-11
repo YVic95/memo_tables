@@ -476,7 +476,7 @@ fragmentation_prompt = PromptTemplate.from_template(
         pedagogically useful sub-tables. The table may be in any language and cover any
         grammatical topic (conjugation, declension, word order, particles, etc.).
 
-        Table: {general_table_json}
+        Table: {table_json}
 
         Step 1 — Enumerate ALL grouping axes:
         Examine EVERY column, especially any column naming grammatical categories —

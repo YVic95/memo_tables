@@ -75,12 +75,8 @@ def _adjective_side_fragments(state: GenerateTableState) -> list[dict]:
     Masculine/Feminine fragments. Ids run 1-4 across both tables so every
     fragment keeps a unique table number.
     """
-    generals = state.get("general_tables") or []
-    if not generals and state.get("general_table"):
-        generals = [state["general_table"]]
-
     fragments = []
-    for table in generals:
+    for table in state.get("general_tables") or []:
         for fragment in split_pair_table(
             table, layout_field="adjective_table_layout", entity_name="Adjective"
         ):
@@ -90,13 +86,13 @@ def _adjective_side_fragments(state: GenerateTableState) -> list[dict]:
 
 
 def generate_fragmented_tables_node(state: GenerateTableState) -> GenerateTableState:
-    general_table = state["general_table"]
+    general_tables = state.get("general_tables") or []
 
     if state.get("word_category_slug") == "noun":
         return {
             **state,
             "should_fragment": True,
-            "fragmented_tables": _noun_side_fragments(general_table),
+            "fragmented_tables": _noun_side_fragments(general_tables[0]),
         }
 
     if state.get("word_category_slug") == "adjective":
@@ -107,7 +103,7 @@ def generate_fragmented_tables_node(state: GenerateTableState) -> GenerateTableS
         }
 
     result: FragmentationOutput = fragmentation_chain.invoke({
-        "general_table_json": json.dumps(general_table, indent=2),
+        "table_json": json.dumps(general_tables[0], indent=2),
     })
 
     return {

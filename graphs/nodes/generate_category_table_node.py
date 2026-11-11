@@ -16,6 +16,7 @@ from graphs.table_utils import (
     ADJECTIVE_OTHER_COLUMN_COUNT,
     ADJECTIVE_SIDE_COLUMNS,
     NOUN_COLUMN_COUNT,
+    general_tables_from_table,
     require_adjective_layout,
     require_noun_layout,
 )
@@ -194,7 +195,6 @@ def generate_category_table_node(state: GenerateTableState) -> GenerateTableStat
         tables = _generate_adjective_tables(state)
         return {
             **state,
-            "general_table": tables[0].model_dump(),
             "general_tables": [table.model_dump() for table in tables],
         }
 
@@ -214,5 +214,5 @@ def generate_category_table_node(state: GenerateTableState) -> GenerateTableStat
 
     return {
         **state,
-        "general_table": result.model_dump(),
+        "general_tables": general_tables_from_table(result),
     }

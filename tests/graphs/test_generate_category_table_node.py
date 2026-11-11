@@ -49,7 +49,6 @@ def _state(
         "rule_name": rule_name or PROMPT_VARIABLES["rule_name"],
         "rule_description": rule_description or PROMPT_VARIABLES["rule_description"],
         "word_category_slug": word_category_slug,
-        "general_table": None,
         "should_fragment": None,
         "fragmented_tables": None,
     }
@@ -70,14 +69,15 @@ class TestGenerateCategoryTableNode:
         )
 
         assert prompt == generate_noun_table_prompt.format(**PROMPT_VARIABLES)
-        assert result["general_table"] == NOUN_GENDER_TABLE.model_dump()
+        assert result["general_tables"] == [NOUN_GENDER_TABLE.model_dump()]
 
     def test_verb_slug_still_uses_verb_prompt(self, monkeypatch):
-        _, prompt = _run_node(
+        result, prompt = _run_node(
             monkeypatch, _state("verb"), FakeStructuredLLM(NOUN_GENDER_TABLE)
         )
 
         assert prompt == generate_verb_table_prompt.format(**PROMPT_VARIABLES)
+        assert result["general_tables"] == [NOUN_GENDER_TABLE.model_dump()]
 
     @pytest.mark.parametrize("word_category_slug", ["adverb", "pronoun", "unknown"])
     def test_unregistered_slug_falls_back_to_generic_prompt(
@@ -146,7 +146,7 @@ class TestNounLayoutSelection:
         )
         assert prompt == expected_prompt
 
-        table = result["general_table"]
+        table = result["general_tables"][0]
         assert table["noun_table_layout"] == expected_layout
         assert table["headers"] == LAYOUT_HEADERS[expected_layout]
         assert len(table["headers"]) == 8
@@ -188,7 +188,7 @@ class TestNounTableValidation:
             monkeypatch, _state("verb"), FakeStructuredLLM(table)
         )
 
-        assert result["general_table"]["noun_table_layout"] is None
+        assert result["general_tables"][0]["noun_table_layout"] is None
 
 
 class TestAdjectiveTableGeneration:
@@ -216,7 +216,7 @@ class TestAdjectiveTableGeneration:
     def test_adjective_slug_returns_both_general_tables(self, monkeypatch):
         result, _ = self._run_adjective(monkeypatch)
 
-        assert result["general_table"] == ADJ_NUMBER_TABLE.model_dump()
+        assert "general_table" not in result
         assert result["general_tables"] == [
             ADJ_NUMBER_TABLE.model_dump(),
             ADJ_GENDER_TABLE.model_dump(),
@@ -275,7 +275,7 @@ class TestAdjectiveAgreementTable:
         result, fake_llm = self._run_agreement(monkeypatch)
 
         assert len(fake_llm.prompts) == 1
-        assert result["general_table"] == ADJ_AGREEMENT_TABLE.model_dump()
+        assert "general_table" not in result
         assert result["general_tables"] == [ADJ_AGREEMENT_TABLE.model_dump()]
 
     def test_agreement_table_uses_the_entry_prompt(self, monkeypatch):
@@ -482,7 +482,7 @@ class TestAdjectiveOtherTable:
         result, fake_llm = self._run_other(monkeypatch)
 
         assert len(fake_llm.prompts) == 1
-        assert result["general_table"] == ADJ_OTHER_TABLE.model_dump()
+        assert "general_table" not in result
         assert result["general_tables"] == [ADJ_OTHER_TABLE.model_dump()]
 
     def test_special_topic_rule_is_pre_routed_to_the_other_prompt(self, monkeypatch):
@@ -506,7 +506,8 @@ class TestAdjectiveOtherTable:
                 "rule_description": "Forms agree in gender and number.",
             }
         )
-        assert result["general_table"]["adjective_table_layout"] == "adj_other"
+        assert "general_table" not in result
+        assert result["general_tables"][0]["adjective_table_layout"] == "adj_other"
         assert result["general_tables"] == [ADJ_OTHER_TABLE.model_dump()]
 
     def test_special_topic_keyword_routing_is_scoped_to_spanish(self, monkeypatch):

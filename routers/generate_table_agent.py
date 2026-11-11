@@ -25,7 +25,6 @@ def generate_tables(
     })
 
     return {
-        "general_table": result["general_table"],
         "general_tables": result.get("general_tables") or [],
         "fragmented_tables": result.get("fragmented_tables", []),
     }

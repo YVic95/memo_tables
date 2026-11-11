@@ -64,6 +64,11 @@ PAIR_TABLE_SIDE_STARTS = (0, PAIR_TABLE_SIDE_COLUMN_COUNT)
 PAIR_FRAGMENT_TITLE_SEPARATOR = " — "
 
 
+def general_tables_from_table(table: TableData) -> list[dict]:
+    """Wrap one generated table in the list-based graph state shape."""
+    return [table.model_dump()]
+
+
 def column_roles(word_category_slug: str) -> dict[int, str]:
     return COLUMN_ROLES.get(word_category_slug, DEFAULT_COLUMN_ROLES)
 
