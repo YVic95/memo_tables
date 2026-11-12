@@ -25,7 +25,7 @@ Language-learning web app: grammar-rule content generation via LangGraph agents,
 - **SQLAlchemy** ORM (not SQLModel) — models in `models/`, CRUD in `crud/`, DB session from `database.py`
 - **Alembic** — app-level migrations (`alembic/`)
 - **Supabase** (local) — infrastructure migrations (`supabase/migrations/`), auth, Postgres on port 54322
-- **LangGraph** + **LangChain** via **OpenRouter** (GPT-4o-mini) — agent graphs in `graphs/`
+- **LangGraph** + **LangChain** via **OpenRouter** (Claude Haiku 5.5) — agent graphs in `graphs/`
 - **Jinja2** + **HTMX** — server-rendered admin panel, templates in `templates/`
 - **LangSmith** tracing enabled for all graph runs
 

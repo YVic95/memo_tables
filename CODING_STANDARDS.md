@@ -297,7 +297,7 @@ class TableData(BaseModel):
 
 | File | Purpose |
 |------|---------|
-| `llm.py` | OpenRouter `ChatOpenAI` client (gpt-4o-mini) |
+| `llm.py` | OpenRouter `ChatOpenAI` client (anthropic/claude-haiku-5.5) |
 | `states.py` | TypedDict state definitions for each graph |
 | `models.py` | Pydantic models for structured LLM output |
 | `prompts.py` | LangChain `PromptTemplate` definitions |
@@ -558,7 +558,7 @@ Use descriptive, self-documenting variable and parameter names. Never use ambigu
 | **ORM** | SQLAlchemy with `database.Base` (NOT SQLModel) |
 | **Primary keys** | UUIDs everywhere, generated with `uuid.uuid4()` in Python |
 | **No relationships** | FK columns only; joins done manually in CRUD |
-| **LLM provider** | OpenRouter (gpt-4o-mini) via `graphs/llm.py` |
+| **LLM provider** | OpenRouter (anthropic/claude-haiku-5.5) via `graphs/llm.py` |
 | **Tracing** | LangSmith enabled for all graph runs |
 | **DB URL** | From `.env` `DATABASE_URL_LOCAL` (Postgres on port 54322) |
 | **Session** | `database.get_db()` generator for FastAPI DI |
