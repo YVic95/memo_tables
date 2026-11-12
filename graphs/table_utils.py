@@ -91,6 +91,11 @@ def noun_side_cell(cells: list[str], columns: dict[str, int], role: str) -> str:
     return (cells[index] or "").strip()
 
 
+def strip_adjective_italics(form: str) -> str:
+    """Remove table emphasis markers from an adjective's lexical form."""
+    return form.replace("*", "").strip()
+
+
 def require_noun_layout(layout: str | NounTableLayout | None) -> NounTableLayout:
     """Validate a noun table layout, accepting raw strings and enum members."""
     try:

@@ -222,6 +222,17 @@ class TestAdjectiveTableGeneration:
             ADJ_GENDER_TABLE.model_dump(),
         ]
 
+    def test_number_and_gender_outputs_mark_only_form_cells(self, monkeypatch):
+        result, _ = self._run_adjective(monkeypatch)
+
+        for table in result["general_tables"]:
+            for row in table["rows"]:
+                assert all("*" in row["cells"][index] for index in (0, 4))
+                assert all(
+                    "*" not in row["cells"][index]
+                    for index in (1, 2, 3, 5, 6, 7)
+                )
+
     def test_adjective_tables_use_different_phrases(self, monkeypatch):
         _, fake_llm = self._run_adjective(monkeypatch)
 
@@ -277,6 +288,17 @@ class TestAdjectiveAgreementTable:
         assert len(fake_llm.prompts) == 1
         assert "general_table" not in result
         assert result["general_tables"] == [ADJ_AGREEMENT_TABLE.model_dump()]
+
+    def test_agreement_output_marks_only_form_cells(self, monkeypatch):
+        result, _ = self._run_agreement(monkeypatch)
+
+        for row in result["general_tables"][0]["rows"]:
+            assert "*" in row["cells"][0]
+            assert "*" in row["cells"][4]
+            assert all(
+                "*" not in row["cells"][index]
+                for index in (1, 2, 3, 5, 6, 7)
+            )
 
     def test_agreement_table_uses_the_entry_prompt(self, monkeypatch):
         _, fake_llm = self._run_agreement(monkeypatch)
@@ -334,6 +356,20 @@ class TestNounPromptContent:
 
 
 class TestAdjectivePromptContent:
+    def test_adjective_form_cells_mark_only_the_adjective(self):
+        marker_instruction = (
+            "Form cells: wrap only the target-language adjective itself in "
+            "single asterisks"
+        )
+        for prompt in (
+            generate_adjective_number_table_prompt,
+            generate_adjective_gender_table_prompt,
+            generate_adjective_other_table_prompt,
+        ):
+            normalized = " ".join(prompt.template.split())
+            assert marker_instruction in normalized
+            assert "Example cells remain unmarked" in normalized
+
     def test_number_prompt_describes_the_singular_plural_columns(self):
         template = generate_adjective_number_table_prompt.template
 
@@ -352,27 +388,29 @@ class TestAdjectivePromptContent:
         assert "1. Masculine" in template
         assert "5. Feminine" in template
 
-    def test_both_prompts_require_carrier_phrases_without_markers(self):
+    def test_both_prompts_require_carrier_phrases_and_mark_only_the_adjective(self):
         for template in (
             generate_adjective_number_table_prompt.template,
             generate_adjective_gender_table_prompt.template,
         ):
+            normalized = " ".join(template.split())
             assert "carrier noun" in template
             assert "Never list a bare adjective" in template
             assert "definite article" in template
             assert "a DIFFERENT adjective in each row" in template
-            assert "*rojo*" not in template
-            assert "*roja*" not in template
+            assert "*rojo*" in template
+            assert "*roja*" in template
+            assert "Do not mark the surrounding noun or any other words" in normalized
 
-    def test_number_prompt_shows_plain_singular_plural_exemplars(self):
+    def test_number_prompt_shows_marked_singular_plural_exemplars(self):
         template = generate_adjective_number_table_prompt.template
 
-        assert "el libro rojo / los libros rojos" in template
+        assert "el libro *rojo* / los libros *rojos*" in template
 
-    def test_gender_prompt_shows_plain_masculine_feminine_exemplars(self):
+    def test_gender_prompt_shows_marked_masculine_feminine_exemplars(self):
         template = generate_adjective_gender_table_prompt.template
 
-        assert "el libro rojo / la mesa roja" in template
+        assert "el libro *rojo* / la mesa *roja*" in template
 
     def test_both_prompts_require_eight_cells_and_pair_counts(self):
         for template in (
@@ -420,9 +458,9 @@ class TestAdjectivePromptContent:
 
         assert "1. Masculine" in template
         assert "5. Feminine" in template
-        assert "el libro rojo / la mesa roja" in template
+        assert "el libro *rojo* / la mesa *roja*" in template
         assert "**el libro" not in template
-        assert "*roja*" not in template
+        assert "*roja*" in template
         assert "one adjective in its masculine and feminine forms" in template
 
     def test_entry_prompt_offers_the_other_table(self):
@@ -469,6 +507,17 @@ class TestAdjectivePromptContent:
         assert "there is no row cap" in template
         assert "representative forms" in template
 
+    def test_other_prompt_marks_the_adjective_column_only(self):
+        template = " ".join(generate_adjective_other_table_prompt.template.split())
+
+        assert (
+            "capitalized target-language form. Form cells: wrap only the "
+            "target-language adjective itself"
+        ) in template
+        assert "single asterisks (for example, *Este*)" in template
+        assert "Example cells remain unmarked" in template
+        assert "translations and explanations remain unmarked" in template
+
 
 class TestAdjectiveOtherTable:
     def _run_other(self, monkeypatch):
@@ -484,6 +533,13 @@ class TestAdjectiveOtherTable:
         assert len(fake_llm.prompts) == 1
         assert "general_table" not in result
         assert result["general_tables"] == [ADJ_OTHER_TABLE.model_dump()]
+
+    def test_other_output_marks_only_the_adjective_column(self, monkeypatch):
+        result, _ = self._run_other(monkeypatch)
+
+        for row in result["general_tables"][0]["rows"]:
+            assert row["cells"][0].startswith("*") and row["cells"][0].endswith("*")
+            assert all("*" not in row["cells"][index] for index in (1, 2, 3))
 
     def test_special_topic_rule_is_pre_routed_to_the_other_prompt(self, monkeypatch):
         fake_llm = FakeStructuredLLM(ADJ_OTHER_TABLE)

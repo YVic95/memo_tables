@@ -607,14 +607,14 @@ class TestAdjectivePairTable:
             GrammarRuleRow.table_no, GrammarRuleRow.position
         ).all()
         assert [(row.label, row.table_no, row.position) for row in rows] == [
-            ("el libro rojo", 0, 0),
-            ("los libros rojos", 0, 1),
-            ("el dólar fuerte", 0, 2),
-            ("los dólares fuertes", 0, 3),
-            ("el chico alto", 1, 0),
-            ("la chica alta", 1, 1),
-            ("el libro bueno", 1, 2),
-            ("la mesa buena", 1, 3),
+            ("el libro *rojo*", 0, 0),
+            ("los libros *rojos*", 0, 1),
+            ("el dólar *fuerte*", 0, 2),
+            ("los dólares *fuertes*", 0, 3),
+            ("el chico *alto*", 1, 0),
+            ("la chica *alta*", 1, 1),
+            ("el libro *bueno*", 1, 2),
+            ("la mesa *buena*", 1, 3),
         ]
 
     @patch("graphs.nodes.process_all_tables_node.translate_chain")
@@ -711,9 +711,9 @@ class TestAdjectiveOtherTable:
 
         rows = db_session.query(GrammarRuleRow).order_by(GrammarRuleRow.position).all()
         assert [(row.label, row.description, row.table_no, row.position) for row in rows] == [
-            ("Este", "Masculine singular demonstrative for nearby things", 0, 0),
-            ("Ese", "Masculine singular demonstrative for things near the listener", 0, 2),
-            ("Aquel", "Masculine singular demonstrative for distant things", 0, 4),
+            ("*Este*", "Masculine singular demonstrative for nearby things", 0, 0),
+            ("*Ese*", "Masculine singular demonstrative for things near the listener", 0, 2),
+            ("*Aquel*", "Masculine singular demonstrative for distant things", 0, 4),
         ]
         translations = db_session.query(GrammarRuleRowTranslation).all()
         assert {t.label_translation for t in translations} == {

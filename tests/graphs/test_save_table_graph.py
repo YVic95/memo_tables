@@ -424,14 +424,14 @@ class TestAdjectiveGraphInvocation:
             GrammarRuleRow.table_no, GrammarRuleRow.position
         ).all()
         assert [(row.label, row.table_no, row.position) for row in rows] == [
-            ("el libro rojo", 0, 0),
-            ("los libros rojos", 0, 1),
-            ("el dólar fuerte", 0, 2),
-            ("los dólares fuertes", 0, 3),
-            ("el chico alto", 1, 0),
-            ("la chica alta", 1, 1),
-            ("el libro bueno", 1, 2),
-            ("la mesa buena", 1, 3),
+            ("el libro *rojo*", 0, 0),
+            ("los libros *rojos*", 0, 1),
+            ("el dólar *fuerte*", 0, 2),
+            ("los dólares *fuertes*", 0, 3),
+            ("el chico *alto*", 1, 0),
+            ("la chica *alta*", 1, 1),
+            ("el libro *bueno*", 1, 2),
+            ("la mesa *buena*", 1, 3),
         ]
 
         forms = {form.form for form in db_session.query(WordForm).all()}
@@ -483,9 +483,9 @@ class TestAdjectiveGraphInvocation:
         }
         rows = db_session.query(GrammarRuleRow).order_by(GrammarRuleRow.position).all()
         assert [(row.label, row.table_no, row.position) for row in rows] == [
-            ("Este", 0, 0),
-            ("Ese", 0, 2),
-            ("Aquel", 0, 4),
+            ("*Este*", 0, 0),
+            ("*Ese*", 0, 2),
+            ("*Aquel*", 0, 4),
         ]
         assert {form.form for form in db_session.query(WordForm).all()} == {
             "Este", "Ese", "Aquel",

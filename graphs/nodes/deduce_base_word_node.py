@@ -15,6 +15,7 @@ from graphs.table_utils import (
     noun_side_cell,
     require_noun_layout,
     role_to_column,
+    strip_adjective_italics,
     tokenize_words,
 )
 from crud.rules import get_grammar_rule_by_id, get_word_categories, get_word_category_by_id
@@ -186,13 +187,15 @@ def _adjective_base_words_and_translations(
     Number pair tables contribute one base word per pair, using the singular
     phrase as the dictionary form. Gender and agreement pair tables contribute
     both sides as separate base words. Other-rule tables contribute one base
-    word per row. Form cells carry the plain carrier phrase, mirroring how
-    nouns keep the article in the base word text.
+    word per row. Form-cell emphasis markers are omitted from vocabulary
+    entries and surface forms; carrier phrases retain their articles.
     """
     base_words: dict[str, dict] = {}
     translations: dict[str, str] = {}
 
     def add(form: str, surface_forms: list[str], translation: str) -> None:
+        form = strip_adjective_italics(form)
+        surface_forms = [strip_adjective_italics(surface) for surface in surface_forms]
         if not form:
             return
         key = form.lower()

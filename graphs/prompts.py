@@ -330,12 +330,12 @@ generate_adjective_number_table_prompt = PromptTemplate.from_template(
       the pattern rather than listing every adjective in the language.
     - Number layout: the same adjective in singular (columns 1-4) and plural
       (columns 5-8), each inside a carrier noun+adjective phrase with its
-      definite article (e.g. "el libro rojo / los libros rojos").
+      definite article (e.g. "el libro *rojo* / los libros *rojos*").
       Use a DIFFERENT adjective in each row.
     - Agreement layout: one adjective in its masculine and feminine forms
       (columns 1-4 and 5-8), each inside a full noun+adjective agreement
       phrase with its definite article.
-      For example: "el libro rojo / la mesa roja".
+      For example: "el libro *rojo* / la mesa *roja*".
       Use a DIFFERENT adjective in each row.
 
     CONTENT RULES
@@ -344,24 +344,28 @@ generate_adjective_number_table_prompt = PromptTemplate.from_template(
       layout is chosen.
     - Column headers: written in {target_language}, in the chosen layout's order.
     - The form columns (Singular/Plural or Masculine/Feminine, i.e. the number
-      and agreement layouts): the carrier
-      noun+adjective phrase in {target_language}, with the definite article.
-      Never list a bare adjective. Cells hold plain text with no markers.
-    - Other layout: the Adjective column holds the bare form in
-      {target_language} with an uppercase first letter (e.g. "Este"); the
-      Translation column holds the {native_language} translation; the
-      Explanation column holds a short usage note in {native_language}; the
-      Example column holds exactly one short sentence in {target_language}
-      using the form, with no native-language translation in the cell.
+      and agreement layouts): the carrier noun+adjective phrase in
+      {target_language}, with the definite article. Never list a bare adjective.
+      Form cells: wrap only the target-language adjective itself in single
+      asterisks (for example, *rojo*). Do not mark the surrounding noun or any
+      other words. Example cells remain unmarked.
+    - Other layout: the Adjective column holds only the capitalized
+      {target_language} form, wrapped in single asterisks (e.g. "*Este*"). The
+      Translation column holds the {native_language} translation; the Explanation
+      column holds a short usage note in {native_language}; the Example column
+      holds exactly one short sentence in {target_language} using the form, with
+      no native-language translation or markers in the cell.
     - Translation cells: written in {native_language} and include the article
-      where one applies, e.g. "the red book".
+      where one applies, e.g. "the red book"; do not add markers.
     - Explanation cells: written in {native_language}, as short grammar notes.
+      Do not add markers.
       Number layout, left side: the gender cue or the singular article. Right
       side: how the plural is formed (noun and adjective). Agreement layout,
       left side: the masculine agreement cue. Right side: the feminine
       agreement cue.
     - Example cells: exactly one short sentence in {target_language} using that
-      side's phrase. Do not include a native-language translation in the cell.
+      side's phrase. Do not include a native-language translation or markers in
+      the cell.
     - Pair count:
       - Single-pattern rule: generate 2-3 pairs.
       - Multi-pattern rule: generate 4-6 pairs.
@@ -411,7 +415,7 @@ generate_adjective_gender_table_prompt = PromptTemplate.from_template(
     ROW STRUCTURE — one row = one pair
     A masculine carrier phrase (columns 1-4) paired with a feminine carrier
     phrase (columns 5-8) showing the same adjective pattern. For example:
-    "el libro rojo / la mesa roja". Use a DIFFERENT adjective in each row.
+    "el libro *rojo* / la mesa *roja*". Use a DIFFERENT adjective in each row.
     Do not reuse these adjectives or carrier nouns — they already appear in
     the number table: {avoid_phrases}. (If that list is empty, ignore this rule.)
 
@@ -422,13 +426,17 @@ generate_adjective_gender_table_prompt = PromptTemplate.from_template(
     - Column headers: written in {target_language}, in the layout order above.
     - The form columns (Masculine/Feminine): the carrier noun+adjective phrase
       in {target_language}, with the definite article. Never list a bare adjective.
-      Cells hold plain text with no markers.
+      Form cells: wrap only the target-language adjective itself in single
+      asterisks (for example, *rojo*). Do not mark the surrounding noun or any
+      other words. Example cells remain unmarked.
     - Translation cells: written in {native_language} and include the article,
-      e.g. "the red book".
+      e.g. "the red book"; do not add markers.
     - Explanation cells: written in {native_language}, as short grammar notes.
+      Do not add markers.
       Left side: the masculine cue. Right side: the feminine cue.
     - Example cells: exactly one short sentence in {target_language} using that
-      side's phrase. Do not include a native-language translation in the cell.
+      side's phrase. Do not include a native-language translation or markers in
+      the cell.
     - Pair count:
       - Single-pattern rule: generate 2-3 pairs.
       - Multi-pattern rule: generate 4-6 pairs.
@@ -458,9 +466,12 @@ generate_adjective_other_table_prompt = PromptTemplate.from_template(
     Adjective, Translation, Explanation, Example. Write the title and headers in
     {target_language}; write translations and usage notes in {native_language}.
     The Adjective column contains each distinct, capitalized target-language
-    form. The Example column contains one short target-language sentence using
-    that form. Include every form when the rule has a finite inventory; for
-    productive topics, choose representative forms that illustrate the pattern.
+    form. Form cells: wrap only the target-language adjective itself in single
+    asterisks (for example, *Este*). The Example column contains one short
+    target-language sentence using that form. Example cells remain unmarked;
+    translations and explanations remain unmarked. Include every form when the
+    rule has a finite inventory; for productive topics, choose representative
+    forms that illustrate the pattern.
     There is no arbitrary row cap.
     Do not use carrier noun phrases, add other columns, or split the table.
     Every row must have exactly four cells.

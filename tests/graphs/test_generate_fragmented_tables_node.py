@@ -236,6 +236,10 @@ class TestAdjectiveFragmentation:
         assert [row["cells"] for row in feminine["rows"]] == [
             row.cells[4:] for row in ADJ_GENDER_TABLE.rows
         ]
+        assert singular["rows"][0]["cells"][0] == "el libro *rojo*"
+        assert plural["rows"][0]["cells"][0] == "los libros *rojos*"
+        assert masculine["rows"][0]["cells"][0] == "el chico *alto*"
+        assert feminine["rows"][0]["cells"][0] == "la chica *alta*"
 
     def test_malformed_adjective_table_is_rejected(self):
         table = ADJ_NUMBER_TABLE.model_copy(
@@ -275,3 +279,6 @@ class TestAgreementFragmentation:
         assert [row["cells"] for row in feminine["rows"]] == [
             row.cells[4:] for row in ADJ_AGREEMENT_TABLE.rows
         ]
+        assert masculine["rows"][0]["cells"][0] == "el libro *rojo*"
+        assert feminine["rows"][0]["cells"][0] == "la mesa *roja*"
+        assert masculine["rows"][0]["cells"][1] == "the red book"

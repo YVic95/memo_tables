@@ -12,6 +12,7 @@ from graphs.table_utils import (
     is_adjective_pair_table,
     noun_side_cell,
     role_to_column,
+    strip_adjective_italics,
     tokenize_words,
 )
 from crud.language_pairs import get_language_name_by_id
@@ -82,12 +83,19 @@ def _word_form_for_surface_form(
     grammar_rule_id,
     surface_form: str,
     grammar_row_id,
+    *,
+    is_adjective: bool = False,
 ):
-    base_word_id = form_to_base_word_id.get(surface_form.lower())
+    plain_surface_form = (
+        strip_adjective_italics(surface_form) if is_adjective else surface_form
+    )
+    base_word_id = form_to_base_word_id.get(plain_surface_form.lower())
     if base_word_id is None:
         return None
     assignment = get_or_create_word_rule_assignment(db, base_word_id, grammar_rule_id, commit=False)
-    return get_or_create_word_form(db, assignment.id, grammar_row_id, surface_form, commit=False)
+    return get_or_create_word_form(
+        db, assignment.id, grammar_row_id, plain_surface_form, commit=False
+    )
 
 
 def _process_pair_table(
@@ -101,6 +109,7 @@ def _process_pair_table(
     form_to_base_word_id,
     translations: dict[str, str],
     side_columns,
+    is_adjective: bool = False,
 ) -> None:
     for index, row in enumerate(table.get("rows", [])):
         cells = row.get("cells", [])
@@ -137,7 +146,12 @@ def _process_pair_table(
             word_form = None
             if form:
                 word_form = _word_form_for_surface_form(
-                    db, form_to_base_word_id, grammar_rule_id, form, grammar_row.id
+                    db,
+                    form_to_base_word_id,
+                    grammar_rule_id,
+                    form,
+                    grammar_row.id,
+                    is_adjective=is_adjective,
                 )
                 if word_form is not None:
                     get_or_create_word_form_translation(
@@ -218,6 +232,7 @@ def _process_adjective_pair_table(
         form_to_base_word_id,
         translations,
         ADJECTIVE_SIDE_COLUMNS,
+        is_adjective=True,
     )
 
 
@@ -271,7 +286,12 @@ def _process_adjective_other_table(
         word_form = None
         if form:
             word_form = _word_form_for_surface_form(
-                db, form_to_base_word_id, grammar_rule_id, form, grammar_row.id
+                db,
+                form_to_base_word_id,
+                grammar_rule_id,
+                form,
+                grammar_row.id,
+                is_adjective=True,
             )
             if word_form is not None:
                 get_or_create_word_form_translation(
@@ -318,6 +338,7 @@ def _process_generic_table(
     translations: dict[str, str],
     role_lookup: dict[str, int],
     is_verb: bool,
+    is_adjective: bool = False,
 ) -> None:
 
         for index, row in enumerate(table.get("rows", [])):
@@ -353,7 +374,12 @@ def _process_generic_table(
             verb_word_form = None
             if form is not None and form.strip():
                 verb_word_form = _word_form_for_surface_form(
-                    db, form_to_base_word_id, grammar_rule_id, form, grammar_row.id
+                    db,
+                    form_to_base_word_id,
+                    grammar_rule_id,
+                    form,
+                    grammar_row.id,
+                    is_adjective=is_adjective,
                 )
                 if verb_word_form is not None:
                     get_or_create_word_form_translation(
@@ -479,6 +505,7 @@ def process_all_tables_node(state: SaveTableState) -> SaveTableState:
                     translations,
                     role_lookup,
                     is_verb,
+                    is_adjective=True,
                 )
                 continue
             processor(
