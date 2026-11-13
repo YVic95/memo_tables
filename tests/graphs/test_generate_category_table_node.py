@@ -1,9 +1,11 @@
 import uuid
+from dataclasses import replace
 
 import pytest
 
 from graphs.models import TableData, TableRow
 from graphs.nodes.generate_category_table_node import (
+    CATEGORY_CONFIG,
     generate_category_table_node,
     is_special_topic_adjective_rule,
 )
@@ -189,6 +191,21 @@ class TestNounTableValidation:
         )
 
         assert result["general_tables"][0]["noun_table_layout"] is None
+
+    def test_category_config_selects_its_validator(self, monkeypatch):
+        table = TableData(
+            title="Verbos",
+            headers=["Forma", "Ejemplo"],
+            rows=[TableRow(cells=["hablo", "Hablo mucho."])],
+        )
+        monkeypatch.setitem(
+            CATEGORY_CONFIG,
+            "verb",
+            replace(CATEGORY_CONFIG["verb"], validator="noun"),
+        )
+
+        with pytest.raises(ValueError, match="noun_table_layout"):
+            _run_node(monkeypatch, _state("verb"), FakeStructuredLLM(table))
 
 
 class TestAdjectiveTableGeneration:
