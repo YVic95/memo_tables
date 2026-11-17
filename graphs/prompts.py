@@ -259,6 +259,36 @@ generate_noun_table_prompt = PromptTemplate.from_template(
     """
 )
 
+choose_adjective_table_prompt = PromptTemplate.from_template(
+    """
+    You are a language-learning content expert. Classify the adjective
+    grammar rule below into exactly one table layout.
+
+    Rule name: {rule_name}
+    Rule description: {rule_description}
+
+    CHOOSE THE LAYOUT
+    Check the OTHER layout first: special adjective topics always win,
+    no matter what else the rule mentions.
+    - OTHER ("adj_other") — for a closed set of forms or a special
+      adjective topic (demonstrative, possessive, comparative, superlative,
+      apocope, indefinite, interrogative, ordinal, ...). ALWAYS choose this
+      layout for such rules, even if the rule also mentions number or gender.
+      For example, "Possessive adjectives / Forms agree in gender and number"
+      is OTHER.
+    - NUMBER ("adj_number_gender") — for a rule about general
+      inflection of regular adjectives (singular/plural or gender endings)
+      that does not teach noun-adjective agreement and is not about a
+      special topic above. The gender companion table is generated
+      separately afterwards.
+    - AGREEMENT ("adj_agreement") — for a rule about nouns and
+      regular adjectives agreeing in gender and number.
+      If the rule covers BOTH gender and number agreement, use AGREEMENT.
+
+    Return only the layout choice (adjective_table_layout) — no table content.
+    """
+)
+
 generate_adjective_number_table_prompt = PromptTemplate.from_template(
     """
     You are a language-learning content expert. Create an adjective number
@@ -268,30 +298,9 @@ generate_adjective_number_table_prompt = PromptTemplate.from_template(
     Rule name: {rule_name}
     Rule description: {rule_description}
 
-    This is the entry table of the adjective flow: depending on the rule it
-    produces either the NUMBER table of a unified number+gender pair (a
-    separate GENDER table follows), a single AGREEMENT table, or a single
-    OTHER table.
-
-    CHOOSE THE TABLE
-    Decide which of the three tables fits the rule, then set
-    `adjective_table_layout` to the matching value and use that layout's
-    columns. Check the OTHER table first: special adjective topics always win,
-    no matter what else the rule mentions.
-    - OTHER table ("adj_other") — for a closed set of forms or a special
-      adjective topic (demonstrative, possessive, comparative, superlative,
-      apocope, indefinite, interrogative, ordinal, ...). The table lists each
-      form directly: adjective, translation,
-      explanation, example. ALWAYS use this table for such rules, even if
-      the rule also mentions number or gender.
-    - NUMBER table ("adj_number_gender") — for a rule about general
-      inflection of regular adjectives (singular/plural or gender endings)
-      that does not teach noun-adjective agreement and is not about a
-      special topic above. The gender companion table is generated
-      separately afterwards.
-    - AGREEMENT table ("adj_agreement") — for a rule about nouns and
-      regular adjectives agreeing in gender and number.
-      If the rule covers BOTH gender and number, use the AGREEMENT table.
+    This is the NUMBER table of a unified number+gender pair (a
+    separate GENDER table follows). Set `adjective_table_layout` to
+    "adj_number_gender" and use the eight columns below.
 
     The column names below describe each column's role. Output the headers in
     {target_language}, keeping this exact order and meaning.
@@ -306,75 +315,35 @@ generate_adjective_number_table_prompt = PromptTemplate.from_template(
     7. Explanation
     8. Example
 
-    AGREEMENT LAYOUT — adjective_table_layout "adj_agreement"
-    1. Masculine
-    2. Translation
-    3. Explanation
-    4. Example
-    5. Feminine
-    6. Translation
-    7. Explanation
-    8. Example
-
-    OTHER LAYOUT — adjective_table_layout "adj_other"
-    1. Adjective
-    2. Translation
-    3. Explanation
-    4. Example
-
-    ROW STRUCTURE
-    - Number and agreement layouts: one row = one pair (see below).
-    - Other layout: one row = one form (columns 1-4): the adjective, its
-      translation, a usage note, and an example sentence. Cover every form in
-      a finite set; for productive topics, use representative forms that teach
-      the pattern rather than listing every adjective in the language.
+    ROW STRUCTURE — one row = one pair
     - Number layout: the same adjective in singular (columns 1-4) and plural
       (columns 5-8), each inside a carrier noun+adjective phrase with its
       definite article (e.g. "el libro *rojo* / los libros *rojos*").
       Use a DIFFERENT adjective in each row.
-    - Agreement layout: one adjective in its masculine and feminine forms
-      (columns 1-4 and 5-8), each inside a full noun+adjective agreement
-      phrase with its definite article.
-      For example: "el libro *rojo* / la mesa *roja*".
-      Use a DIFFERENT adjective in each row.
 
     CONTENT RULES
     - Table title: written in {target_language}, briefly summarizing the rule.
-      Use a distinct title from the companion gender table when the number
-      layout is chosen.
-    - Column headers: written in {target_language}, in the chosen layout's order.
-    - The form columns (Singular/Plural or Masculine/Feminine, i.e. the number
-      and agreement layouts): the carrier noun+adjective phrase in
+      Use a distinct title from the companion gender table.
+    - Column headers: written in {target_language}, in the layout order above.
+    - The form columns (Singular/Plural): the carrier noun+adjective phrase in
       {target_language}, with the definite article. Never list a bare adjective.
       Form cells: wrap only the target-language adjective itself in single
       asterisks (for example, *rojo*). Do not mark the surrounding noun or any
       other words. Example cells remain unmarked.
-    - Other layout: the Adjective column holds only the capitalized
-      {target_language} form, wrapped in single asterisks (e.g. "*Este*"). The
-      Translation column holds the {native_language} translation; the Explanation
-      column holds a short usage note in {native_language}; the Example column
-      holds exactly one short sentence in {target_language} using the form, with
-      no native-language translation or markers in the cell.
     - Translation cells: written in {native_language} and include the article
       where one applies, e.g. "the red book"; do not add markers.
     - Explanation cells: written in {native_language}, as short grammar notes.
       Do not add markers.
       Number layout, left side: the gender cue or the singular article. Right
-      side: how the plural is formed (noun and adjective). Agreement layout,
-      left side: the masculine agreement cue. Right side: the feminine
-      agreement cue.
+      side: how the plural is formed (noun and adjective).
     - Example cells: exactly one short sentence in {target_language} using that
       side's phrase. Do not include a native-language translation or markers in
       the cell.
     - Pair count:
       - Single-pattern rule: generate 2-3 pairs.
       - Multi-pattern rule: generate 4-6 pairs.
-      - Other layout: there is no row cap. Include the full finite inventory or
-        enough representative forms for a productive topic; the table is never
-        split.
-    - Number and agreement layouts: every row must have exactly eight cells.
-      Other layout: every row must have exactly four cells.
-    - Do not add, omit, reorder, or split any columns of the chosen layout.
+    - Every row must have exactly eight cells.
+    - Do not add, omit, reorder, or split any columns of the layout.
     - Do not include separate "Common mistake" or "Correction" columns or content.
     - If the language uses diacritics, use them properly.
 
@@ -383,26 +352,34 @@ generate_adjective_number_table_prompt = PromptTemplate.from_template(
     """
 )
 
-generate_adjective_gender_table_prompt = PromptTemplate.from_template(
+generate_adjective_gender_or_agreement_table_prompt = PromptTemplate.from_template(
     """
-    You are a language-learning content expert. Create an adjective gender
-    table that teaches the rule below to a learner whose native language is
-    {native_language} and who is learning {target_language}.
+    You are a language-learning content expert. Create an adjective
+    masculine/feminine pair table that teaches the rule below to a learner
+    whose native language is {native_language} and who is learning
+    {target_language}.
 
     Rule name: {rule_name}
     Rule description: {rule_description}
 
-    This is the GENDER table of a unified number+gender pair: the NUMBER table
-    (singular/plural) already exists for the same rule. Set
-    `adjective_table_layout` to "adj_number_gender" and use these eight
-    columns. Use the same KIND of adjectives as the number table (regular,
-    possessive, demonstrative, ...): only the dimension changes. The avoid
-    list below still applies, so choose fresh items of that same kind.
+    This prompt serves two uses with the same eight columns:
+    - GENDER companion of a unified number+gender pair: the NUMBER table
+      (singular/plural) already exists for the same rule. Use the same KIND
+      of adjectives as the number table (regular adjectives): only the
+      dimension changes. The avoid list below still applies, so choose fresh
+      items of that same kind. Set `adjective_table_layout` to
+      "adj_number_gender".
+    - Standalone AGREEMENT table for a rule about nouns and regular
+      adjectives agreeing in gender and number. There is no number table and
+      no avoid list. Set `adjective_table_layout` to "adj_agreement".
+
+    Decide the use from the avoid list: when it names phrases, this is the
+    GENDER companion; when it is empty, this is the standalone AGREEMENT table.
 
     The column names below describe each column's role. Output the headers in
     {target_language}, keeping this exact order and meaning.
 
-    GENDER LAYOUT — adjective_table_layout "adj_number_gender"
+    GENDER/AGREEMENT LAYOUT — adjective_table_layout "adj_number_gender" or "adj_agreement"
     1. Masculine
     2. Translation
     3. Explanation
@@ -421,8 +398,8 @@ generate_adjective_gender_table_prompt = PromptTemplate.from_template(
 
     CONTENT RULES
     - Table title: written in {target_language}, briefly summarizing the
-      gender aspect of the rule. Use a distinct title from the companion
-      number table.
+      gender or agreement aspect of the rule. Use a distinct title from the
+      companion number table when this is the GENDER companion.
     - Column headers: written in {target_language}, in the layout order above.
     - The form columns (Masculine/Feminine): the carrier noun+adjective phrase
       in {target_language}, with the definite article. Never list a bare adjective.
@@ -459,7 +436,7 @@ generate_adjective_other_table_prompt = PromptTemplate.from_template(
     Rule name: {rule_name}
     Rule description: {rule_description}
 
-    This is a special-topic rule in the Spanish adjective catalog (such as
+    This is a special adjective topic (such as
     demonstrative, possessive, comparative, superlative, apocope, indefinite,
     interrogative, or ordinal adjectives). Do not choose another layout.
     Set `adjective_table_layout` to "adj_other" and return exactly four columns:
