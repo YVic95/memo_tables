@@ -1,5 +1,5 @@
 from graphs.llm import llm
-from graphs.models import ProposedCatalogRules, CatalogRule
+from graphs.models import ProposedCatalogRules, CatalogRule, MAX_RULE_CARDS_SUGGESTIONS
 from graphs.prompts import propose_missing_rules_prompt
 from graphs.states import RuleCreationAgentState
 from models.canonical_rules import CanonicalRule
@@ -8,8 +8,6 @@ from crud.canonical_rules import get_missing_canonical_rules_for_pair
 rule_proposer_llm = llm.with_structured_output(ProposedCatalogRules)
 
 propose_rules_chain = propose_missing_rules_prompt | rule_proposer_llm
-
-MAX_SUGGESTIONS = 10
 
 NO_MISSING_RULES_MESSAGE = (
     "All rules in the catalog for this language pair have already been created. "
@@ -58,7 +56,7 @@ def propose_rules_node(state: RuleCreationAgentState) -> RuleCreationAgentState:
         picked_ids.add(rule_id)
         chosen.append(rule)
     chosen.sort(key=lambda rule: order_by_id[str(rule.canonical_rule_id)])
-    chosen = chosen[:MAX_SUGGESTIONS]
+    chosen = chosen[:MAX_RULE_CARDS_SUGGESTIONS]
 
     return {
         **state,

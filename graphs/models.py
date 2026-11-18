@@ -8,6 +8,7 @@ from typing import Any, Literal
 # its output schema, and into the code that caps the result: three copies of "three"
 # would drift apart the first time any of them changed.
 MAX_SIMILAR_RULES_SHOWN = 3
+MAX_RULE_CARDS_SUGGESTIONS = 15
 
 class MessageRole(StrEnum):
     user = "user"
@@ -64,7 +65,11 @@ class CatalogRule(BaseModel):
     )
 
 class ProposedCatalogRules(BaseModel):
-    rules: list[CatalogRule] = Field(description="Up to 10 rules chosen from the injected catalog candidates")
+    rules: list[CatalogRule] = Field(
+        description=(
+            f"Up to {MAX_RULE_CARDS_SUGGESTIONS} rules chosen from the injected catalog candidates"
+        )
+    )
 
 class ProposeMissingRulesRequest(BaseModel):
     type: Literal["propose_missing_rules"]

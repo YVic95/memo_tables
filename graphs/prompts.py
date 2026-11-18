@@ -1,6 +1,6 @@
 from langchain_core.prompts import PromptTemplate
 
-from graphs.models import MAX_SIMILAR_RULES_SHOWN
+from graphs.models import MAX_SIMILAR_RULES_SHOWN, MAX_RULE_CARDS_SUGGESTIONS
 
 propose_missing_rules_prompt = PromptTemplate.from_template(
     """
@@ -10,7 +10,7 @@ propose_missing_rules_prompt = PromptTemplate.from_template(
         speaker should be taught when studying {target_language}. These are the
         ONLY rules available — never invent a rule that is not in the catalog.
 
-        Choose up to ten rules from the catalog to teach next. The catalog is
+        Choose up to {max_suggestions} rules from the catalog to teach next. The catalog is
         already ordered by difficulty (CEFR level, then position), so prefer the
         most fundamental missing rules first.
 
@@ -20,7 +20,8 @@ propose_missing_rules_prompt = PromptTemplate.from_template(
 
         Catalog:
         {candidates}
-    """
+    """,
+    partial_variables={"max_suggestions": MAX_RULE_CARDS_SUGGESTIONS},
 )
 
 translate_prompt = PromptTemplate.from_template(
