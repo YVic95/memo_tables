@@ -8,6 +8,8 @@ from graphs.models import TableData
 
 from graphs.generate_table_graph import graph, route_after_table
 from graphs.prompts import (
+    choose_adjective_table_prompt,
+    generate_adjective_gender_or_agreement_table_prompt,
     generate_adjective_number_table_prompt,
     generate_adjective_other_table_prompt,
     generate_noun_table_prompt,
@@ -21,6 +23,7 @@ from tests.graphs.generation_helpers import (
     NOUN_GENDER_TABLE,
     NOUN_NUMBER_TABLE,
     PROMPT_VARIABLES,
+    FakeAdjectiveLLM,
     FakeSequentialLLM,
     FakeStructuredLLM,
 )
@@ -63,9 +66,11 @@ class TestAdjectiveTableGeneration:
         self, monkeypatch, db_session, language_es, language_en
     ):
         rule = _adjective_grammar_rule(db_session, language_es, language_en)
-        fake_llm = FakeSequentialLLM([ADJ_NUMBER_TABLE, ADJ_GENDER_TABLE])
+        fake_llm = FakeAdjectiveLLM(
+            "adj_number_gender", [ADJ_NUMBER_TABLE, ADJ_GENDER_TABLE]
+        )
         monkeypatch.setattr(
-            "graphs.nodes.generate_category_table_node.llm", fake_llm
+            "graphs.table_generator.llm", fake_llm
         )
 
         result = graph.invoke({
@@ -81,12 +86,33 @@ class TestAdjectiveTableGeneration:
             ADJ_NUMBER_TABLE.model_dump(),
             ADJ_GENDER_TABLE.model_dump(),
         ]
-        assert fake_llm.prompts[0] == generate_adjective_number_table_prompt.format(
-            **{
-                **PROMPT_VARIABLES,
-                "rule_name": "Adjective Number and Gender",
-                "rule_description": "Adjectives agree in number and gender",
-            }
+        assert fake_llm.classifier_prompts[0] == (
+            choose_adjective_table_prompt.format(
+                rule_name="Adjective Number and Gender",
+                rule_description="Adjectives agree in number and gender",
+            )
+        )
+        assert fake_llm.table_prompts[0] == (
+            generate_adjective_number_table_prompt.format(
+                **{
+                    **PROMPT_VARIABLES,
+                    "rule_name": "Adjective Number and Gender",
+                    "rule_description": "Adjectives agree in number and gender",
+                }
+            )
+        )
+        assert fake_llm.table_prompts[1] == (
+            generate_adjective_gender_or_agreement_table_prompt.format(
+                **{
+                    **PROMPT_VARIABLES,
+                    "rule_name": "Adjective Number and Gender",
+                    "rule_description": "Adjectives agree in number and gender",
+                    "avoid_phrases": (
+                        "el libro rojo, los libros rojos, "
+                        "el dólar fuerte, los dólares fuertes"
+                    ),
+                }
+            )
         )
 
         assert result["should_fragment"] is True
@@ -105,9 +131,9 @@ class TestAdjectiveTableGeneration:
         from graphs.table_utils import select_adjective_tables
 
         rule = _adjective_grammar_rule(db_session, language_es, language_en)
-        fake_llm = FakeStructuredLLM(ADJ_AGREEMENT_TABLE)
+        fake_llm = FakeAdjectiveLLM("adj_agreement", [ADJ_AGREEMENT_TABLE])
         monkeypatch.setattr(
-            "graphs.nodes.generate_category_table_node.llm", fake_llm
+            "graphs.table_generator.llm", fake_llm
         )
 
         result = graph.invoke({
@@ -120,7 +146,8 @@ class TestAdjectiveTableGeneration:
         assert result["word_category_slug"] == "adjective"
         assert "general_table" not in result
         assert result["general_tables"] == [ADJ_AGREEMENT_TABLE.model_dump()]
-        assert len(fake_llm.prompts) == 1
+        assert len(fake_llm.classifier_prompts) == 1
+        assert len(fake_llm.table_prompts) == 1
 
         assert result["should_fragment"] is True
         masculine, feminine = result["fragmented_tables"]
@@ -144,7 +171,7 @@ class TestNounTableGeneration:
     def test_noun_rule_produces_noun_table(self, monkeypatch, db_session, grammar_rule):
         fake_llm = FakeStructuredLLM(NOUN_GENDER_TABLE)
         monkeypatch.setattr(
-            "graphs.nodes.generate_category_table_node.llm", fake_llm
+            "graphs.table_generator.llm", fake_llm
         )
 
         result = graph.invoke({
@@ -185,7 +212,7 @@ class TestNounTableGeneration:
         )
         fake_llm = FakeStructuredLLM(single_pair_table)
         monkeypatch.setattr(
-            "graphs.nodes.generate_category_table_node.llm", fake_llm
+            "graphs.table_generator.llm", fake_llm
         )
 
         result = graph.invoke({
@@ -307,9 +334,9 @@ class TestAdjectiveOtherTableGeneration:
                 "rows": ADJ_OTHER_TABLE.rows * 3,
             }
         )
-        fake_llm = FakeStructuredLLM(many_rows_table)
+        fake_llm = FakeAdjectiveLLM("adj_other", [many_rows_table])
         monkeypatch.setattr(
-            "graphs.nodes.generate_category_table_node.llm", fake_llm
+            "graphs.table_generator.llm", fake_llm
         )
 
         result = graph.invoke({
@@ -326,8 +353,9 @@ class TestAdjectiveOtherTableGeneration:
         assert all(len(row["cells"]) == 4 for row in table["rows"])
         assert table["adjective_table_layout"] == "adj_other"
         assert not result.get("fragmented_tables")
-        assert len(fake_llm.prompts) == 1
-        assert fake_llm.prompts[0] == generate_adjective_other_table_prompt.format(
+        assert len(fake_llm.classifier_prompts) == 1
+        assert len(fake_llm.table_prompts) == 1
+        assert fake_llm.table_prompts[0] == generate_adjective_other_table_prompt.format(
             **{
                 **PROMPT_VARIABLES,
                 "rule_name": rule.name,

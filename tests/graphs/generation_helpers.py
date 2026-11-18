@@ -322,6 +322,103 @@ PROMPT_VARIABLES = {
 }
 
 
+class FakeAdjectiveLLM:
+    """Classifier-first fake: returns a layout choice, then canned tables.
+
+    Dispatches on the structured-output schema: AdjectiveTableLayoutClassification
+    calls get the configured layout, TableData calls pop the queued tables.
+    Records classifier vs table prompts separately, plus a combined list.
+    """
+
+    def __init__(self, layout: str, tables):
+        self.layout = layout
+        self.tables = list(tables)
+        self.prompts: list[str] = []
+        self.classifier_prompts: list[str] = []
+        self.table_prompts: list[str] = []
+
+    def with_structured_output(self, schema):
+        def respond(prompt_value):
+            prompt_str = prompt_value.to_string()
+            self.prompts.append(prompt_str)
+            if (
+                getattr(schema, "__name__", "")
+                == "AdjectiveTableLayoutClassification"
+            ):
+                self.classifier_prompts.append(prompt_str)
+                from graphs.models import AdjectiveTableLayoutClassification
+
+                return AdjectiveTableLayoutClassification(
+                    adjective_table_layout=self.layout
+                )
+            self.table_prompts.append(prompt_str)
+            return self.tables.pop(0)
+
+        return RunnableLambda(respond)
+
+
+class FakeRuleTextAdjectiveLLM(FakeAdjectiveLLM):
+    """Classifier that derives OTHER from rule text, like the real prompt.
+
+    Returns adj_other when the rule text mentions a special topic stem,
+    otherwise the configured fallback layout. Proves OTHER is reached only
+    via the classifier, with no language check.
+    """
+
+    SPECIAL_STEMS = (
+        "demonstrativ",
+        "possessiv",
+        "comparativ",
+        "superlativ",
+        "apocop",
+        "indefinit",
+        "interrogativ",
+        "ordinal",
+    )
+
+    def __init__(self, tables_by_layout: dict, fallback: str = "adj_number_gender"):
+        self.tables_by_layout = dict(tables_by_layout)
+        self.fallback = fallback
+        self.prompts: list[str] = []
+        self.classifier_prompts: list[str] = []
+        self.table_prompts: list[str] = []
+        self.layouts: list[str] = []
+
+    def with_structured_output(self, schema):
+        def respond(prompt_value):
+            prompt_str = prompt_value.to_string()
+            self.prompts.append(prompt_str)
+            if (
+                getattr(schema, "__name__", "")
+                == "AdjectiveTableLayoutClassification"
+            ):
+                self.classifier_prompts.append(prompt_str)
+                from graphs.models import AdjectiveTableLayoutClassification
+
+                rule_text = _rule_text(prompt_str).casefold()
+                words = re.findall(r"[a-z]+", rule_text)
+                layout = self.fallback
+                if any(
+                    word.startswith(stem)
+                    for word in words
+                    for stem in self.SPECIAL_STEMS
+                ):
+                    layout = "adj_other"
+                self.layouts.append(layout)
+                self.layout = layout
+                return AdjectiveTableLayoutClassification(
+                    adjective_table_layout=layout
+                )
+            self.table_prompts.append(prompt_str)
+            layout = self.layouts[-1] if self.layouts else self.fallback
+            tables = list(self.tables_by_layout[layout])
+            table = tables.pop(0)
+            self.tables_by_layout[layout] = tables
+            return table
+
+        return RunnableLambda(respond)
+
+
 class FakeStructuredLLM:
     def __init__(self, result):
         self.result = result

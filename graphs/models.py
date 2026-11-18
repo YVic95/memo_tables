@@ -33,6 +33,16 @@ class AdjectiveTableLayout(StrEnum):
     adj_agreement = "adj_agreement"
     adj_other = "adj_other"
 
+class AdjectiveTableLayoutClassification(BaseModel):
+    adjective_table_layout: AdjectiveTableLayout = Field(
+        description=(
+            "Layout of an adjective rule: 'adj_number_gender' for the "
+            "unified number+gender flow, 'adj_agreement' for noun-adjective "
+            "agreement, 'adj_other' for other adjective rules."
+        ),
+    )
+
+
 class CatalogRule(BaseModel):
     title: str = Field(description="Short name of the grammar/language rule")
     explanation: str = Field(

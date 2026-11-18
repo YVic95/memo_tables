@@ -4,13 +4,14 @@ from dataclasses import replace
 import pytest
 
 from graphs.models import TableData, TableRow
-from graphs.nodes.generate_category_table_node import (
+from graphs.category_table_config import (
     CATEGORY_CONFIG,
-    generate_category_table_node,
-    is_special_topic_adjective_rule,
 )
+from graphs.nodes.generate_category_table_node import generate_category_table_node
+from graphs.table_validators import validate_noun_table
 from graphs.prompts import (
-    generate_adjective_gender_table_prompt,
+    choose_adjective_table_prompt,
+    generate_adjective_gender_or_agreement_table_prompt,
     generate_adjective_number_table_prompt,
     generate_adjective_other_table_prompt,
     generate_noun_table_prompt,
@@ -26,7 +27,9 @@ from tests.graphs.generation_helpers import (
     NOUN_GENDER_TABLE,
     NOUN_NUMBER_HEADERS,
     PROMPT_VARIABLES,
+    FakeAdjectiveLLM,
     FakeNounLayoutLLM,
+    FakeRuleTextAdjectiveLLM,
     FakeSequentialLLM,
     FakeStructuredLLM,
 )
@@ -58,7 +61,7 @@ def _state(
 
 def _run_node(monkeypatch, state: dict, fake_llm):
     monkeypatch.setattr(
-        "graphs.nodes.generate_category_table_node.llm", fake_llm
+        "graphs.table_generator.llm", fake_llm
     )
     result = generate_category_table_node(state)
     return result, fake_llm.prompts[0]
@@ -201,7 +204,7 @@ class TestNounTableValidation:
         monkeypatch.setitem(
             CATEGORY_CONFIG,
             "verb",
-            replace(CATEGORY_CONFIG["verb"], validator="noun"),
+            replace(CATEGORY_CONFIG["verb"], validator=validate_noun_table),
         )
 
         with pytest.raises(ValueError, match="noun_table_layout"):
@@ -210,25 +213,46 @@ class TestNounTableValidation:
 
 class TestAdjectiveTableGeneration:
     def _run_adjective(self, monkeypatch):
-        fake_llm = FakeSequentialLLM([ADJ_NUMBER_TABLE, ADJ_GENDER_TABLE])
+        fake_llm = FakeAdjectiveLLM(
+            "adj_number_gender", [ADJ_NUMBER_TABLE, ADJ_GENDER_TABLE]
+        )
         monkeypatch.setattr(
-            "graphs.nodes.generate_category_table_node.llm", fake_llm
+            "graphs.table_generator.llm", fake_llm
         )
         return generate_category_table_node(_state("adjective")), fake_llm
 
-    def test_adjective_slug_runs_the_number_then_gender_prompts(self, monkeypatch):
+    def test_adjective_slug_classifies_then_runs_number_then_gender_prompts(
+        self, monkeypatch
+    ):
         result, fake_llm = self._run_adjective(monkeypatch)
 
-        assert fake_llm.prompts[0] == generate_adjective_number_table_prompt.format(
-            **PROMPT_VARIABLES
+        assert fake_llm.classifier_prompts[0] == (
+            choose_adjective_table_prompt.format(
+                rule_name=PROMPT_VARIABLES["rule_name"],
+                rule_description=PROMPT_VARIABLES["rule_description"],
+            )
         )
-        assert fake_llm.prompts[1] == generate_adjective_gender_table_prompt.format(
-            **PROMPT_VARIABLES,
-            avoid_phrases=(
-                "el libro rojo, los libros rojos, "
-                "el dólar fuerte, los dólares fuertes"
-            ),
+        assert fake_llm.table_prompts[0] == (
+            generate_adjective_number_table_prompt.format(**PROMPT_VARIABLES)
         )
+        assert fake_llm.table_prompts[1] == (
+            generate_adjective_gender_or_agreement_table_prompt.format(
+                **PROMPT_VARIABLES,
+                avoid_phrases=(
+                    "el libro rojo, los libros rojos, "
+                    "el dólar fuerte, los dólares fuertes"
+                ),
+            )
+        )
+
+    def test_classifier_input_is_rule_text_only(self, monkeypatch):
+        _, fake_llm = self._run_adjective(monkeypatch)
+
+        classifier_prompt = fake_llm.classifier_prompts[0]
+        assert PROMPT_VARIABLES["rule_name"] in classifier_prompt
+        assert PROMPT_VARIABLES["rule_description"] in classifier_prompt
+        assert PROMPT_VARIABLES["native_language"] not in classifier_prompt
+        assert PROMPT_VARIABLES["target_language"] not in classifier_prompt
 
     def test_adjective_slug_returns_both_general_tables(self, monkeypatch):
         result, _ = self._run_adjective(monkeypatch)
@@ -254,7 +278,7 @@ class TestAdjectiveTableGeneration:
         _, fake_llm = self._run_adjective(monkeypatch)
 
         for phrase in ("el libro rojo", "los libros rojos", "el dólar fuerte"):
-            assert phrase in fake_llm.prompts[1]
+            assert phrase in fake_llm.table_prompts[1]
 
     def test_adjective_table_without_a_layout_is_rejected(self, monkeypatch):
         table = ADJ_NUMBER_TABLE.model_copy(update={"adjective_table_layout": None})
@@ -263,7 +287,7 @@ class TestAdjectiveTableGeneration:
             _run_node(
                 monkeypatch,
                 _state("adjective"),
-                FakeSequentialLLM([table, ADJ_GENDER_TABLE]),
+                FakeAdjectiveLLM("adj_number_gender", [table, ADJ_GENDER_TABLE]),
             )
 
     def test_adjective_table_with_a_wrong_header_count_is_rejected(self, monkeypatch):
@@ -275,7 +299,7 @@ class TestAdjectiveTableGeneration:
             _run_node(
                 monkeypatch,
                 _state("adjective"),
-                FakeSequentialLLM([table, ADJ_GENDER_TABLE]),
+                FakeAdjectiveLLM("adj_number_gender", [table, ADJ_GENDER_TABLE]),
             )
 
     def test_adjective_table_with_a_seven_cell_row_is_rejected(self, monkeypatch):
@@ -287,22 +311,31 @@ class TestAdjectiveTableGeneration:
             _run_node(
                 monkeypatch,
                 _state("adjective"),
-                FakeSequentialLLM([table, ADJ_GENDER_TABLE]),
+                FakeAdjectiveLLM("adj_number_gender", [table, ADJ_GENDER_TABLE]),
+            )
+
+    def test_generator_layout_mismatch_raises(self, monkeypatch):
+        with pytest.raises(ValueError, match="Generator layout mismatch"):
+            _run_node(
+                monkeypatch,
+                _state("adjective"),
+                FakeAdjectiveLLM("adj_number_gender", [ADJ_AGREEMENT_TABLE]),
             )
 
 
 class TestAdjectiveAgreementTable:
     def _run_agreement(self, monkeypatch):
-        fake_llm = FakeStructuredLLM(ADJ_AGREEMENT_TABLE)
+        fake_llm = FakeAdjectiveLLM("adj_agreement", [ADJ_AGREEMENT_TABLE])
         monkeypatch.setattr(
-            "graphs.nodes.generate_category_table_node.llm", fake_llm
+            "graphs.table_generator.llm", fake_llm
         )
         return generate_category_table_node(_state("adjective")), fake_llm
 
     def test_agreement_choice_yields_a_single_general_table(self, monkeypatch):
         result, fake_llm = self._run_agreement(monkeypatch)
 
-        assert len(fake_llm.prompts) == 1
+        assert len(fake_llm.classifier_prompts) == 1
+        assert len(fake_llm.table_prompts) == 1
         assert "general_table" not in result
         assert result["general_tables"] == [ADJ_AGREEMENT_TABLE.model_dump()]
 
@@ -317,11 +350,16 @@ class TestAdjectiveAgreementTable:
                 for index in (1, 2, 3, 5, 6, 7)
             )
 
-    def test_agreement_table_uses_the_entry_prompt(self, monkeypatch):
+    def test_agreement_table_uses_the_shared_prompt_with_no_avoid_list(
+        self, monkeypatch
+    ):
         _, fake_llm = self._run_agreement(monkeypatch)
 
-        assert fake_llm.prompts[0] == generate_adjective_number_table_prompt.format(
-            **PROMPT_VARIABLES
+        assert fake_llm.table_prompts[0] == (
+            generate_adjective_gender_or_agreement_table_prompt.format(
+                **PROMPT_VARIABLES,
+                avoid_phrases="",
+            )
         )
 
 
@@ -380,111 +418,47 @@ class TestAdjectivePromptContent:
         )
         for prompt in (
             generate_adjective_number_table_prompt,
-            generate_adjective_gender_table_prompt,
+            generate_adjective_gender_or_agreement_table_prompt,
             generate_adjective_other_table_prompt,
         ):
             normalized = " ".join(prompt.template.split())
             assert marker_instruction in normalized
             assert "Example cells remain unmarked" in normalized
 
-    def test_number_prompt_describes_the_singular_plural_columns(self):
-        template = generate_adjective_number_table_prompt.template
-
-        assert "adjective_table_layout" in template
-        assert '"adj_number_gender"' in template
-        assert "NUMBER LAYOUT" in template
-        assert "1. Singular" in template
-        assert "5. Plural" in template
-
-    def test_gender_prompt_describes_the_masculine_feminine_columns(self):
-        template = generate_adjective_gender_table_prompt.template
-
-        assert "adjective_table_layout" in template
-        assert '"adj_number_gender"' in template
-        assert "GENDER LAYOUT" in template
-        assert "1. Masculine" in template
-        assert "5. Feminine" in template
-
-    def test_both_prompts_require_carrier_phrases_and_mark_only_the_adjective(self):
-        for template in (
-            generate_adjective_number_table_prompt.template,
-            generate_adjective_gender_table_prompt.template,
-        ):
-            normalized = " ".join(template.split())
-            assert "carrier noun" in template
-            assert "Never list a bare adjective" in template
-            assert "definite article" in template
-            assert "a DIFFERENT adjective in each row" in template
-            assert "*rojo*" in template
-            assert "*roja*" in template
-            assert "Do not mark the surrounding noun or any other words" in normalized
-
-    def test_number_prompt_shows_marked_singular_plural_exemplars(self):
-        template = generate_adjective_number_table_prompt.template
-
-        assert "el libro *rojo* / los libros *rojos*" in template
-
-    def test_gender_prompt_shows_marked_masculine_feminine_exemplars(self):
-        template = generate_adjective_gender_table_prompt.template
-
-        assert "el libro *rojo* / la mesa *roja*" in template
-
-    def test_both_prompts_require_eight_cells_and_pair_counts(self):
-        for template in (
-            generate_adjective_number_table_prompt.template,
-            generate_adjective_gender_table_prompt.template,
-        ):
-            assert "exactly eight cells" in template
-            assert "Single-pattern rule: generate 2-3 pairs" in template
-            assert "Multi-pattern rule: generate 4-6 pairs" in template
-            assert "distinct title" in template
-
-    def test_entry_prompt_scopes_cell_counts_per_layout(self):
-        template = generate_adjective_number_table_prompt.template
-
-        assert (
-            "Number and agreement layouts: every row must have exactly eight cells"
-            in template
-        )
-        assert (
-            "Other layout: every row must have exactly four cells" in template
-        )
-
-    def test_gender_prompt_avoids_the_number_table_phrases(self):
-        template = generate_adjective_gender_table_prompt.template
-
-        assert "{avoid_phrases}" in template
-        assert "Do not reuse these adjectives or carrier nouns" in template
-
-    def test_entry_prompt_offers_the_number_and_agreement_tables(self):
-        template = generate_adjective_number_table_prompt.template
-
-        assert "CHOOSE THE TABLE" in template
-        assert '"adj_number_gender"' in template
-        assert '"adj_agreement"' in template
-        assert "AGREEMENT LAYOUT" in template
-
-    def test_entry_prompt_routes_both_dimensions_to_agreement(self):
-        template = generate_adjective_number_table_prompt.template
-
-        assert "If the rule covers BOTH gender and number" in template
-        assert "use the AGREEMENT table" in template
-
-    def test_agreement_section_describes_full_phrases_in_masculine_feminine(self):
-        template = generate_adjective_number_table_prompt.template
-
-        assert "1. Masculine" in template
-        assert "5. Feminine" in template
-        assert "el libro *rojo* / la mesa *roja*" in template
-        assert "**el libro" not in template
-        assert "*roja*" in template
-        assert "one adjective in its masculine and feminine forms" in template
-
-    def test_entry_prompt_offers_the_other_table(self):
-        template = generate_adjective_number_table_prompt.template
+    def test_choose_prompt_offers_all_three_layouts(self):
+        template = choose_adjective_table_prompt.template
 
         assert '"adj_other"' in template
-        assert "OTHER LAYOUT" in template
+        assert '"adj_number_gender"' in template
+        assert '"adj_agreement"' in template
+
+    def test_choose_prompt_takes_only_rule_text(self):
+        variables = set(choose_adjective_table_prompt.input_variables)
+
+        assert variables == {"rule_name", "rule_description"}
+
+    def test_choose_prompt_prioritizes_name_over_description(self):
+        template = choose_adjective_table_prompt.template
+
+        assert "Decide mainly from the rule NAME" in template
+        assert "description only clarifies it" in template
+
+    def test_choose_prompt_restricts_agreement_to_name(self):
+        template = choose_adjective_table_prompt.template
+
+        assert "the NAME is about noun-adjective agreement" in template
+        assert "merely" in template
+        assert "not enough" in template
+
+    def test_choose_prompt_gives_other_precedence_for_closed_sets(self):
+        template = choose_adjective_table_prompt.template
+
+        assert "This wins even if" in template
+        assert "closed set of forms" in template
+
+    def test_choose_prompt_lists_special_adjective_topics(self):
+        template = choose_adjective_table_prompt.template.lower()
+
         for topic in (
             "demonstrative",
             "possessive",
@@ -495,34 +469,84 @@ class TestAdjectivePromptContent:
             "interrogative",
             "ordinal",
         ):
-            assert topic in template.lower()
+            assert topic in template
 
-    def test_other_choice_takes_precedence_for_closed_sets(self):
+    def test_choose_prompt_routes_agreement_mention_with_special_topic_to_other(self):
+        template = choose_adjective_table_prompt.template
+
+        # OTHER is checked first and wins even when gender/number are mentioned.
+        assert "This wins even if" in template
+        assert "also mentions gender or number" in template
+
+    def test_number_prompt_describes_only_the_singular_plural_columns(self):
         template = generate_adjective_number_table_prompt.template
 
-        assert "ALWAYS use this table for such rules" in template
-        assert "even if" in template
-        assert "closed set of" in template
+        assert "adjective_table_layout" in template
+        assert '"adj_number_gender"' in template
+        assert "NUMBER LAYOUT" in template
+        assert "1. Singular" in template
+        assert "5. Plural" in template
+        assert "CHOOSE THE TABLE" not in template
+        assert "AGREEMENT LAYOUT" not in template
+        assert "OTHER LAYOUT" not in template
+        assert '"adj_agreement"' not in template
+        assert '"adj_other"' not in template
 
-    def test_number_and_agreement_are_scoped_to_regular_adjectives(self):
+    def test_shared_prompt_describes_the_masculine_feminine_columns(self):
+        template = generate_adjective_gender_or_agreement_table_prompt.template
+
+        assert "adjective_table_layout" in template
+        assert '"adj_number_gender"' in template
+        assert '"adj_agreement"' in template
+        assert "1. Masculine" in template
+        assert "5. Feminine" in template
+
+    def test_shared_prompt_covers_companion_and_standalone_uses(self):
+        template = generate_adjective_gender_or_agreement_table_prompt.template
+        normalized = " ".join(template.split())
+
+        assert "GENDER companion" in template
+        assert "Standalone AGREEMENT" in template
+        assert "{avoid_phrases}" in template
+        assert "Do not reuse these adjectives or carrier nouns" in template
+        assert "same KIND of adjectives" in normalized
+
+    def test_both_pair_prompts_require_carrier_phrases_and_mark_only_the_adjective(self):
+        for template in (
+            generate_adjective_number_table_prompt.template,
+            generate_adjective_gender_or_agreement_table_prompt.template,
+        ):
+            normalized = " ".join(template.split())
+            assert "carrier noun" in template
+            assert "Never list a bare adjective" in template
+            assert "definite article" in template
+            assert "a DIFFERENT adjective in each row" in template
+            assert "*rojo*" in template
+            assert "Do not mark the surrounding noun or any other words" in normalized
+
+        assert "*roja*" in (
+            generate_adjective_gender_or_agreement_table_prompt.template
+        )
+
+    def test_number_prompt_shows_marked_singular_plural_exemplars(self):
         template = generate_adjective_number_table_prompt.template
 
-        assert "regular adjectives" in template
+        assert "el libro *rojo* / los libros *rojos*" in template
 
-    def test_gender_prompt_keeps_the_same_adjective_kind(self):
-        template = generate_adjective_gender_table_prompt.template
+    def test_shared_prompt_shows_marked_masculine_feminine_exemplars(self):
+        template = generate_adjective_gender_or_agreement_table_prompt.template
 
-        assert "same KIND of adjectives" in template
+        assert "el libro *rojo* / la mesa *roja*" in template
 
-    def test_other_section_describes_the_four_columns(self):
-        template = generate_adjective_number_table_prompt.template
-
-        assert "1. Adjective" in template
-        assert "4. Example" in template
-        assert "one row = one form" in template
-        assert "every row must have exactly four cells" in template
-        assert "there is no row cap" in template
-        assert "representative forms" in template
+    def test_both_pair_prompts_require_eight_cells_and_pair_counts(self):
+        for template in (
+            generate_adjective_number_table_prompt.template,
+            generate_adjective_gender_or_agreement_table_prompt.template,
+        ):
+            assert "exactly eight cells" in template
+            assert "Single-pattern rule: generate 2-3 pairs" in template
+            assert "Multi-pattern rule: generate 4-6 pairs" in template
+            assert "distinct title" in template
 
     def test_other_prompt_marks_the_adjective_column_only(self):
         template = " ".join(generate_adjective_other_table_prompt.template.split())
@@ -538,16 +562,17 @@ class TestAdjectivePromptContent:
 
 class TestAdjectiveOtherTable:
     def _run_other(self, monkeypatch):
-        fake_llm = FakeStructuredLLM(ADJ_OTHER_TABLE)
+        fake_llm = FakeAdjectiveLLM("adj_other", [ADJ_OTHER_TABLE])
         monkeypatch.setattr(
-            "graphs.nodes.generate_category_table_node.llm", fake_llm
+            "graphs.table_generator.llm", fake_llm
         )
         return generate_category_table_node(_state("adjective")), fake_llm
 
     def test_other_choice_yields_a_single_four_column_table(self, monkeypatch):
         result, fake_llm = self._run_other(monkeypatch)
 
-        assert len(fake_llm.prompts) == 1
+        assert len(fake_llm.classifier_prompts) == 1
+        assert len(fake_llm.table_prompts) == 1
         assert "general_table" not in result
         assert result["general_tables"] == [ADJ_OTHER_TABLE.model_dump()]
 
@@ -558,11 +583,17 @@ class TestAdjectiveOtherTable:
             assert row["cells"][0].startswith("*") and row["cells"][0].endswith("*")
             assert all("*" not in row["cells"][index] for index in (1, 2, 3))
 
-    def test_special_topic_rule_is_pre_routed_to_the_other_prompt(self, monkeypatch):
-        fake_llm = FakeStructuredLLM(ADJ_OTHER_TABLE)
-        monkeypatch.setattr(
-            "graphs.nodes.generate_category_table_node.llm", fake_llm
+    def test_classifier_routes_possessive_agreement_mention_to_other(
+        self, monkeypatch
+    ):
+        fake_llm = FakeRuleTextAdjectiveLLM(
+            {
+                "adj_number_gender": [ADJ_NUMBER_TABLE, ADJ_GENDER_TABLE],
+                "adj_agreement": [ADJ_AGREEMENT_TABLE],
+                "adj_other": [ADJ_OTHER_TABLE],
+            }
         )
+        monkeypatch.setattr("graphs.table_generator.llm", fake_llm)
         state = _state(
             "adjective",
             rule_name="Possessive adjectives",
@@ -571,23 +602,29 @@ class TestAdjectiveOtherTable:
 
         result = generate_category_table_node(state)
 
-        assert len(fake_llm.prompts) == 1
-        assert fake_llm.prompts[0] == generate_adjective_other_table_prompt.format(
-            **{
-                **PROMPT_VARIABLES,
-                "rule_name": "Possessive adjectives",
-                "rule_description": "Forms agree in gender and number.",
-            }
+        assert fake_llm.layouts == ["adj_other"]
+        assert fake_llm.table_prompts[0] == (
+            generate_adjective_other_table_prompt.format(
+                **{
+                    **PROMPT_VARIABLES,
+                    "rule_name": "Possessive adjectives",
+                    "rule_description": "Forms agree in gender and number.",
+                }
+            )
         )
         assert "general_table" not in result
         assert result["general_tables"][0]["adjective_table_layout"] == "adj_other"
         assert result["general_tables"] == [ADJ_OTHER_TABLE.model_dump()]
 
-    def test_special_topic_keyword_routing_is_scoped_to_spanish(self, monkeypatch):
-        fake_llm = FakeSequentialLLM([ADJ_NUMBER_TABLE, ADJ_GENDER_TABLE])
-        monkeypatch.setattr(
-            "graphs.nodes.generate_category_table_node.llm", fake_llm
+    def test_other_routing_has_no_language_fast_path(self, monkeypatch):
+        fake_llm = FakeRuleTextAdjectiveLLM(
+            {
+                "adj_number_gender": [ADJ_NUMBER_TABLE, ADJ_GENDER_TABLE],
+                "adj_agreement": [ADJ_AGREEMENT_TABLE],
+                "adj_other": [ADJ_OTHER_TABLE],
+            }
         )
+        monkeypatch.setattr("graphs.table_generator.llm", fake_llm)
         state = _state(
             "adjective",
             rule_name="Comparative Adjectives",
@@ -595,52 +632,79 @@ class TestAdjectiveOtherTable:
         )
         state["target_language"] = "French"
 
-        generate_category_table_node(state)
+        result = generate_category_table_node(state)
 
-        assert len(fake_llm.prompts) == 2
-        assert fake_llm.prompts[0] == generate_adjective_number_table_prompt.format(
-            **{
-                **PROMPT_VARIABLES,
-                "target_language": "French",
-                "rule_name": "Comparative Adjectives",
+        assert fake_llm.layouts == ["adj_other"]
+        assert result["general_tables"] == [ADJ_OTHER_TABLE.model_dump()]
+
+    def test_classifier_lists_catalog_other_topics(self):
+        template = choose_adjective_table_prompt.template.lower()
+
+        for topic in (
+            "demonstrative",
+            "possessive",
+            "comparative",
+            "superlative",
+            "apocope",
+            "indefinite",
+            "interrogative",
+            "ordinal",
+        ):
+            assert topic in template
+
+    def test_classifier_detects_other_topic_in_the_rule_description(
+        self, monkeypatch
+    ):
+        fake_llm = FakeRuleTextAdjectiveLLM(
+            {
+                "adj_number_gender": [ADJ_NUMBER_TABLE, ADJ_GENDER_TABLE],
+                "adj_agreement": [ADJ_AGREEMENT_TABLE],
+                "adj_other": [ADJ_OTHER_TABLE],
             }
         )
+        monkeypatch.setattr("graphs.table_generator.llm", fake_llm)
 
-    @pytest.mark.parametrize(
-        "name",
-        [
-            "Demonstrative Adjectives",
-            "Possessive Adjectives",
-            "Comparative Adjectives",
-            "Superlative Adjectives",
-            "Absolute Superlative",
-            "Irregular Comparatives",
-            "Apocope of Adjectives",
-            "Indefinite Adjectives",
-            "Interrogative Adjectives",
-            "Ordinal Adjectives",
-        ],
-    )
-    def test_routes_spanish_catalog_special_topics_to_other(self, name):
-        assert is_special_topic_adjective_rule(name, "")
-
-    @pytest.mark.parametrize(
-        "name",
-        [
-            "Singular and Plural of adjectives",
-            "Gender of Adjectives",
-            "Noun-Adjective Agreement",
-        ],
-    )
-    def test_does_not_route_regular_inflection_rules_to_other(self, name):
-        assert not is_special_topic_adjective_rule(
-            name, "Regular adjective forms and agreement"
+        result = generate_category_table_node(
+            _state(
+                "adjective",
+                rule_name="Adjectives",
+                rule_description="Demonstrative forms vary by gender and number.",
+            )
         )
 
-    def test_detects_special_topic_in_the_rule_description(self):
-        assert is_special_topic_adjective_rule(
-            "Adjectives", "Demonstrative forms vary by gender and number."
-        )
+        assert fake_llm.layouts == ["adj_other"]
+        assert result["general_tables"] == [ADJ_OTHER_TABLE.model_dump()]
+
+    def test_classifier_routes_regular_inflection_to_pair_flow(self, monkeypatch):
+        for name, expected_tables in [
+            ("Singular and Plural of adjectives", [ADJ_NUMBER_TABLE, ADJ_GENDER_TABLE]),
+            ("Gender of Adjectives", [ADJ_NUMBER_TABLE, ADJ_GENDER_TABLE]),
+            ("Noun-Adjective Agreement", [ADJ_AGREEMENT_TABLE]),
+        ]:
+            fake_llm = FakeRuleTextAdjectiveLLM(
+                {
+                    "adj_number_gender": [ADJ_NUMBER_TABLE, ADJ_GENDER_TABLE],
+                    "adj_agreement": [ADJ_AGREEMENT_TABLE],
+                    "adj_other": [ADJ_OTHER_TABLE],
+                },
+                fallback=(
+                    "adj_agreement" if "Agreement" in name else "adj_number_gender"
+                ),
+            )
+            monkeypatch.setattr("graphs.table_generator.llm", fake_llm)
+
+            result = generate_category_table_node(
+                _state(
+                    "adjective",
+                    rule_name=name,
+                    rule_description="Regular adjective forms and agreement",
+                )
+            )
+
+            assert fake_llm.layouts[0] != "adj_other"
+            assert result["general_tables"] == [
+                table.model_dump() for table in expected_tables
+            ]
 
     def test_other_table_with_a_wrong_header_count_is_rejected(self, monkeypatch):
         table = ADJ_OTHER_TABLE.model_copy(
@@ -648,7 +712,11 @@ class TestAdjectiveOtherTable:
         )
 
         with pytest.raises(ValueError, match="4 columns"):
-            _run_node(monkeypatch, _state("adjective"), FakeStructuredLLM(table))
+            _run_node(
+                monkeypatch,
+                _state("adjective"),
+                FakeAdjectiveLLM("adj_other", [table]),
+            )
 
     def test_other_table_with_a_three_cell_row_is_rejected(self, monkeypatch):
         table = ADJ_OTHER_TABLE.model_copy(
@@ -656,4 +724,6 @@ class TestAdjectiveOtherTable:
         )
 
         with pytest.raises(ValueError, match="4 cells"):
-            _run_node(monkeypatch, _state("adjective"), FakeStructuredLLM(table))
+            _run_node(
+                monkeypatch, _state("adjective"), FakeAdjectiveLLM("adj_other", [table])
+            )

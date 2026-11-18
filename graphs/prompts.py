@@ -267,25 +267,20 @@ choose_adjective_table_prompt = PromptTemplate.from_template(
     Rule name: {rule_name}
     Rule description: {rule_description}
 
-    CHOOSE THE LAYOUT
-    Check the OTHER layout first: special adjective topics always win,
-    no matter what else the rule mentions.
-    - OTHER ("adj_other") — for a closed set of forms or a special
-      adjective topic (demonstrative, possessive, comparative, superlative,
-      apocope, indefinite, interrogative, ordinal, ...). ALWAYS choose this
-      layout for such rules, even if the rule also mentions number or gender.
-      For example, "Possessive adjectives / Forms agree in gender and number"
-      is OTHER.
-    - NUMBER ("adj_number_gender") — for a rule about general
-      inflection of regular adjectives (singular/plural or gender endings)
-      that does not teach noun-adjective agreement and is not about a
-      special topic above. The gender companion table is generated
-      separately afterwards.
-    - AGREEMENT ("adj_agreement") — for a rule about nouns and
-      regular adjectives agreeing in gender and number.
-      If the rule covers BOTH gender and number agreement, use AGREEMENT.
+    Decide mainly from the rule NAME; the description only clarifies it.
+    Choose the first layout that applies, in this order:
 
-    Return only the layout choice (adjective_table_layout) — no table content.
+    1. "adj_other": a special adjective topic or closed set of forms
+       (demonstrative, possessive, comparative, superlative, apocope,
+       indefinite, interrogative, ordinal, etc.). This wins even if the
+       rule also mentions gender or number.
+    2. "adj_agreement": the NAME is about noun-adjective agreement
+       (agreement, agree, concordancia, etc.). A description that merely
+       mentions gender and number is not enough.
+    3. "adj_number_gender": general inflection of regular adjectives
+       (singular/plural or gender endings). This is the default.
+
+    Return only the layout choice (adjective_table_layout), no table content.
     """
 )
 
@@ -397,9 +392,11 @@ generate_adjective_gender_or_agreement_table_prompt = PromptTemplate.from_templa
     the number table: {avoid_phrases}. (If that list is empty, ignore this rule.)
 
     CONTENT RULES
-    - Table title: written in {target_language}, briefly summarizing the
-      gender or agreement aspect of the rule. Use a distinct title from the
-      companion number table when this is the GENDER companion.
+    - Table title: written in {target_language}. When this is the GENDER
+      companion, summarize the gender aspect only and never mention
+      agreement or concordancia; use a distinct title from the companion
+      number table. When this is the standalone AGREEMENT table, summarize
+      agreement.
     - Column headers: written in {target_language}, in the layout order above.
     - The form columns (Masculine/Feminine): the carrier noun+adjective phrase
       in {target_language}, with the definite article. Never list a bare adjective.
