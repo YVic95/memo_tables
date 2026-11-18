@@ -15,6 +15,7 @@ from graphs.prompts import (
     generate_noun_table_prompt,
 )
 from tests.graphs.generation_helpers import (
+    ADJ_AGREEMENT_NUMBER_TABLE,
     ADJ_AGREEMENT_TABLE,
     ADJ_GENDER_TABLE,
     ADJ_NUMBER_TABLE,
@@ -106,13 +107,16 @@ class TestAdjectiveTableGeneration:
             "adj_number"
         ] * 2
 
-    def test_agreement_rule_yields_one_general_table_and_two_fragments(
+    def test_agreement_rule_yields_two_generals_and_four_fragments(
         self, monkeypatch, db_session, language_es, language_en
     ):
         from graphs.table_utils import select_adjective_tables
 
         rule = _adjective_grammar_rule(db_session, language_es, language_en)
-        fake_llm = FakeAdjectiveLLM("adj_agreement_gender", [ADJ_AGREEMENT_TABLE])
+        fake_llm = FakeAdjectiveLLM(
+            "adj_agreement",
+            [ADJ_AGREEMENT_NUMBER_TABLE, ADJ_AGREEMENT_TABLE],
+        )
         monkeypatch.setattr(
             "graphs.table_generator.llm", fake_llm
         )
@@ -126,26 +130,41 @@ class TestAdjectiveTableGeneration:
 
         assert result["word_category_slug"] == "adjective"
         assert "general_table" not in result
-        assert result["general_tables"] == [ADJ_AGREEMENT_TABLE.model_dump()]
+        assert [t["adjective_table_layout"] for t in result["general_tables"]] == [
+            "adj_agreement_number",
+            "adj_agreement_gender",
+        ]
+        assert result["general_tables"][0]["title"] == (
+            "Adjective Number and Gender by number"
+        )
+        assert result["general_tables"][1]["title"] == (
+            "Adjective Number and Gender by gender"
+        )
         assert len(fake_llm.classifier_prompts) == 1
-        assert len(fake_llm.table_prompts) == 1
+        assert len(fake_llm.table_prompts) == 2
 
         assert result["should_fragment"] is True
-        masculine, feminine = result["fragmented_tables"]
-        assert masculine["title"] == f"{ADJ_AGREEMENT_TABLE.title} — Masculino"
-        assert feminine["title"] == f"{ADJ_AGREEMENT_TABLE.title} — Femenino"
+        assert len(result["fragmented_tables"]) == 4
+        by_number, by_gender = (
+            result["general_tables"][0],
+            result["general_tables"][1],
+        )
+        assert result["fragmented_tables"][0]["title"].startswith(
+            by_number["title"]
+        )
+        assert result["fragmented_tables"][2]["title"].startswith(
+            by_gender["title"]
+        )
 
         merged = select_adjective_tables(
             [
-                ADJ_AGREEMENT_TABLE,
-                *[TableData(**f) for f in result["fragmented_tables"]],
+                TableData(**t) for t in result["general_tables"]
             ]
+            + [TableData(**f) for f in result["fragmented_tables"]],
         )
-        assert len(merged) == 1
-        assert [row.cells for row in merged[0].rows] == [
-            row.cells for row in ADJ_AGREEMENT_TABLE.rows
-        ]
-        assert merged[0].adjective_table_layout == "adj_agreement_gender"
+        assert len(merged) == 2
+        assert merged[0].adjective_table_layout == "adj_agreement_number"
+        assert merged[1].adjective_table_layout == "adj_agreement_gender"
 
 
 class TestNounTableGeneration:

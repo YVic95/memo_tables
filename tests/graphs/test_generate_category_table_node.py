@@ -20,6 +20,7 @@ from graphs.prompts import (
     generate_verb_table_prompt,
 )
 from tests.graphs.generation_helpers import (
+    ADJ_AGREEMENT_NUMBER_TABLE,
     ADJ_AGREEMENT_TABLE,
     ADJ_GENDER_TABLE,
     ADJ_NUMBER_TABLE,
@@ -346,42 +347,51 @@ class TestAdjectiveTableGeneration:
 
 class TestAdjectiveAgreementTable:
     def _run_agreement(self, monkeypatch):
-        fake_llm = FakeAdjectiveLLM("adj_agreement_gender", [ADJ_AGREEMENT_TABLE])
+        fake_llm = FakeAdjectiveLLM(
+            "adj_agreement",
+            [ADJ_AGREEMENT_NUMBER_TABLE, ADJ_AGREEMENT_TABLE],
+        )
         monkeypatch.setattr(
             "graphs.table_generator.llm", fake_llm
         )
         return generate_category_table_node(_state("adjective")), fake_llm
 
-    def test_agreement_choice_yields_a_single_general_table(self, monkeypatch):
+    def test_agreement_choice_yields_two_general_tables(self, monkeypatch):
         result, fake_llm = self._run_agreement(monkeypatch)
 
         assert len(fake_llm.classifier_prompts) == 1
-        assert len(fake_llm.table_prompts) == 1
+        assert len(fake_llm.table_prompts) == 2
         assert "general_table" not in result
-        assert result["general_tables"] == [ADJ_AGREEMENT_TABLE.model_dump()]
+        assert [t["adjective_table_layout"] for t in result["general_tables"]] == [
+            "adj_agreement_number",
+            "adj_agreement_gender",
+        ]
+        assert result["general_tables"][0]["title"] == "Noun Gender by number"
+        assert result["general_tables"][1]["title"] == "Noun Gender by gender"
 
     def test_agreement_output_marks_only_form_cells(self, monkeypatch):
         result, _ = self._run_agreement(monkeypatch)
 
-        for row in result["general_tables"][0]["rows"]:
-            assert "*" in row["cells"][0]
-            assert "*" in row["cells"][4]
-            assert all(
-                "*" not in row["cells"][index]
-                for index in (1, 2, 3, 5, 6, 7)
-            )
+        for table in result["general_tables"]:
+            for row in table["rows"]:
+                assert "*" in row["cells"][0]
+                assert "*" in row["cells"][4]
+                assert all(
+                    "*" not in row["cells"][index]
+                    for index in (1, 2, 3, 5, 6, 7)
+                )
 
-    def test_agreement_table_uses_the_shared_prompt_with_no_avoid_list(
+    def test_agreement_gender_companion_receives_avoid_list(
         self, monkeypatch
     ):
         _, fake_llm = self._run_agreement(monkeypatch)
 
         assert fake_llm.table_prompts[0] == (
-            generate_adjective_gender_or_agreement_table_prompt.format(
-                **PROMPT_VARIABLES,
-                avoid_phrases="",
-            )
+            generate_adjective_number_table_prompt.format(**PROMPT_VARIABLES)
         )
+        # The companion receives the entry table's phrases as {avoid_phrases}.
+        assert "el coche" in fake_llm.table_prompts[1].lower() or "azul" in fake_llm.table_prompts[1].lower()
+        assert PROMPT_VARIABLES["rule_name"] in fake_llm.table_prompts[1]
 
 
 class TestNounPromptContent:
@@ -446,36 +456,60 @@ class TestAdjectivePromptContent:
             assert marker_instruction in normalized
             assert "Example cells remain unmarked" in normalized
 
-    def test_choose_prompt_offers_all_three_layouts(self):
+    def test_choose_prompt_offers_new_plumbing_layouts(self):
         template = choose_adjective_table_prompt.template
 
         assert '"adj_other"' in template
-        assert '"adj_number_gender"' in template
+        assert '"adj_number"' in template
+        assert '"adj_gender"' in template
+        # Agreement is one classifier choice fanning out to both generals.
         assert '"adj_agreement"' in template
+        assert '"adj_agreement_number"' in template
+        assert '"adj_agreement_gender"' in template
+        assert '"adj_number_gender"' not in template
 
     def test_choose_prompt_takes_only_rule_text(self):
         variables = set(choose_adjective_table_prompt.input_variables)
 
         assert variables == {"rule_name", "rule_description"}
 
-    def test_choose_prompt_prioritizes_name_over_description(self):
+    def test_choose_prompt_decides_semantically_from_name(self):
         template = choose_adjective_table_prompt.template
 
-        assert "Decide mainly from the rule NAME" in template
-        assert "description only clarifies it" in template
+        assert "Decide semantically" in template
+        assert "mainly from the rule NAME" in template
+        assert "description only" in template
+        assert "clarifies" in template
 
-    def test_choose_prompt_restricts_agreement_to_name(self):
+    def test_choose_prompt_has_no_first_match_keyword_logic(self):
         template = choose_adjective_table_prompt.template
 
-        assert "the NAME is about noun-adjective agreement" in template
-        assert "merely" in template
-        assert "not enough" in template
+        assert "Choose the first layout" not in template
+        assert "first layout that applies" not in template.lower()
 
-    def test_choose_prompt_gives_other_precedence_for_closed_sets(self):
+    def test_choose_prompt_prioritizes_other_number_gender_agreement(self):
         template = choose_adjective_table_prompt.template
 
-        assert "This wins even if" in template
-        assert "closed set of forms" in template
+        assert '"adj_other"' in template
+        assert '"adj_number"' in template
+        assert '"adj_gender"' in template
+        assert "default fallback" in template.lower()
+        # Other wins even when gender/number are mentioned.
+        assert "even if" in template.lower()
+        assert "gender" in template.lower() and "number" in template.lower()
+
+    def test_choose_prompt_distinguishes_number_gender_by_invariance(self):
+        template = choose_adjective_table_prompt.template.lower()
+
+        assert "gender-invariant" in template
+        assert "number-invariant" in template
+        assert "both" in template
+
+    def test_choose_prompt_falls_back_to_agreement_for_generic_names(self):
+        template = choose_adjective_table_prompt.template
+
+        assert "generic names" in template.lower() or "fallback" in template.lower()
+        assert "Adjetivos" in template or "adjetivos" in template.lower()
 
     def test_choose_prompt_lists_special_adjective_topics(self):
         template = choose_adjective_table_prompt.template.lower()
@@ -496,29 +530,26 @@ class TestAdjectivePromptContent:
         template = choose_adjective_table_prompt.template
 
         # OTHER is checked first and wins even when gender/number are mentioned.
-        assert "This wins even if" in template
-        assert "also mentions gender or number" in template
+        assert "even if" in template.lower()
+        assert "gender" in template.lower() and "number" in template.lower()
 
-    def test_number_prompt_describes_only_the_singular_plural_columns(self):
+    def test_number_prompt_describes_singular_plural_columns(self):
         template = generate_adjective_number_table_prompt.template
 
         assert "adjective_table_layout" in template
-        assert '"adj_number_gender"' in template
+        assert '"adj_number"' in template
+        assert '"adj_agreement_number"' in template
         assert "NUMBER LAYOUT" in template
         assert "1. Singular" in template
         assert "5. Plural" in template
-        assert "CHOOSE THE TABLE" not in template
-        assert "AGREEMENT LAYOUT" not in template
-        assert "OTHER LAYOUT" not in template
-        assert '"adj_agreement"' not in template
         assert '"adj_other"' not in template
 
     def test_shared_prompt_describes_the_masculine_feminine_columns(self):
         template = generate_adjective_gender_or_agreement_table_prompt.template
 
         assert "adjective_table_layout" in template
-        assert '"adj_number_gender"' in template
-        assert '"adj_agreement"' in template
+        assert '"adj_gender"' in template
+        assert '"adj_agreement_gender"' in template
         assert "1. Masculine" in template
         assert "5. Feminine" in template
 
@@ -526,8 +557,9 @@ class TestAdjectivePromptContent:
         template = generate_adjective_gender_or_agreement_table_prompt.template
         normalized = " ".join(template.split())
 
-        assert "GENDER companion" in template
-        assert "Standalone AGREEMENT" in template
+        assert "companion" in template.lower()
+        assert "Standalone GENDER" in template
+        assert "AGREEMENT by-gender" in template
         assert "{avoid_phrases}" in template
         assert "Do not reuse these adjectives or carrier nouns" in template
         assert "same KIND of adjectives" in normalized
@@ -567,7 +599,16 @@ class TestAdjectivePromptContent:
             assert "exactly eight cells" in template
             assert "Single-pattern rule: generate 2-3 pairs" in template
             assert "Multi-pattern rule: generate 4-6 pairs" in template
-            assert "distinct title" in template
+
+    def test_pair_prompts_enforce_title_rules(self):
+        number_template = generate_adjective_number_table_prompt.template
+        assert "rule name verbatim" in number_template.lower()
+        assert "by number" in number_template.lower()
+        gender_template = (
+            generate_adjective_gender_or_agreement_table_prompt.template
+        )
+        assert "rule name verbatim" in gender_template.lower()
+        assert "by gender" in gender_template.lower()
 
     def test_other_prompt_marks_the_adjective_column_only(self):
         template = " ".join(generate_adjective_other_table_prompt.template.split())
@@ -703,18 +744,26 @@ class TestAdjectiveOtherTable:
         assert result["general_tables"] == [ADJ_OTHER_TABLE.model_dump()]
 
     def test_classifier_routes_regular_inflection_to_pair_flow(self, monkeypatch):
-        for name, expected_tables, fallback in [
-            ("Singular and Plural of adjectives", [ADJ_NUMBER_TABLE], "adj_number"),
-            ("Gender of Adjectives", [ADJ_GENDER_TABLE], "adj_gender"),
-            ("Noun-Adjective Agreement", [ADJ_AGREEMENT_TABLE], "adj_agreement_gender"),
+        for name, expected_layouts, fallback in [
+            ("Singular and Plural of adjectives", ["adj_number"], "adj_number"),
+            ("Gender of Adjectives", ["adj_gender"], "adj_gender"),
+            (
+                "Noun-Adjective Agreement",
+                ["adj_agreement_number", "adj_agreement_gender"],
+                "adj_agreement",
+            ),
         ]:
             fake_llm = FakeRuleTextAdjectiveLLM(
                 {
-                    "adj_number": [ADJ_NUMBER_TABLE],
-                    "adj_gender": [ADJ_GENDER_TABLE],
-                    "adj_agreement_number": [ADJ_NUMBER_TABLE],
-                    "adj_agreement_gender": [ADJ_AGREEMENT_TABLE],
-                    "adj_other": [ADJ_OTHER_TABLE],
+                    "adj_number": [ADJ_NUMBER_TABLE.model_copy(deep=True)],
+                    "adj_gender": [ADJ_GENDER_TABLE.model_copy(deep=True)],
+                    "adj_agreement_number": [
+                        ADJ_AGREEMENT_NUMBER_TABLE.model_copy(deep=True)
+                    ],
+                    "adj_agreement_gender": [
+                        ADJ_AGREEMENT_TABLE.model_copy(deep=True)
+                    ],
+                    "adj_other": [ADJ_OTHER_TABLE.model_copy(deep=True)],
                 },
                 fallback=fallback,
             )
@@ -729,9 +778,14 @@ class TestAdjectiveOtherTable:
             )
 
             assert fake_llm.layouts[0] != "adj_other"
-            assert result["general_tables"] == [
-                table.model_dump() for table in expected_tables
-            ]
+            assert [t["adjective_table_layout"] for t in result["general_tables"]] == (
+                expected_layouts
+            )
+            if expected_layouts == ["adj_number"] or expected_layouts == ["adj_gender"]:
+                assert result["general_tables"][0]["title"] == name
+            else:
+                assert result["general_tables"][0]["title"] == f"{name} by number"
+                assert result["general_tables"][1]["title"] == f"{name} by gender"
 
     def test_other_table_with_a_wrong_header_count_is_rejected(self, monkeypatch):
         table = ADJ_OTHER_TABLE.model_copy(

@@ -243,6 +243,38 @@ ADJ_AGREEMENT_HEADERS = [
     "Ejemplo",
 ]
 
+ADJ_AGREEMENT_NUMBER_TABLE = TableData(
+    title="La concordancia del adjetivo by number",
+    headers=ADJ_NUMBER_HEADERS,
+    rows=[
+        TableRow(
+            cells=[
+                "el coche *azul*",
+                "the blue car",
+                "Masculine singular: noun and adjective agree",
+                "El coche azul es nuevo.",
+                "los coches *azules*",
+                "the blue cars",
+                "Masculine plural: noun and adjective agree",
+                "Los coches azules son nuevos.",
+            ]
+        ),
+        TableRow(
+            cells=[
+                "el árbol *verde*",
+                "the green tree",
+                "Masculine singular: noun and adjective agree",
+                "El árbol verde es alto.",
+                "los árboles *verdes*",
+                "the green trees",
+                "Masculine plural: noun and adjective agree",
+                "Los árboles verdes son altos.",
+            ]
+        ),
+    ],
+    adjective_table_layout="adj_agreement_number",
+)
+
 ADJ_AGREEMENT_TABLE = TableData(
     title="La concordancia del adjetivo",
     headers=ADJ_AGREEMENT_HEADERS,
@@ -406,11 +438,24 @@ class FakeRuleTextAdjectiveLLM(FakeAdjectiveLLM):
                     layout = "adj_other"
                 self.layouts.append(layout)
                 self.layout = layout
+                self._table_calls = 0
                 return AdjectiveTableLayoutClassification(
                     adjective_table_layout=layout
                 )
             self.table_prompts.append(prompt_str)
             layout = self.layouts[-1] if self.layouts else self.fallback
+            # Agreement fans out to number then gender generals in order.
+            if layout in ("adj_agreement", "adj_agreement_number", "adj_agreement_gender"):
+                step_layout = (
+                    "adj_agreement_number"
+                    if getattr(self, "_table_calls", 0) == 0
+                    else "adj_agreement_gender"
+                )
+                self._table_calls = getattr(self, "_table_calls", 0) + 1
+                tables = list(self.tables_by_layout[step_layout])
+                table = tables.pop(0)
+                self.tables_by_layout[step_layout] = tables
+                return table
             tables = list(self.tables_by_layout[layout])
             table = tables.pop(0)
             self.tables_by_layout[layout] = tables

@@ -34,16 +34,18 @@ class AdjectiveTableLayout(StrEnum):
     adj_agreement_number = "adj_agreement_number"
     adj_agreement_gender = "adj_agreement_gender"
     adj_other = "adj_other"
+    adj_agreement = "adj_agreement"
 
 
 class AdjectiveTableLayoutClassification(BaseModel):
     adjective_table_layout: AdjectiveTableLayout = Field(
         description=(
             "Layout of an adjective rule: 'adj_number' for the "
-            "singular/plural number table, 'adj_gender' for the "
-            "masculine/feminine gender table, 'adj_agreement_number' and "
-            "'adj_agreement_gender' for the two agreement tables, "
-            "'adj_other' for other adjective rules."
+            "singular/plural number-only table, 'adj_gender' for the "
+            "masculine/feminine gender-only table, 'adj_agreement' for "
+            "agreement (the system generates both the 'adj_agreement_number' "
+            "and 'adj_agreement_gender' generals), 'adj_other' for other "
+            "adjective rules."
         ),
     )
 

@@ -33,6 +33,11 @@ class LayoutPolicy:
     companion_prompt_role: str | None = None
     companion_context: CompanionContext | None = None
     companion_validator: TableValidator | None = None
+    companion_layout: str | None = None
+    # Layout the entry table must carry. Defaults to the route key; set when
+    # one classifier choice fans out to tables with different layouts
+    # (agreement: choice "adj_agreement", entry "adj_agreement_number").
+    entry_layout: str | None = None
 
 
 @dataclass(frozen=True)
@@ -55,6 +60,29 @@ def adjective_rule_text(state: GenerateTableState) -> dict[str, str]:
         "rule_name": state.get("rule_name") or "",
         "rule_description": state.get("rule_description") or "",
     }
+
+
+def adjective_avoid_phrases(entry_table: TableData) -> dict[str, str]:
+    """Form-cell phrases of the entry table, to keep the companion fresh.
+
+    The gender / agreement by-gender prompt receives these as {avoid_phrases}
+    and must choose different adjectives and carrier nouns.
+    """
+    phrases: list[str] = []
+    for row in entry_table.rows:
+        for index in (0, 4):
+            if index < len(row.cells):
+                phrase = (row.cells[index] or "").replace("*", "").strip()
+                if phrase:
+                    phrases.append(phrase)
+    seen: set[str] = set()
+    unique: list[str] = []
+    for phrase in phrases:
+        key = phrase.lower()
+        if key not in seen:
+            seen.add(key)
+            unique.append(phrase)
+    return {"avoid_phrases": ", ".join(unique)}
 
 
 CATEGORY_CONFIG: dict[str, CategoryConfig] = {
@@ -81,13 +109,14 @@ CATEGORY_CONFIG: dict[str, CategoryConfig] = {
                 prompt_role="gender_or_agreement",
                 validator=validate_adjective_pair_table,
             ),
-            "adj_agreement_number": LayoutPolicy(
+            "adj_agreement": LayoutPolicy(
                 prompt_role="number",
                 validator=validate_adjective_pair_table,
-            ),
-            "adj_agreement_gender": LayoutPolicy(
-                prompt_role="gender_or_agreement",
-                validator=validate_adjective_pair_table,
+                companion_prompt_role="gender_or_agreement",
+                companion_context=adjective_avoid_phrases,
+                companion_validator=validate_adjective_pair_table,
+                companion_layout="adj_agreement_gender",
+                entry_layout="adj_agreement_number",
             ),
             "adj_other": LayoutPolicy(
                 prompt_role="other",

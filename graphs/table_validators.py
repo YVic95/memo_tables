@@ -32,15 +32,16 @@ def validate_adjective_pair_table(table: TableData) -> None:
 
     Accepts the four pair layouts (adj_number, adj_gender,
     adj_agreement_number, adj_agreement_gender). Rejects adj_other, which
-    must use the 4-column other shape.
+    must use the 4-column other shape, and the classifier-only adj_agreement
+    signal, which must never be persisted on a table.
     """
     layout = require_adjective_layout(table.adjective_table_layout)
-    if layout == AdjectiveTableLayout.adj_other:
+    if layout in (AdjectiveTableLayout.adj_other, AdjectiveTableLayout.adj_agreement):
         raise ValueError(
             "Adjective pair tables must use a pair layout "
             "(adj_number, adj_gender, adj_agreement_number, "
             "adj_agreement_gender), got "
-            f'"{AdjectiveTableLayout.adj_other.value}"'
+            f'"{layout.value}"'
         )
     if len(table.headers) != ADJECTIVE_COLUMN_COUNT:
         raise ValueError(

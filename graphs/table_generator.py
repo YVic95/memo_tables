@@ -54,6 +54,31 @@ def _require_layout_match(table: TableData, expected_layout: str) -> None:
         )
 
 
+def _apply_adjective_titles(
+    tables: list[TableData], state: GenerateTableState
+) -> None:
+    """Enforce general-table title rules for adjective layouts.
+
+    Number-only / gender-only generals use the rule name verbatim;
+    agreement generals derive "<rule> by number" / "<rule> by gender".
+    Other-rule tables keep the model's title.
+    """
+    if state.get("word_category_slug") != "adjective":
+        return
+    rule_name = (state.get("rule_name") or "").strip()
+    if not rule_name:
+        return
+    for table in tables:
+        layout = table.adjective_table_layout
+        value = layout.value if hasattr(layout, "value") else str(layout)
+        if value == "adj_number" or value == "adj_gender":
+            table.title = rule_name
+        elif value == "adj_agreement_number":
+            table.title = f"{rule_name} by number"
+        elif value == "adj_agreement_gender":
+            table.title = f"{rule_name} by gender"
+
+
 def _generate_from_classifier(
     state: GenerateTableState, config: CategoryConfig
 ) -> tuple[TableData, ...]:
@@ -62,6 +87,10 @@ def _generate_from_classifier(
     layout = _invoke_classifier(
         config.classifier_prompt, state, config.classifier_input
     )
+    # Robustness: if the model returns a table layout instead of the
+    # agreement signal, route it to the agreement pair all the same.
+    if layout in ("adj_agreement_number", "adj_agreement_gender"):
+        layout = "adj_agreement"
     route = config.layout_routes.get(str(layout))
     if route is None:
         raise ValueError(f"No generation route configured for table layout: {layout}")
@@ -72,7 +101,7 @@ def _generate_from_classifier(
 
     additional_prompt_variables: dict[str, str] = {}
     # The shared gender-or-agreement prompt always takes {avoid_phrases}:
-    # the standalone agreement use passes an empty list.
+    # the standalone gender-only use passes an empty list.
     if (
         route.prompt_role == "gender_or_agreement"
         and route.companion_prompt_role is None
@@ -84,7 +113,7 @@ def _generate_from_classifier(
         route.validator(entry_table)
     elif config.layout_validator is not None:
         config.layout_validator(entry_table)
-    _require_layout_match(entry_table, str(layout))
+    _require_layout_match(entry_table, route.entry_layout or str(layout))
 
     tables = [entry_table]
     if route.companion_prompt_role is not None:
@@ -96,8 +125,10 @@ def _generate_from_classifier(
             companion_prompt, state, companion_variables
         )
         (route.companion_validator or route.validator)(companion_table)
-        _require_layout_match(companion_table, str(layout))
+        expected_companion = route.companion_layout or str(layout)
+        _require_layout_match(companion_table, expected_companion)
         tables.append(companion_table)
+    _apply_adjective_titles(tables, state)
     return tuple(tables)
 
 
