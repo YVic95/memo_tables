@@ -197,7 +197,7 @@ ADJ_NUMBER_TABLE = TableData(
             ]
         ),
     ],
-    adjective_table_layout="adj_number_gender",
+    adjective_table_layout="adj_number",
 )
 
 ADJ_GENDER_TABLE = TableData(
@@ -229,7 +229,7 @@ ADJ_GENDER_TABLE = TableData(
             ]
         ),
     ],
-    adjective_table_layout="adj_number_gender",
+    adjective_table_layout="adj_gender",
 )
 
 ADJ_AGREEMENT_HEADERS = [
@@ -272,7 +272,7 @@ ADJ_AGREEMENT_TABLE = TableData(
             ]
         ),
     ],
-    adjective_table_layout="adj_agreement",
+    adjective_table_layout="adj_agreement_gender",
 )
 
 ADJ_OTHER_HEADERS = [
@@ -376,7 +376,7 @@ class FakeRuleTextAdjectiveLLM(FakeAdjectiveLLM):
         "ordinal",
     )
 
-    def __init__(self, tables_by_layout: dict, fallback: str = "adj_number_gender"):
+    def __init__(self, tables_by_layout: dict, fallback: str = "adj_number"):
         self.tables_by_layout = dict(tables_by_layout)
         self.fallback = fallback
         self.prompts: list[str] = []

@@ -62,13 +62,11 @@ def _adjective_grammar_rule(db_session, language_es, language_en):
 
 
 class TestAdjectiveTableGeneration:
-    def test_adjective_rule_yields_two_generals_and_four_fragments(
+    def test_adjective_rule_yields_one_general_and_two_fragments(
         self, monkeypatch, db_session, language_es, language_en
     ):
         rule = _adjective_grammar_rule(db_session, language_es, language_en)
-        fake_llm = FakeAdjectiveLLM(
-            "adj_number_gender", [ADJ_NUMBER_TABLE, ADJ_GENDER_TABLE]
-        )
+        fake_llm = FakeAdjectiveLLM("adj_number", [ADJ_NUMBER_TABLE])
         monkeypatch.setattr(
             "graphs.table_generator.llm", fake_llm
         )
@@ -82,10 +80,7 @@ class TestAdjectiveTableGeneration:
 
         assert result["word_category_slug"] == "adjective"
         assert "general_table" not in result
-        assert result["general_tables"] == [
-            ADJ_NUMBER_TABLE.model_dump(),
-            ADJ_GENDER_TABLE.model_dump(),
-        ]
+        assert result["general_tables"] == [ADJ_NUMBER_TABLE.model_dump()]
         assert fake_llm.classifier_prompts[0] == (
             choose_adjective_table_prompt.format(
                 rule_name="Adjective Number and Gender",
@@ -101,29 +96,15 @@ class TestAdjectiveTableGeneration:
                 }
             )
         )
-        assert fake_llm.table_prompts[1] == (
-            generate_adjective_gender_or_agreement_table_prompt.format(
-                **{
-                    **PROMPT_VARIABLES,
-                    "rule_name": "Adjective Number and Gender",
-                    "rule_description": "Adjectives agree in number and gender",
-                    "avoid_phrases": (
-                        "el libro rojo, los libros rojos, "
-                        "el dólar fuerte, los dólares fuertes"
-                    ),
-                }
-            )
-        )
+        assert len(fake_llm.table_prompts) == 1
 
         assert result["should_fragment"] is True
-        singular, plural, masculine, feminine = result["fragmented_tables"]
+        singular, plural = result["fragmented_tables"]
         assert singular["title"] == f"{ADJ_NUMBER_TABLE.title} — Singular"
         assert plural["title"] == f"{ADJ_NUMBER_TABLE.title} — Plural"
-        assert masculine["title"] == f"{ADJ_GENDER_TABLE.title} — Masculino"
-        assert feminine["title"] == f"{ADJ_GENDER_TABLE.title} — Femenino"
-        assert [f["adjective_table_layout"] for f in (singular, plural, masculine, feminine)] == [
-            "adj_number_gender"
-        ] * 4
+        assert [f["adjective_table_layout"] for f in (singular, plural)] == [
+            "adj_number"
+        ] * 2
 
     def test_agreement_rule_yields_one_general_table_and_two_fragments(
         self, monkeypatch, db_session, language_es, language_en
@@ -131,7 +112,7 @@ class TestAdjectiveTableGeneration:
         from graphs.table_utils import select_adjective_tables
 
         rule = _adjective_grammar_rule(db_session, language_es, language_en)
-        fake_llm = FakeAdjectiveLLM("adj_agreement", [ADJ_AGREEMENT_TABLE])
+        fake_llm = FakeAdjectiveLLM("adj_agreement_gender", [ADJ_AGREEMENT_TABLE])
         monkeypatch.setattr(
             "graphs.table_generator.llm", fake_llm
         )
@@ -164,7 +145,7 @@ class TestAdjectiveTableGeneration:
         assert [row.cells for row in merged[0].rows] == [
             row.cells for row in ADJ_AGREEMENT_TABLE.rows
         ]
-        assert merged[0].adjective_table_layout == "adj_agreement"
+        assert merged[0].adjective_table_layout == "adj_agreement_gender"
 
 
 class TestNounTableGeneration:
@@ -311,7 +292,12 @@ class TestRouteAfterTable:
         assert route_after_table(state) == END
 
     def test_adjective_pair_layouts_always_fragment(self):
-        for layout in ("adj_number_gender", "adj_agreement"):
+        for layout in (
+            "adj_number",
+            "adj_gender",
+            "adj_agreement_number",
+            "adj_agreement_gender",
+        ):
             state = _generate_table_state("adjective", 10)
             state["general_tables"][0]["adjective_table_layout"] = layout
 

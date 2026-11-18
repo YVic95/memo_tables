@@ -26,8 +26,8 @@ function loadPreview(tables) {
 describe('getLatestTables', () => {
   it('excludes source tables replaced by a later LLM edit', () => {
     const sandbox = loadPreview([
-      { tableId: 10, title: 'Singular', adjective_table_layout: 'adj_number_gender' },
-      { tableId: 11, title: 'Plural', adjective_table_layout: 'adj_number_gender' },
+      { tableId: 10, title: 'Singular', adjective_table_layout: 'adj_number' },
+      { tableId: 11, title: 'Plural', adjective_table_layout: 'adj_number' },
       { tableId: 12, title: 'Singular edited', edited_from: 10, isFragmented: true },
     ]);
 

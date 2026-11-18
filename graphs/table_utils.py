@@ -32,9 +32,12 @@ NOUN_FRAGMENT_TITLE_SEPARATOR = " — "
 ADJECTIVE_COLUMN_COUNT = 8
 ADJECTIVE_SIDE_COLUMN_COUNT = ADJECTIVE_COLUMN_COUNT // 2
 ADJECTIVE_LAYOUTS = frozenset(layout.value for layout in AdjectiveTableLayout)
-# The unified flow produces two pair tables from one rule: a number table
-# (singular/plural) and a gender table (masculine/feminine). Each side pair is
-# identified by the first header of its two 4-column sides.
+# Pair layouts for new rules: single-general number/gender plus the
+# two agreement generals (by number with Sg/Pl headers, by gender with M/F
+# headers). adj_other is the frozen 4-column layout.
+# Each rule produces pair tables grouped by table_no: table 0 holds the
+# singular/plural shape, table 1 the masculine/feminine shape. Each side pair
+# is identified by the first header of its two 4-column sides.
 ADJECTIVE_NUMBER_SIDE_HEADERS = ("Singular", "Plural")
 ADJECTIVE_GENDER_SIDE_HEADERS = ("Masculine", "Feminine")
 # Each adjective row holds a pair of carrier noun+adjective phrases: columns
@@ -94,6 +97,19 @@ def noun_side_cell(cells: list[str], columns: dict[str, int], role: str) -> str:
 def strip_adjective_italics(form: str) -> str:
     """Remove table emphasis markers from an adjective's lexical form."""
     return form.replace("*", "").strip()
+
+
+def extract_adjective_token(form: str) -> str:
+    """Return the bare adjective inside a carrier phrase.
+
+    Form cells mark only the adjective with single asterisks (e.g.
+    "el libro *rojo*"); the token inside the markers is the vocabulary
+    item. Unmarked cells fall back to the stripped cell content.
+    """
+    match = re.search(r"\*([^*]+)\*", form)
+    if match is not None:
+        return match.group(1).strip()
+    return strip_adjective_italics(form)
 
 
 def require_noun_layout(layout: str | NounTableLayout | None) -> NounTableLayout:

@@ -396,6 +396,12 @@ class TestAdjectiveGraphInvocation:
             TranslationPair(text="El libro bueno es caro.", translation="The good book is expensive."),
             TranslationPair(text="La mesa buena es cara.", translation="The good table is expensive."),
         ])
+        mock_base_translate.invoke.return_value = Translations(translations=[
+            TranslationPair(text="alto", translation="tall"),
+            TranslationPair(text="bueno", translation="good"),
+            TranslationPair(text="fuerte", translation="strong"),
+            TranslationPair(text="rojo", translation="red"),
+        ])
         state = _make_state(
             db_session,
             adjective_seeded_context,
@@ -407,18 +413,16 @@ class TestAdjectiveGraphInvocation:
 
         base_words = sorted(db_session.query(BaseWord).all(), key=lambda word: word.text)
         assert [word.text for word in base_words] == [
-            "el chico alto",
-            "el dólar fuerte",
-            "el libro bueno",
-            "el libro rojo",
-            "la chica alta",
-            "la mesa buena",
+            "alto",
+            "bueno",
+            "fuerte",
+            "rojo",
         ]
         assert all(
             word.word_category_id == adjective_seeded_context["category_id"]
             for word in base_words
         )
-        assert db_session.query(WordRuleAssignment).count() == 6
+        assert db_session.query(WordRuleAssignment).count() == 4
 
         rows = db_session.query(GrammarRuleRow).order_by(
             GrammarRuleRow.table_no, GrammarRuleRow.position
@@ -449,11 +453,11 @@ class TestAdjectiveGraphInvocation:
             for translation in db_session.query(WordTranslation).all()
         }
         by_text = {word.text: word.id for word in base_words}
-        assert translations[by_text["el libro rojo"]] == "the red book"
-        assert translations[by_text["la mesa buena"]] == "the good table"
+        assert translations[by_text["rojo"]] == "red"
+        assert translations[by_text["bueno"]] == "good"
 
         mock_deduce.invoke.assert_not_called()
-        mock_base_translate.invoke.assert_not_called()
+        mock_base_translate.invoke.assert_called()
 
     @patch("graphs.nodes.translate_base_words_node.translate_chain")
     @patch("graphs.nodes.process_all_tables_node.translate_chain")

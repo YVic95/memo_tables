@@ -46,7 +46,13 @@ class TestColumnRoles:
 
 class TestRequireAdjectiveLayout:
     def test_accepts_all_adjective_layouts(self):
-        for layout in ("adj_number_gender", "adj_agreement", "adj_other"):
+        for layout in (
+            "adj_number",
+            "adj_gender",
+            "adj_agreement_number",
+            "adj_agreement_gender",
+            "adj_other",
+        ):
             assert require_adjective_layout(layout).value == layout
 
     def test_rejects_noun_layouts_and_missing_values(self):
@@ -70,8 +76,8 @@ class TestSplitPairTable:
         assert plural["headers"] == ADJ_NUMBER_HEADERS[4:]
         assert [f["fragmented_table_id"] for f in (singular, plural)] == [1, 2]
         assert [f["adjective_table_layout"] for f in (singular, plural)] == [
-            "adj_number_gender",
-            "adj_number_gender",
+            "adj_number",
+            "adj_number",
         ]
         assert [row["cells"] for row in singular["rows"]] == [
             row.cells[:4] for row in ADJ_NUMBER_TABLE.rows
@@ -137,8 +143,8 @@ class TestSelectAdjectiveTables:
         assert [row.cells for row in merged[1].rows] == [
             row.cells for row in ADJ_GENDER_TABLE.rows
         ]
-        assert merged[0].adjective_table_layout == "adj_number_gender"
-        assert merged[1].adjective_table_layout == "adj_number_gender"
+        assert merged[0].adjective_table_layout == "adj_number"
+        assert merged[1].adjective_table_layout == "adj_gender"
 
     def test_fragments_without_generals_merge_under_base_titles(self):
         merged = select_adjective_tables(self._four_fragments())
@@ -174,7 +180,7 @@ class TestSelectAdjectiveTables:
                 {"cells": ["a", "b", "c", "d"], "row_position": 5},
             ],
             "fragmented_table_id": 1,
-            "adjective_table_layout": "adj_number_gender",
+            "adjective_table_layout": "adj_number",
         }
         right = {
             "title": "T — Plural",
@@ -183,7 +189,7 @@ class TestSelectAdjectiveTables:
                 {"cells": ["e", "f", "g", "h"], "row_position": 5},
             ],
             "fragmented_table_id": 2,
-            "adjective_table_layout": "adj_number_gender",
+            "adjective_table_layout": "adj_number",
         }
 
         merged = merge_pair_sides(
@@ -199,7 +205,7 @@ class TestSelectAdjectiveTables:
 
 
 class TestAdjectiveTableKinds:
-    def _table(self, headers, layout="adj_number_gender"):
+    def _table(self, headers, layout="adj_number"):
         return {
             "title": "T",
             "headers": headers,
@@ -221,7 +227,7 @@ class TestAdjectiveTableKinds:
         from graphs.table_utils import is_adjective_other_table
 
         assert not is_adjective_other_table(
-            self._table(["Singular"] * 4 + ["Plural"] * 4, "adj_number_gender")
+            self._table(["Singular"] * 4 + ["Plural"] * 4, "adj_number")
         )
         assert not is_adjective_other_table(
             self._table(["Singular"] * 4 + ["Plural"] * 4, None)
@@ -247,10 +253,10 @@ class TestAdjectiveTableKinds:
         from graphs.table_utils import is_adjective_pair_table
 
         assert is_adjective_pair_table(
-            self._table(["Singular"] * 4 + ["Plural"] * 4, "adj_number_gender")
+            self._table(["Singular"] * 4 + ["Plural"] * 4, "adj_number")
         )
         assert is_adjective_pair_table(
-            self._table(["Masculino"] * 4 + ["Femenino"] * 4, "adj_agreement")
+            self._table(["Masculino"] * 4 + ["Femenino"] * 4, "adj_agreement_gender")
         )
         assert is_adjective_pair_table(
             self._table(["Singular"] * 4 + ["Plural"] * 4, None)

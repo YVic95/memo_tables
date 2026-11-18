@@ -223,7 +223,8 @@ class TestAdjectiveFragmentation:
         assert masculine["title"] == f"{ADJ_GENDER_TABLE.title} — Masculino"
         assert feminine["title"] == f"{ADJ_GENDER_TABLE.title} — Femenino"
         assert [f["fragmented_table_id"] for f in (singular, plural, masculine, feminine)] == [1, 2, 3, 4]
-        assert [f["adjective_table_layout"] for f in (singular, plural, masculine, feminine)] == ["adj_number_gender"] * 4
+        assert [f["adjective_table_layout"] for f in (singular, plural)] == ["adj_number"] * 2
+        assert [f["adjective_table_layout"] for f in (masculine, feminine)] == ["adj_gender"] * 2
         assert [row["cells"] for row in singular["rows"]] == [
             row.cells[:4] for row in ADJ_NUMBER_TABLE.rows
         ]
@@ -270,8 +271,8 @@ class TestAgreementFragmentation:
         assert feminine["title"] == f"{ADJ_AGREEMENT_TABLE.title} — Femenino"
         assert [f["fragmented_table_id"] for f in (masculine, feminine)] == [1, 2]
         assert [f["adjective_table_layout"] for f in (masculine, feminine)] == [
-            "adj_agreement",
-            "adj_agreement",
+            "adj_agreement_gender",
+            "adj_agreement_gender",
         ]
         assert [row["cells"] for row in masculine["rows"]] == [
             row.cells[:4] for row in ADJ_AGREEMENT_TABLE.rows

@@ -1,3 +1,4 @@
+import re
 import uuid
 from dataclasses import replace
 
@@ -212,19 +213,24 @@ class TestNounTableValidation:
 
 
 class TestAdjectiveTableGeneration:
-    def _run_adjective(self, monkeypatch):
-        fake_llm = FakeAdjectiveLLM(
-            "adj_number_gender", [ADJ_NUMBER_TABLE, ADJ_GENDER_TABLE]
-        )
+    def _run_number(self, monkeypatch):
+        fake_llm = FakeAdjectiveLLM("adj_number", [ADJ_NUMBER_TABLE])
         monkeypatch.setattr(
             "graphs.table_generator.llm", fake_llm
         )
         return generate_category_table_node(_state("adjective")), fake_llm
 
-    def test_adjective_slug_classifies_then_runs_number_then_gender_prompts(
+    def _run_gender(self, monkeypatch):
+        fake_llm = FakeAdjectiveLLM("adj_gender", [ADJ_GENDER_TABLE])
+        monkeypatch.setattr(
+            "graphs.table_generator.llm", fake_llm
+        )
+        return generate_category_table_node(_state("adjective")), fake_llm
+
+    def test_adjective_slug_classifies_then_runs_number_prompt(
         self, monkeypatch
     ):
-        result, fake_llm = self._run_adjective(monkeypatch)
+        result, fake_llm = self._run_number(monkeypatch)
 
         assert fake_llm.classifier_prompts[0] == (
             choose_adjective_table_prompt.format(
@@ -235,18 +241,22 @@ class TestAdjectiveTableGeneration:
         assert fake_llm.table_prompts[0] == (
             generate_adjective_number_table_prompt.format(**PROMPT_VARIABLES)
         )
-        assert fake_llm.table_prompts[1] == (
+        assert len(fake_llm.table_prompts) == 1
+
+    def test_gender_choice_runs_shared_prompt_with_no_avoid_list(
+        self, monkeypatch
+    ):
+        _, fake_llm = self._run_gender(monkeypatch)
+
+        assert fake_llm.table_prompts[0] == (
             generate_adjective_gender_or_agreement_table_prompt.format(
                 **PROMPT_VARIABLES,
-                avoid_phrases=(
-                    "el libro rojo, los libros rojos, "
-                    "el dólar fuerte, los dólares fuertes"
-                ),
+                avoid_phrases="",
             )
         )
 
     def test_classifier_input_is_rule_text_only(self, monkeypatch):
-        _, fake_llm = self._run_adjective(monkeypatch)
+        _, fake_llm = self._run_number(monkeypatch)
 
         classifier_prompt = fake_llm.classifier_prompts[0]
         assert PROMPT_VARIABLES["rule_name"] in classifier_prompt
@@ -254,31 +264,44 @@ class TestAdjectiveTableGeneration:
         assert PROMPT_VARIABLES["native_language"] not in classifier_prompt
         assert PROMPT_VARIABLES["target_language"] not in classifier_prompt
 
-    def test_adjective_slug_returns_both_general_tables(self, monkeypatch):
-        result, _ = self._run_adjective(monkeypatch)
+    def test_adjective_slug_returns_a_single_general_table(self, monkeypatch):
+        result, _ = self._run_number(monkeypatch)
 
         assert "general_table" not in result
-        assert result["general_tables"] == [
-            ADJ_NUMBER_TABLE.model_dump(),
-            ADJ_GENDER_TABLE.model_dump(),
-        ]
+        assert result["general_tables"] == [ADJ_NUMBER_TABLE.model_dump()]
+
+    def test_gender_choice_returns_a_single_general_table(self, monkeypatch):
+        result, _ = self._run_gender(monkeypatch)
+
+        assert "general_table" not in result
+        assert result["general_tables"] == [ADJ_GENDER_TABLE.model_dump()]
 
     def test_number_and_gender_outputs_mark_only_form_cells(self, monkeypatch):
-        result, _ = self._run_adjective(monkeypatch)
+        for run in (self._run_number, self._run_gender):
+            result, _ = run(monkeypatch)
 
-        for table in result["general_tables"]:
-            for row in table["rows"]:
-                assert all("*" in row["cells"][index] for index in (0, 4))
-                assert all(
-                    "*" not in row["cells"][index]
-                    for index in (1, 2, 3, 5, 6, 7)
-                )
+            for table in result["general_tables"]:
+                for row in table["rows"]:
+                    assert all("*" in row["cells"][index] for index in (0, 4))
+                    assert all(
+                        "*" not in row["cells"][index]
+                        for index in (1, 2, 3, 5, 6, 7)
+                    )
 
-    def test_adjective_tables_use_different_phrases(self, monkeypatch):
-        _, fake_llm = self._run_adjective(monkeypatch)
+    def test_number_and_gender_tables_use_different_adjectives(self, monkeypatch):
+        self._run_number(monkeypatch)
+        self._run_gender(monkeypatch)
 
-        for phrase in ("el libro rojo", "los libros rojos", "el dólar fuerte"):
-            assert phrase in fake_llm.table_prompts[1]
+        def bare_tokens(table):
+            tokens = set()
+            for row in table.rows:
+                for index in (0, 4):
+                    cell = row.cells[index]
+                    match = re.search(r"\*([^*]+)\*", cell)
+                    tokens.add((match.group(1) if match else cell).strip().lower())
+            return tokens
+
+        assert bare_tokens(ADJ_NUMBER_TABLE).isdisjoint(bare_tokens(ADJ_GENDER_TABLE))
 
     def test_adjective_table_without_a_layout_is_rejected(self, monkeypatch):
         table = ADJ_NUMBER_TABLE.model_copy(update={"adjective_table_layout": None})
@@ -287,7 +310,7 @@ class TestAdjectiveTableGeneration:
             _run_node(
                 monkeypatch,
                 _state("adjective"),
-                FakeAdjectiveLLM("adj_number_gender", [table, ADJ_GENDER_TABLE]),
+                FakeAdjectiveLLM("adj_number", [table]),
             )
 
     def test_adjective_table_with_a_wrong_header_count_is_rejected(self, monkeypatch):
@@ -299,7 +322,7 @@ class TestAdjectiveTableGeneration:
             _run_node(
                 monkeypatch,
                 _state("adjective"),
-                FakeAdjectiveLLM("adj_number_gender", [table, ADJ_GENDER_TABLE]),
+                FakeAdjectiveLLM("adj_number", [table]),
             )
 
     def test_adjective_table_with_a_seven_cell_row_is_rejected(self, monkeypatch):
@@ -309,9 +332,7 @@ class TestAdjectiveTableGeneration:
 
         with pytest.raises(ValueError, match="8 cells"):
             _run_node(
-                monkeypatch,
-                _state("adjective"),
-                FakeAdjectiveLLM("adj_number_gender", [table, ADJ_GENDER_TABLE]),
+                monkeypatch, _state("adjective"), FakeAdjectiveLLM("adj_number", [table])
             )
 
     def test_generator_layout_mismatch_raises(self, monkeypatch):
@@ -319,13 +340,13 @@ class TestAdjectiveTableGeneration:
             _run_node(
                 monkeypatch,
                 _state("adjective"),
-                FakeAdjectiveLLM("adj_number_gender", [ADJ_AGREEMENT_TABLE]),
+                FakeAdjectiveLLM("adj_number", [ADJ_AGREEMENT_TABLE]),
             )
 
 
 class TestAdjectiveAgreementTable:
     def _run_agreement(self, monkeypatch):
-        fake_llm = FakeAdjectiveLLM("adj_agreement", [ADJ_AGREEMENT_TABLE])
+        fake_llm = FakeAdjectiveLLM("adj_agreement_gender", [ADJ_AGREEMENT_TABLE])
         monkeypatch.setattr(
             "graphs.table_generator.llm", fake_llm
         )
@@ -588,8 +609,10 @@ class TestAdjectiveOtherTable:
     ):
         fake_llm = FakeRuleTextAdjectiveLLM(
             {
-                "adj_number_gender": [ADJ_NUMBER_TABLE, ADJ_GENDER_TABLE],
-                "adj_agreement": [ADJ_AGREEMENT_TABLE],
+                "adj_number": [ADJ_NUMBER_TABLE],
+                "adj_gender": [ADJ_GENDER_TABLE],
+                "adj_agreement_number": [ADJ_NUMBER_TABLE],
+                "adj_agreement_gender": [ADJ_AGREEMENT_TABLE],
                 "adj_other": [ADJ_OTHER_TABLE],
             }
         )
@@ -619,8 +642,10 @@ class TestAdjectiveOtherTable:
     def test_other_routing_has_no_language_fast_path(self, monkeypatch):
         fake_llm = FakeRuleTextAdjectiveLLM(
             {
-                "adj_number_gender": [ADJ_NUMBER_TABLE, ADJ_GENDER_TABLE],
-                "adj_agreement": [ADJ_AGREEMENT_TABLE],
+                "adj_number": [ADJ_NUMBER_TABLE],
+                "adj_gender": [ADJ_GENDER_TABLE],
+                "adj_agreement_number": [ADJ_NUMBER_TABLE],
+                "adj_agreement_gender": [ADJ_AGREEMENT_TABLE],
                 "adj_other": [ADJ_OTHER_TABLE],
             }
         )
@@ -657,8 +682,10 @@ class TestAdjectiveOtherTable:
     ):
         fake_llm = FakeRuleTextAdjectiveLLM(
             {
-                "adj_number_gender": [ADJ_NUMBER_TABLE, ADJ_GENDER_TABLE],
-                "adj_agreement": [ADJ_AGREEMENT_TABLE],
+                "adj_number": [ADJ_NUMBER_TABLE],
+                "adj_gender": [ADJ_GENDER_TABLE],
+                "adj_agreement_number": [ADJ_NUMBER_TABLE],
+                "adj_agreement_gender": [ADJ_AGREEMENT_TABLE],
                 "adj_other": [ADJ_OTHER_TABLE],
             }
         )
@@ -676,20 +703,20 @@ class TestAdjectiveOtherTable:
         assert result["general_tables"] == [ADJ_OTHER_TABLE.model_dump()]
 
     def test_classifier_routes_regular_inflection_to_pair_flow(self, monkeypatch):
-        for name, expected_tables in [
-            ("Singular and Plural of adjectives", [ADJ_NUMBER_TABLE, ADJ_GENDER_TABLE]),
-            ("Gender of Adjectives", [ADJ_NUMBER_TABLE, ADJ_GENDER_TABLE]),
-            ("Noun-Adjective Agreement", [ADJ_AGREEMENT_TABLE]),
+        for name, expected_tables, fallback in [
+            ("Singular and Plural of adjectives", [ADJ_NUMBER_TABLE], "adj_number"),
+            ("Gender of Adjectives", [ADJ_GENDER_TABLE], "adj_gender"),
+            ("Noun-Adjective Agreement", [ADJ_AGREEMENT_TABLE], "adj_agreement_gender"),
         ]:
             fake_llm = FakeRuleTextAdjectiveLLM(
                 {
-                    "adj_number_gender": [ADJ_NUMBER_TABLE, ADJ_GENDER_TABLE],
-                    "adj_agreement": [ADJ_AGREEMENT_TABLE],
+                    "adj_number": [ADJ_NUMBER_TABLE],
+                    "adj_gender": [ADJ_GENDER_TABLE],
+                    "adj_agreement_number": [ADJ_NUMBER_TABLE],
+                    "adj_agreement_gender": [ADJ_AGREEMENT_TABLE],
                     "adj_other": [ADJ_OTHER_TABLE],
                 },
-                fallback=(
-                    "adj_agreement" if "Agreement" in name else "adj_number_gender"
-                ),
+                fallback=fallback,
             )
             monkeypatch.setattr("graphs.table_generator.llm", fake_llm)
 

@@ -514,16 +514,17 @@ def build_noun_skeleton_tables(
 def build_adjective_skeleton_tables(
     db: Session,
     grammar_rule_id: uuid.UUID,
-    headers_by_table_no: dict[int, tuple[str, str]],
+    headers_by_table_no: dict[int, tuple[str, ...]],
 ) -> dict[str, str]:
     """Render the skeleton tables for a saved adjective rule.
 
-    The unified flow persists one pair table per table_no (0 for number, 1
-    for gender): two grammar_rule_rows per pair at positions
-    ``pair_index * 2`` and ``pair_index * 2 + 1``. Each group renders under
-    its mapped side headers. Groups without a header mapping (e.g. stale rows
-    from an earlier save) are skipped rather than rendered under wrong
-    headers.
+    Tables are grouped by table_no: table 0 holds the singular/plural shape
+    (Sg/Pl headers under adj_number or adj_agreement_number) and table 1
+    holds the masculine/feminine shape (M/F headers under adj_gender or
+    adj_agreement_gender). Each pair persists as two grammar_rule_rows at
+    positions ``pair_index * 2`` and ``pair_index * 2 + 1``. Groups without
+    a header mapping (e.g. stale rows from an earlier save) are skipped
+    rather than rendered under wrong headers.
     """
     rows = (
         db.query(GrammarRuleRow)

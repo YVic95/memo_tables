@@ -415,21 +415,20 @@ class TestDeduceAdjectiveBaseWordNode:
         result = deduce_base_word_node(state)
 
         by_text = {item["text"]: item for item in result["base_words_to_save"]}
-        assert set(by_text) == {"el libro rojo", "el dólar fuerte"}
-        assert by_text["el libro rojo"]["forms"] == [
+        assert set(by_text) == {"rojo", "fuerte"}
+        assert set(by_text["rojo"]["forms"]) == {
+            "rojo",
+            "rojos",
             "el libro rojo",
             "los libros rojos",
-        ]
-        assert result["base_word_translations"] == {
-            "el libro rojo": "the red book",
-            "el dólar fuerte": "the strong dollar",
         }
+        assert result["base_word_translations"] == {}
         assert all(
             item["word_category_id"] == grammar_rule.word_category_id
             for item in result["base_words_to_save"]
         )
 
-    def test_gender_layout_saves_both_sides(
+    def test_gender_layout_saves_masculine_side_only(
         self, db_session, grammar_rule, language_es
     ):
         state = self._adj_state(
@@ -439,16 +438,16 @@ class TestDeduceAdjectiveBaseWordNode:
         result = deduce_base_word_node(state)
 
         by_text = {item["text"]: item for item in result["base_words_to_save"]}
-        assert set(by_text) == {
+        assert set(by_text) == {"alto", "bueno"}
+        assert set(by_text["alto"]["forms"]) == {
+            "alto",
+            "alta",
             "el chico alto",
             "la chica alta",
-            "el libro bueno",
-            "la mesa buena",
         }
-        assert by_text["el chico alto"]["forms"] == ["el chico alto"]
-        assert result["base_word_translations"]["la chica alta"] == "the tall girl"
+        assert result["base_word_translations"] == {}
 
-    def test_agreement_layout_saves_both_sides(
+    def test_agreement_layout_saves_masculine_side_only(
         self, db_session, grammar_rule, language_es
     ):
         state = self._adj_state(
@@ -458,12 +457,8 @@ class TestDeduceAdjectiveBaseWordNode:
         result = deduce_base_word_node(state)
 
         by_text = {item["text"]: item for item in result["base_words_to_save"]}
-        assert set(by_text) == {
-            "el libro rojo",
-            "la mesa roja",
-            "los chicos altos",
-            "las chicas altas",
-        }
+        assert set(by_text) == {"rojo", "altos"}
+        assert result["base_word_translations"] == {}
 
     def test_other_layout_saves_one_base_word_per_row(
         self, db_session, grammar_rule, language_es
@@ -483,7 +478,7 @@ class TestDeduceAdjectiveBaseWordNode:
             "Aquel": "that (far from both)",
         }
 
-    def test_missing_layout_with_eight_columns_uses_header_heuristic(
+    def test_missing_layout_with_eight_columns_stays_deterministic(
         self, db_session, grammar_rule, language_es
     ):
         table = ADJ_NUMBER_TABLE.model_copy(update={"adjective_table_layout": None})
@@ -494,8 +489,8 @@ class TestDeduceAdjectiveBaseWordNode:
         result = deduce_base_word_node(state)
 
         assert {item["text"] for item in result["base_words_to_save"]} == {
-            "el libro rojo",
-            "el dólar fuerte",
+            "rojo",
+            "fuerte",
         }
 
     @patch("graphs.nodes.deduce_base_word_node.deduce_chain")
@@ -516,8 +511,8 @@ class TestDeduceAdjectiveBaseWordNode:
         result = deduce_base_word_node(state)
 
         mock_chain.invoke.assert_not_called()
-        assert len(result["base_words_to_save"]) == 2 + 4 + 3
-        assert len(result["base_word_translations"]) == 2 + 4 + 3
+        assert len(result["base_words_to_save"]) == 2 + 2 + 3
+        assert len(result["base_word_translations"]) == 3
 
     def test_returns_empty_maps_when_no_forms(
         self, db_session, grammar_rule, language_es

@@ -912,9 +912,14 @@ class TestAdjectiveSaveTables:
         state = mock_graph.invoke.call_args.args[0]
         assert len(state["tables"]) == 2
         merged_number, merged_gender = state["tables"]
+        # Fragments are transient 1..N: merged tables carry no fragment id,
+        # so the save path and skeleton both persist them index-based as
+        # table 0 (number) and table 1 (gender).
+        assert merged_number["fragmented_table_id"] is None
+        assert merged_gender["fragmented_table_id"] is None
         assert merged_number["title"] == ADJ_NUMBER_TABLE.title
         assert merged_gender["title"] == ADJ_GENDER_TABLE.title
-        assert merged_number["adjective_table_layout"] == "adj_number_gender"
+        assert merged_number["adjective_table_layout"] == "adj_number"
         assert [row["cells"] for row in merged_number["rows"]] == [
             row.cells for row in ADJ_NUMBER_TABLE.rows
         ]

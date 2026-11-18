@@ -28,8 +28,20 @@ def validate_adjective_layout(table: TableData) -> None:
 
 
 def validate_adjective_pair_table(table: TableData) -> None:
-    """Validate an adjective pair table: a known layout and 8 columns/cells."""
-    require_adjective_layout(table.adjective_table_layout)
+    """Validate an adjective pair table: a pair layout and 8-col shape.
+
+    Accepts the four pair layouts (adj_number, adj_gender,
+    adj_agreement_number, adj_agreement_gender). Rejects adj_other, which
+    must use the 4-column other shape.
+    """
+    layout = require_adjective_layout(table.adjective_table_layout)
+    if layout == AdjectiveTableLayout.adj_other:
+        raise ValueError(
+            "Adjective pair tables must use a pair layout "
+            "(adj_number, adj_gender, adj_agreement_number, "
+            "adj_agreement_gender), got "
+            f'"{AdjectiveTableLayout.adj_other.value}"'
+        )
     if len(table.headers) != ADJECTIVE_COLUMN_COUNT:
         raise ValueError(
             f"Adjective table must have {ADJECTIVE_COLUMN_COUNT} columns, "

@@ -13,7 +13,6 @@ from graphs.prompts import (
     generate_verb_table_prompt,
 )
 from graphs.states import GenerateTableState
-from graphs.table_utils import ADJECTIVE_SIDE_COLUMNS
 from graphs.table_validators import (
     validate_adjective_other_table,
     validate_adjective_pair_table,
@@ -51,34 +50,6 @@ class CategoryConfig:
     layout_routes: Mapping[str, LayoutPolicy] = field(default_factory=dict)
 
 
-def used_carrier_phrases(number_table: TableData) -> list[str]:
-    """Form-cell phrases of the number table, in order, markers stripped.
-
-    Table cells hold plain phrases ("el libro rojo"); any "*" markers from
-    older generations are stripped so the gender prompt receives clean text.
-    """
-    phrases: list[str] = []
-    for row in number_table.rows:
-        for columns in ADJECTIVE_SIDE_COLUMNS:
-            form_index = columns["form"]
-            if form_index < len(row.cells):
-                phrase = row.cells[form_index].replace("*", "").strip()
-                if phrase:
-                    phrases.append(phrase)
-    seen: set[str] = set()
-    unique: list[str] = []
-    for phrase in phrases:
-        key = phrase.casefold()
-        if key not in seen:
-            seen.add(key)
-            unique.append(phrase)
-    return unique
-
-
-def avoid_carrier_phrases_context(entry_table: TableData) -> dict[str, str]:
-    return {"avoid_phrases": ", ".join(used_carrier_phrases(entry_table))}
-
-
 def adjective_rule_text(state: GenerateTableState) -> dict[str, str]:
     return {
         "rule_name": state.get("rule_name") or "",
@@ -102,14 +73,19 @@ CATEGORY_CONFIG: dict[str, CategoryConfig] = {
         classifier_input=adjective_rule_text,
         layout_field="adjective_table_layout",
         layout_routes={
-            "adj_number_gender": LayoutPolicy(
+            "adj_number": LayoutPolicy(
                 prompt_role="number",
                 validator=validate_adjective_pair_table,
-                companion_prompt_role="gender_or_agreement",
-                companion_context=avoid_carrier_phrases_context,
-                companion_validator=validate_adjective_pair_table,
             ),
-            "adj_agreement": LayoutPolicy(
+            "adj_gender": LayoutPolicy(
+                prompt_role="gender_or_agreement",
+                validator=validate_adjective_pair_table,
+            ),
+            "adj_agreement_number": LayoutPolicy(
+                prompt_role="number",
+                validator=validate_adjective_pair_table,
+            ),
+            "adj_agreement_gender": LayoutPolicy(
                 prompt_role="gender_or_agreement",
                 validator=validate_adjective_pair_table,
             ),

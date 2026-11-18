@@ -7,10 +7,9 @@ from graphs.table_utils import (
     ADJECTIVE_SIDE_COLUMNS,
     NOUN_SIDE_COLUMNS,
     NounTableLayout,
-    AdjectiveTableLayout,
     cell_at_role,
     column_roles,
-    is_adjective_number_table,
+    extract_adjective_token,
     is_adjective_other_table,
     noun_side_cell,
     require_noun_layout,
@@ -157,23 +156,26 @@ def _noun_base_words_and_translations(
 def _adjective_table_kind(table: dict) -> str:
     """Classify an adjective table for deterministic base-word extraction.
 
-    Returns "other" for other-rule tables, "pair-number" for singular/plural
-    pair tables, "pair-gender" for masculine/feminine pair tables (agreement
-    tables always land here), or "generic" for shapes the deterministic path
-    cannot read — those fall through to the LLM deduction path.
+    Returns "other" for other-rule tables, "pair" for the four 8-column
+    pair layouts (adj_number, adj_gender, adj_agreement_number,
+    adj_agreement_gender) — including layout-less 8-column tables from an
+    edit round-trip — or "generic" for shapes the deterministic path
+    cannot read, which fall through to the LLM deduction path.
     """
     if is_adjective_other_table(table):
         return "other"
-    layout = table.get("adjective_table_layout")
+    raw_layout = table.get("adjective_table_layout")
+    layout = raw_layout.value if hasattr(raw_layout, "value") else raw_layout
     headers = table.get("headers", [])
-    if layout == AdjectiveTableLayout.adj_agreement:
-        return "pair-gender"
-    if layout == AdjectiveTableLayout.adj_number_gender or (
-        layout is None and len(headers) == ADJECTIVE_COLUMN_COUNT
+    if layout in (
+        "adj_number",
+        "adj_gender",
+        "adj_agreement_number",
+        "adj_agreement_gender",
     ):
-        if is_adjective_number_table(table):
-            return "pair-number"
-        return "pair-gender"
+        return "pair"
+    if layout is None and len(headers) == ADJECTIVE_COLUMN_COUNT:
+        return "pair"
     return "generic"
 
 
@@ -184,18 +186,19 @@ def _adjective_base_words_and_translations(
 ):
     """Build adjective base words directly from the form/translation cells.
 
-    Number pair tables contribute one base word per pair, using the singular
-    phrase as the dictionary form. Gender and agreement pair tables contribute
-    both sides as separate base words. Other-rule tables contribute one base
-    word per row. Form-cell emphasis markers are omitted from vocabulary
-    entries and surface forms; carrier phrases retain their articles.
+    Every pair row contributes exactly one base word: the bare adjective
+    extracted from the left (masculine/singular) form cell's ``*...*``
+    markers. The right side's bare adjective joins the surface forms, and
+    the full stripped carrier phrases from both sides are also recorded as
+    surface forms so the save path (which matches on phrase cells) still
+    links word forms. Bare-adjective translations are left for the
+    translate-base-words step, which renders them via LLM. Other-rule
+    tables contribute one base word per row.
     """
     base_words: dict[str, dict] = {}
     translations: dict[str, str] = {}
 
     def add(form: str, surface_forms: list[str], translation: str) -> None:
-        form = strip_adjective_italics(form)
-        surface_forms = [strip_adjective_italics(surface) for surface in surface_forms]
         if not form:
             return
         key = form.lower()
@@ -212,6 +215,11 @@ def _adjective_base_words_and_translations(
         if translation and key not in translations:
             translations[key] = translation
 
+    def add_other(form: str, surface_forms: list[str], translation: str) -> None:
+        form = strip_adjective_italics(form)
+        surface_forms = [strip_adjective_italics(surface) for surface in surface_forms]
+        add(form, surface_forms, translation)
+
     for table in tables:
         kind = _adjective_table_kind(table)
 
@@ -221,49 +229,34 @@ def _adjective_base_words_and_translations(
                 form = cells[0].strip() if len(cells) > 0 else ""
                 translation = cells[1].strip() if len(cells) > 1 else ""
                 if form:
-                    add(form, [form], translation)
+                    add_other(form, [form], translation)
             continue
 
         for row in table.get("rows", []):
             cells = row.get("cells", [])
-            singular_or_masculine = ADJECTIVE_SIDE_COLUMNS[0]
-            plural_or_feminine = ADJECTIVE_SIDE_COLUMNS[1]
-            singular_or_masculine_form = noun_side_cell(cells, singular_or_masculine, "form")
-            plural_or_feminine_form = noun_side_cell(cells, plural_or_feminine, "form")
-            singular_or_masculine_translation = noun_side_cell(
-                cells, singular_or_masculine, "translation"
-            )
-            plural_or_feminine_translation = noun_side_cell(
-                cells, plural_or_feminine, "translation"
-            )
+            left = ADJECTIVE_SIDE_COLUMNS[0]
+            right = ADJECTIVE_SIDE_COLUMNS[1]
+            left_form = noun_side_cell(cells, left, "form")
+            right_form = noun_side_cell(cells, right, "form")
+            left_token = extract_adjective_token(left_form) if left_form else ""
+            right_token = extract_adjective_token(right_form) if right_form else ""
+            left_phrase = strip_adjective_italics(left_form) if left_form else ""
+            right_phrase = strip_adjective_italics(right_form) if right_form else ""
 
-            if kind == "pair-number":
-                if singular_or_masculine_form:
-                    add(
-                        singular_or_masculine_form,
-                        [singular_or_masculine_form, plural_or_feminine_form],
-                        singular_or_masculine_translation,
-                    )
-                elif plural_or_feminine_form:
-                    add(
-                        plural_or_feminine_form,
-                        [plural_or_feminine_form],
-                        plural_or_feminine_translation,
-                    )
-                continue
-
-            if singular_or_masculine_form:
+            if left_token:
                 add(
-                    singular_or_masculine_form,
-                    [singular_or_masculine_form],
-                    singular_or_masculine_translation,
+                    left_token,
+                    [token for token in (left_token, right_token) if token]
+                    + [phrase for phrase in (left_phrase, right_phrase) if phrase],
+                    "",
                 )
-            if plural_or_feminine_form:
+            elif right_token:
                 add(
-                    plural_or_feminine_form,
-                    [plural_or_feminine_form],
-                    plural_or_feminine_translation,
+                    right_token,
+                    [right_token, right_phrase] if right_phrase else [right_token],
+                    "",
                 )
+            continue
 
     result = []
     for entry in base_words.values():
@@ -305,7 +298,7 @@ def deduce_base_word_node(state: SaveTableState) -> SaveTableState:
 
     if is_adjective:
         kinds = {_adjective_table_kind(table) for table in state["tables"]}
-        if kinds and kinds <= {"pair-number", "pair-gender", "other"}:
+        if kinds and kinds <= {"pair", "other"}:
             base_words, translations = _adjective_base_words_and_translations(
                 state["tables"],
                 state["target_language_id"],

@@ -187,7 +187,7 @@ describe('chat table edit metadata preservation', () => {
           title: 'El número del adjetivo — Singular',
           isFragmented: true,
           fragmented_table_id: 1,
-          adjective_table_layout: 'adj_number_gender',
+          adjective_table_layout: 'adj_number',
           rows: [{ row_position: 4 }],
         };
         hasEditHistory = false;
@@ -196,7 +196,7 @@ describe('chat table edit metadata preservation', () => {
 
     await runInSandbox(sandbox, 'submitEdit("Use another phrase")');
 
-    assert.equal(editedTable.adjective_table_layout, 'adj_number_gender');
+    assert.equal(editedTable.adjective_table_layout, 'adj_number');
     assert.equal(editedTable.isFragmented, true);
     assert.equal(editedTable.fragmented_table_id, 1);
     assert.equal(editedTable.rows[0].row_position, 4);
@@ -234,7 +234,7 @@ describe('preserveTableMetadata', () => {
       rows: [{ cells: ['el libro rojo'] }],
     };
     const source = {
-      adjective_table_layout: 'adj_number_gender',
+      adjective_table_layout: 'adj_number',
       isFragmented: true,
       fragmented_table_id: 1,
       rows: [{ row_position: 6 }],
@@ -242,7 +242,7 @@ describe('preserveTableMetadata', () => {
 
     preserveTableMetadata(edited, source);
 
-    assert.equal(edited.adjective_table_layout, 'adj_number_gender');
+    assert.equal(edited.adjective_table_layout, 'adj_number');
     assert.equal(edited.fragmented_table_id, 1);
     assert.equal(edited.rows[0].row_position, 6);
     assert.equal(keepsGrammarRowPosition(source, source.rows[0]), true);

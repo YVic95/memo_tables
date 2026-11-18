@@ -29,16 +29,21 @@ class NounTableLayout(StrEnum):
     noun_gender = "noun_gender"
 
 class AdjectiveTableLayout(StrEnum):
-    adj_number_gender = "adj_number_gender"
-    adj_agreement = "adj_agreement"
+    adj_number = "adj_number"
+    adj_gender = "adj_gender"
+    adj_agreement_number = "adj_agreement_number"
+    adj_agreement_gender = "adj_agreement_gender"
     adj_other = "adj_other"
+
 
 class AdjectiveTableLayoutClassification(BaseModel):
     adjective_table_layout: AdjectiveTableLayout = Field(
         description=(
-            "Layout of an adjective rule: 'adj_number_gender' for the "
-            "unified number+gender flow, 'adj_agreement' for noun-adjective "
-            "agreement, 'adj_other' for other adjective rules."
+            "Layout of an adjective rule: 'adj_number' for the "
+            "singular/plural number table, 'adj_gender' for the "
+            "masculine/feminine gender table, 'adj_agreement_number' and "
+            "'adj_agreement_gender' for the two agreement tables, "
+            "'adj_other' for other adjective rules."
         ),
     )
 
@@ -138,10 +143,12 @@ class TableData(BaseModel):
     adjective_table_layout: AdjectiveTableLayout | None = Field(
         default=None,
         description=(
-            "Layout of a generated adjective table: 'adj_number_gender' for the "
-            "unified number+gender flow (one number table and one gender table), "
-            "'adj_agreement' for noun-adjective agreement, 'adj_other' for other "
-            "adjective rules. None for non-adjective tables."
+            "Layout of a generated adjective table: 'adj_number' for the "
+            "singular/plural number table, 'adj_gender' for the "
+            "masculine/feminine gender table, 'adj_agreement_number' and "
+            "'adj_agreement_gender' for the two agreement tables, "
+            "'adj_other' for other adjective rules. "
+            "None for non-adjective tables."
         ),
     )
 

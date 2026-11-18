@@ -134,20 +134,20 @@ describe('displayGeneratedTables', () => {
     const { sandbox, calls } = loadTableRenderer();
     const numberTable = {
       title: 'Adjective number',
-      adjective_table_layout: 'adj_number_gender',
+      adjective_table_layout: 'adj_number',
       headers: ['Singular', 'Tr', 'Expl', 'Ex', 'Plural', 'Tr', 'Expl', 'Ex'],
       rows: [],
     };
     const genderTable = {
       title: 'Adjective gender',
-      adjective_table_layout: 'adj_number_gender',
+      adjective_table_layout: 'adj_gender',
       headers: ['Masculine', 'Tr', 'Expl', 'Ex', 'Feminine', 'Tr', 'Expl', 'Ex'],
       rows: [],
     };
     const fragments = ['Singular', 'Plural', 'Masculine', 'Feminine'].map(
       (side, index) => ({
         title: `Adjective ${side}`,
-        adjective_table_layout: 'adj_number_gender',
+        adjective_table_layout: (side === 'Masculine' || side === 'Feminine') ? 'adj_gender' : 'adj_number',
         headers: [side, 'Tr', 'Expl', 'Ex'],
         rows: [{ cells: [`form ${side}`, 'translation', 'note', 'example'], row_position: index + 2 }],
       }),
