@@ -6,6 +6,7 @@ import graphs.nodes.generate_fragmented_tables_node as node_module
 from graphs.models import FragmentationOutput, TableData, TableRow
 from graphs.nodes.generate_fragmented_tables_node import generate_fragmented_tables_node
 from tests.graphs.generation_helpers import (
+    ADJ_AGREEMENT_NUMBER_TABLE,
     ADJ_AGREEMENT_TABLE,
     ADJ_GENDER_TABLE,
     ADJ_NUMBER_HEADERS,
@@ -292,6 +293,52 @@ class TestAdjectiveFragmentation:
 
 
 class TestAgreementFragmentation:
+    def test_two_agreement_generals_split_into_four_fragments(self, monkeypatch):
+        monkeypatch.setattr(node_module, "fragmentation_chain", _ExplodingChain())
+        by_number = ADJ_AGREEMENT_NUMBER_TABLE.model_copy(
+            update={"title": "La concordancia by number"}
+        )
+        by_gender = ADJ_AGREEMENT_TABLE.model_copy(
+            update={"title": "La concordancia by gender"}
+        )
+        state = {
+            "word_category_slug": "adjective",
+            "general_tables": [
+                by_number.model_dump(),
+                by_gender.model_dump(),
+            ],
+        }
+
+        result = generate_fragmented_tables_node(state)
+
+        assert result["should_fragment"] is True
+        assert len(result["fragmented_tables"]) == 4
+        singular, plural, masculine, feminine = result["fragmented_tables"]
+        assert [f["fragmented_table_id"] for f in (singular, plural, masculine, feminine)] == [1, 2, 3, 4]
+        assert singular["title"] == f"{by_number.title} — Singular"
+        assert plural["title"] == f"{by_number.title} — Plural"
+        assert masculine["title"] == f"{by_gender.title} — Masculino"
+        assert feminine["title"] == f"{by_gender.title} — Femenino"
+        assert [f["adjective_table_layout"] for f in (singular, plural)] == [
+            "adj_agreement_number"
+        ] * 2
+        assert [f["adjective_table_layout"] for f in (masculine, feminine)] == [
+            "adj_agreement_gender"
+        ] * 2
+        # Fragments are strict slices: identical cell values to the generals.
+        assert [row["cells"] for row in singular["rows"]] == [
+            row.cells[:4] for row in by_number.rows
+        ]
+        assert [row["cells"] for row in plural["rows"]] == [
+            row.cells[4:] for row in by_number.rows
+        ]
+        assert [row["cells"] for row in masculine["rows"]] == [
+            row.cells[:4] for row in by_gender.rows
+        ]
+        assert [row["cells"] for row in feminine["rows"]] == [
+            row.cells[4:] for row in by_gender.rows
+        ]
+
     def test_agreement_table_splits_into_masculine_and_feminine(self, monkeypatch):
         monkeypatch.setattr(node_module, "fragmentation_chain", _ExplodingChain())
         state = {

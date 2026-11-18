@@ -12,8 +12,9 @@ from graphs.nodes.generate_category_table_node import generate_category_table_no
 from graphs.table_validators import validate_noun_table
 from graphs.prompts import (
     choose_adjective_table_prompt,
+    generate_adjective_agreement_gender_table_prompt,
+    generate_adjective_agreement_number_table_prompt,
     generate_adjective_gender_table_prompt,
-    generate_adjective_gender_or_agreement_table_prompt,
     generate_adjective_number_table_prompt,
     generate_adjective_other_table_prompt,
     generate_noun_table_prompt,
@@ -404,13 +405,53 @@ class TestAdjectiveAgreementTable:
                     for index in (1, 2, 3, 5, 6, 7)
                 )
 
-    def test_agreement_gender_companion_receives_avoid_list(
+    def test_agreement_entry_uses_dedicated_number_prompt(
         self, monkeypatch
     ):
         _, fake_llm = self._run_agreement(monkeypatch)
 
         assert fake_llm.table_prompts[0] == (
-            generate_adjective_number_table_prompt.format(**PROMPT_VARIABLES)
+            generate_adjective_agreement_number_table_prompt.format(
+                **PROMPT_VARIABLES
+            )
+        )
+
+    def test_agreement_number_prompt_takes_no_avoid_variables(self):
+        assert set(
+            generate_adjective_agreement_number_table_prompt.input_variables
+        ) == {
+            "native_language",
+            "target_language",
+            "rule_name",
+            "rule_description",
+        }
+
+    def test_agreement_gender_prompt_takes_avoid_phrases(self):
+        assert set(
+            generate_adjective_agreement_gender_table_prompt.input_variables
+        ) == {
+            "native_language",
+            "target_language",
+            "rule_name",
+            "rule_description",
+            "avoid_phrases",
+        }
+
+    def test_agreement_gender_companion_receives_avoid_list(
+        self, monkeypatch
+    ):
+        from graphs.category_table_config import adjective_avoid_phrases
+
+        _, fake_llm = self._run_agreement(monkeypatch)
+        expected_avoid = adjective_avoid_phrases(
+            ADJ_AGREEMENT_NUMBER_TABLE
+        )["avoid_phrases"]
+
+        assert fake_llm.table_prompts[1] == (
+            generate_adjective_agreement_gender_table_prompt.format(
+                **PROMPT_VARIABLES,
+                avoid_phrases=expected_avoid,
+            )
         )
         # The companion receives the entry table's phrases as {avoid_phrases}.
         assert "el coche" in fake_llm.table_prompts[1].lower() or "azul" in fake_llm.table_prompts[1].lower()
@@ -473,7 +514,8 @@ class TestAdjectivePromptContent:
         for prompt in (
             generate_adjective_number_table_prompt,
             generate_adjective_gender_table_prompt,
-            generate_adjective_gender_or_agreement_table_prompt,
+            generate_adjective_agreement_number_table_prompt,
+            generate_adjective_agreement_gender_table_prompt,
             generate_adjective_other_table_prompt,
         ):
             normalized = " ".join(prompt.template.split())
@@ -562,11 +604,21 @@ class TestAdjectivePromptContent:
 
         assert "adjective_table_layout" in template
         assert '"adj_number"' in template
-        assert '"adj_agreement_number"' in template
+        assert '"adj_agreement_number"' not in template
         assert "NUMBER LAYOUT" in template
         assert "1. Singular" in template
         assert "5. Plural" in template
         assert '"adj_other"' not in template
+
+    def test_agreement_number_prompt_describes_singular_plural_columns(self):
+        template = generate_adjective_agreement_number_table_prompt.template
+
+        assert "adjective_table_layout" in template
+        assert '"adj_agreement_number"' in template
+        assert '"adj_number"' not in template
+        assert "NUMBER LAYOUT" in template
+        assert "1. Singular" in template
+        assert "5. Plural" in template
 
     def test_gender_prompt_describes_the_masculine_feminine_columns(self):
         template = generate_adjective_gender_table_prompt.template
@@ -584,11 +636,12 @@ class TestAdjectivePromptContent:
         assert "{avoid_phrases}" not in template
         assert "avoid" not in template.lower()
 
-    def test_agreement_companion_prompt_describes_the_masculine_feminine_columns(self):
-        template = generate_adjective_gender_or_agreement_table_prompt.template
+    def test_agreement_gender_prompt_describes_the_masculine_feminine_columns(self):
+        template = generate_adjective_agreement_gender_table_prompt.template
 
         assert "adjective_table_layout" in template
         assert '"adj_agreement_gender"' in template
+        assert "GENDER LAYOUT" in template
         assert "1. Masculine" in template
         assert "5. Feminine" in template
 
@@ -601,8 +654,8 @@ class TestAdjectivePromptContent:
         assert "{avoid_phrases}" not in template
         assert "companion" not in template.lower()
 
-    def test_agreement_companion_prompt_keeps_the_avoid_list(self):
-        template = generate_adjective_gender_or_agreement_table_prompt.template
+    def test_agreement_gender_prompt_keeps_the_avoid_list(self):
+        template = generate_adjective_agreement_gender_table_prompt.template
         normalized = " ".join(template.split())
 
         assert "AGREEMENT by-gender" in template
@@ -610,11 +663,33 @@ class TestAdjectivePromptContent:
         assert "Do not reuse these adjectives or carrier nouns" in template
         assert "same kind" in normalized
 
+    def test_agreement_prompts_state_varying_both_dimensions(self):
+        for template in (
+            generate_adjective_agreement_number_table_prompt.template,
+            generate_adjective_agreement_gender_table_prompt.template,
+        ):
+            normalized = " ".join(template.lower().split())
+
+            assert "both" in normalized
+            assert "gender and number" in normalized
+            assert "neither dimension is frozen" in normalized
+
+    def test_agreement_prompts_have_no_single_general_frozen_language(self):
+        for template in (
+            generate_adjective_agreement_number_table_prompt.template,
+            generate_adjective_agreement_gender_table_prompt.template,
+        ):
+            normalized = " ".join(template.lower().split())
+
+            assert "gender-invariant" not in normalized
+            assert "number-invariant" not in normalized
+            assert "only number changes" not in normalized
+            assert "only gender changes" not in normalized
+
     def test_single_general_prompts_require_carrier_phrases_and_mark_only_the_adjective(self):
         for template in (
             generate_adjective_number_table_prompt.template,
             generate_adjective_gender_table_prompt.template,
-            generate_adjective_gender_or_agreement_table_prompt.template,
         ):
             normalized = " ".join(template.split())
             assert "carrier noun" in template
@@ -627,8 +702,22 @@ class TestAdjectivePromptContent:
         assert "*roja*" in (
             generate_adjective_gender_table_prompt.template
         )
+
+    def test_agreement_prompts_require_carrier_phrases_and_mark_only_the_adjective(self):
+        for template in (
+            generate_adjective_agreement_number_table_prompt.template,
+            generate_adjective_agreement_gender_table_prompt.template,
+        ):
+            normalized = " ".join(template.split())
+            assert "carrier noun" in template
+            assert "Never list a bare adjective" in template
+            assert "definite article" in template
+            assert "a DIFFERENT adjective in each row" in template
+            assert "*rojo*" in template
+            assert "Do not mark the surrounding noun or any other words" in normalized
+
         assert "*roja*" in (
-            generate_adjective_gender_or_agreement_table_prompt.template
+            generate_adjective_agreement_gender_table_prompt.template
         )
 
     def test_number_prompt_shows_marked_singular_plural_exemplars(self):
@@ -641,8 +730,13 @@ class TestAdjectivePromptContent:
 
         assert "el libro *rojo* / la mesa *roja*" in template
 
-    def test_agreement_companion_shows_marked_masculine_feminine_exemplars(self):
-        template = generate_adjective_gender_or_agreement_table_prompt.template
+    def test_agreement_number_prompt_shows_marked_singular_plural_exemplars(self):
+        template = generate_adjective_agreement_number_table_prompt.template
+
+        assert "el libro *rojo* / los libros *rojos*" in template
+
+    def test_agreement_gender_prompt_shows_marked_masculine_feminine_exemplars(self):
+        template = generate_adjective_agreement_gender_table_prompt.template
 
         assert "el libro *rojo* / la mesa *roja*" in template
 
@@ -650,7 +744,15 @@ class TestAdjectivePromptContent:
         for template in (
             generate_adjective_number_table_prompt.template,
             generate_adjective_gender_table_prompt.template,
-            generate_adjective_gender_or_agreement_table_prompt.template,
+        ):
+            assert "exactly eight cells" in template
+            assert "Single-pattern rule: generate 2-3 pairs" in template
+            assert "Multi-pattern rule: generate 4-6 pairs" in template
+
+    def test_agreement_prompts_require_eight_cells_and_pair_counts(self):
+        for template in (
+            generate_adjective_agreement_number_table_prompt.template,
+            generate_adjective_agreement_gender_table_prompt.template,
         ):
             assert "exactly eight cells" in template
             assert "Single-pattern rule: generate 2-3 pairs" in template
@@ -665,12 +767,18 @@ class TestAdjectivePromptContent:
         assert "concordancia" in gender_template.lower()
 
     def test_agreement_prompts_derive_by_number_and_by_gender_titles(self):
-        number_template = generate_adjective_number_table_prompt.template
+        number_template = generate_adjective_agreement_number_table_prompt.template
         assert "by number" in number_template.lower()
-        companion_template = (
-            generate_adjective_gender_or_agreement_table_prompt.template
+        gender_template = (
+            generate_adjective_agreement_gender_table_prompt.template
         )
-        assert "by gender" in companion_template.lower()
+        assert "by gender" in gender_template.lower()
+
+    def test_number_prompt_no_longer_carries_agreement_title_rules(self):
+        template = generate_adjective_number_table_prompt.template.lower()
+
+        assert "by number" not in template
+        assert "by gender" not in template
 
     def test_number_prompt_states_frozen_gender_and_varying_number(self):
         template = " ".join(

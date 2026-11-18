@@ -6,8 +6,9 @@ from langchain_core.prompts import BasePromptTemplate
 from graphs.models import TableData
 from graphs.prompts import (
     choose_adjective_table_prompt,
+    generate_adjective_agreement_gender_table_prompt,
+    generate_adjective_agreement_number_table_prompt,
     generate_adjective_gender_table_prompt,
-    generate_adjective_gender_or_agreement_table_prompt,
     generate_adjective_number_table_prompt,
     generate_adjective_other_table_prompt,
     generate_noun_table_prompt,
@@ -96,7 +97,8 @@ CATEGORY_CONFIG: dict[str, CategoryConfig] = {
         prompt_roles={
             "number": generate_adjective_number_table_prompt,
             "gender": generate_adjective_gender_table_prompt,
-            "gender_or_agreement": generate_adjective_gender_or_agreement_table_prompt,
+            "agreement_number": generate_adjective_agreement_number_table_prompt,
+            "agreement_gender": generate_adjective_agreement_gender_table_prompt,
             "other": generate_adjective_other_table_prompt,
         },
         classifier_prompt=choose_adjective_table_prompt,
@@ -112,9 +114,9 @@ CATEGORY_CONFIG: dict[str, CategoryConfig] = {
                 validator=validate_adjective_pair_table,
             ),
             "adj_agreement": LayoutPolicy(
-                prompt_role="number",
+                prompt_role="agreement_number",
                 validator=validate_adjective_pair_table,
-                companion_prompt_role="gender_or_agreement",
+                companion_prompt_role="agreement_gender",
                 companion_context=adjective_avoid_phrases,
                 companion_validator=validate_adjective_pair_table,
                 companion_layout="adj_agreement_gender",

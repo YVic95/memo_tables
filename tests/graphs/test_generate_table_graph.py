@@ -9,7 +9,8 @@ from graphs.models import TableData
 from graphs.generate_table_graph import graph, route_after_table
 from graphs.prompts import (
     choose_adjective_table_prompt,
-    generate_adjective_gender_or_agreement_table_prompt,
+    generate_adjective_agreement_gender_table_prompt,
+    generate_adjective_agreement_number_table_prompt,
     generate_adjective_number_table_prompt,
     generate_adjective_other_table_prompt,
     generate_noun_table_prompt,
@@ -178,6 +179,18 @@ class TestAdjectiveTableGeneration:
         )
         assert len(fake_llm.classifier_prompts) == 1
         assert len(fake_llm.table_prompts) == 2
+        assert fake_llm.table_prompts[0] == (
+            generate_adjective_agreement_number_table_prompt.format(
+                **{
+                    **PROMPT_VARIABLES,
+                    "rule_name": "Adjective Number and Gender",
+                    "rule_description": "Adjectives agree in number and gender",
+                }
+            )
+        )
+        assert "avoid_phrases" not in fake_llm.table_prompts[0]
+        # The by-gender companion carries the by-number phrases to avoid.
+        assert "el coche azul" in fake_llm.table_prompts[1]
 
         assert result["should_fragment"] is True
         assert len(result["fragmented_tables"]) == 4
@@ -191,6 +204,32 @@ class TestAdjectiveTableGeneration:
         assert result["fragmented_tables"][2]["title"].startswith(
             by_gender["title"]
         )
+
+        singular, plural, masculine, feminine = result["fragmented_tables"]
+        assert singular["title"] == f"{by_number['title']} — Singular"
+        assert plural["title"] == f"{by_number['title']} — Plural"
+        assert masculine["title"] == f"{by_gender['title']} — Masculino"
+        assert feminine["title"] == f"{by_gender['title']} — Femenino"
+        # Base titles are distinct so fragment grouping stays unambiguous.
+        assert by_number["title"] != by_gender["title"]
+        # Headers disambiguate the two generals: Sg/Pl vs M/F first headers.
+        assert by_number["headers"][0] == "Singular"
+        assert by_number["headers"][4] == "Plural"
+        assert by_gender["headers"][0] == "Masculino"
+        assert by_gender["headers"][4] == "Femenino"
+        # Fragments are strict slices: identical cell values to the generals.
+        assert [row["cells"] for row in singular["rows"]] == [
+            row["cells"][:4] for row in by_number["rows"]
+        ]
+        assert [row["cells"] for row in plural["rows"]] == [
+            row["cells"][4:] for row in by_number["rows"]
+        ]
+        assert [row["cells"] for row in masculine["rows"]] == [
+            row["cells"][:4] for row in by_gender["rows"]
+        ]
+        assert [row["cells"] for row in feminine["rows"]] == [
+            row["cells"][4:] for row in by_gender["rows"]
+        ]
 
         merged = select_adjective_tables(
             [
