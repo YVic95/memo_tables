@@ -11,7 +11,9 @@ from graphs.models import DeducedBaseWords, DeducedBaseWord
 from models.word_categories import WordCategory
 from tests.graphs.generation_helpers import (
     ADJ_AGREEMENT_TABLE,
+    ADJ_GENDER_HEADERS,
     ADJ_GENDER_TABLE,
+    ADJ_NUMBER_HEADERS,
     ADJ_NUMBER_TABLE,
     ADJ_OTHER_TABLE,
     NOUN_GENDER_TABLE,
@@ -457,7 +459,13 @@ class TestDeduceAdjectiveBaseWordNode:
         result = deduce_base_word_node(state)
 
         by_text = {item["text"]: item for item in result["base_words_to_save"]}
-        assert set(by_text) == {"rojo", "altos"}
+        assert set(by_text) == {"rojo", "alto"}
+        assert set(by_text["alto"]["forms"]) == {
+            "altos",
+            "altas",
+            "los chicos altos",
+            "las chicas altas",
+        }
         assert result["base_word_translations"] == {}
 
     def test_other_layout_saves_one_base_word_per_row(
@@ -528,3 +536,168 @@ class TestDeduceAdjectiveBaseWordNode:
 
         assert result["base_words_to_save"] == []
         assert result["base_word_translations"] == {}
+
+
+def _pair_row(left_form: str, right_form: str) -> dict:
+    return {
+        "cells": [
+            left_form,
+            f"{left_form} translation",
+            "explanation",
+            "Example sentence.",
+            right_form,
+            f"{right_form} translation",
+            "explanation",
+            "Example sentence.",
+        ]
+    }
+
+
+def _pair_table(rows: list[dict], headers: list[str], layout: str) -> dict:
+    return {
+        "title": "Adjetivos",
+        "headers": headers,
+        "rows": rows,
+        "adjective_table_layout": layout,
+    }
+
+
+class TestDeduceAdjectiveLemmatization:
+    def _adj_state(self, db_session, grammar_rule, language, tables):
+        return _make_state(
+            db_session,
+            grammar_rule,
+            word_category_slug="adjective",
+            target_language_id=language.id,
+            tables=tables,
+        )
+
+    def test_plural_gender_rows_lemmatize_to_masculine_singular(
+        self, db_session, grammar_rule, language_es
+    ):
+        table = _pair_table(
+            [
+                _pair_row("los libros *nuevos*", "las mesas *nuevas*"),
+                _pair_row("los chicos *alemanes*", "las chicas *alemanas*"),
+                _pair_row("los coches *grandes*", "las casas *grandes*"),
+                _pair_row("los coches *fuertes*", "las casas *fuertes*"),
+                _pair_row("los libros *azules*", "las mesas *azules*"),
+                _pair_row("los libros *comunes*", "las mesas *comunes*"),
+                _pair_row("los libros *mejores*", "las mesas *mejores*"),
+                _pair_row(
+                    "los libros *sensibles*", "las mesas *sensibles*"
+                ),
+                _pair_row("los libros *fáciles*", "las mesas *fáciles*"),
+                _pair_row("los chicos *jóvenes*", "las chicas *jóvenes*"),
+                _pair_row("los chicos *capaces*", "las chicas *capaces*"),
+            ],
+            ADJ_GENDER_HEADERS,
+            "adj_gender",
+        )
+        state = self._adj_state(db_session, grammar_rule, language_es, [table])
+
+        result = deduce_base_word_node(state)
+
+        by_text = {item["text"]: item for item in result["base_words_to_save"]}
+        assert set(by_text) == {
+            "nuevo",
+            "alemán",
+            "grande",
+            "fuerte",
+            "azul",
+            "común",
+            "mejor",
+            "sensible",
+            "fácil",
+            "joven",
+            "capaz",
+        }
+        for plural in (
+            "nuevos",
+            "nuevas",
+            "alemanes",
+            "alemanas",
+            "grandes",
+            "fuertes",
+            "azules",
+            "comunes",
+            "mejores",
+            "sensibles",
+            "fáciles",
+            "jóvenes",
+            "capaces",
+        ):
+            assert plural not in by_text
+        assert set(by_text["alemán"]["forms"]) == {
+            "alemanes",
+            "alemanas",
+            "los chicos alemanes",
+            "las chicas alemanas",
+        }
+
+    def test_singular_and_plural_rows_for_one_adjective_merge(
+        self, db_session, grammar_rule, language_es
+    ):
+        table = _pair_table(
+            [
+                _pair_row("el libro *grande*", "los libros *grandes*"),
+                _pair_row("los coches *grandes*", "las casas *grandes*"),
+            ],
+            ADJ_GENDER_HEADERS,
+            "adj_gender",
+        )
+        state = self._adj_state(db_session, grammar_rule, language_es, [table])
+
+        result = deduce_base_word_node(state)
+
+        assert [item["text"] for item in result["base_words_to_save"]] == ["grande"]
+        assert set(result["base_words_to_save"][0]["forms"]) == {
+            "grande",
+            "grandes",
+            "el libro grande",
+            "los libros grandes",
+            "los coches grandes",
+            "las casas grandes",
+        }
+
+    def test_feminine_number_rows_lemmatize_to_masculine(
+        self, db_session, grammar_rule, language_es
+    ):
+        table = _pair_table(
+            [
+                _pair_row("la mesa *bonita*", "las mesas *bonitas*"),
+                _pair_row(
+                    "la trabajadora *trabajadora*", "las trabajadoras *trabajadoras*"
+                ),
+                _pair_row("la chica *española*", "las chicas *españolas*"),
+            ],
+            ADJ_NUMBER_HEADERS,
+            "adj_number",
+        )
+        state = self._adj_state(db_session, grammar_rule, language_es, [table])
+
+        result = deduce_base_word_node(state)
+
+        by_text = {item["text"]: item for item in result["base_words_to_save"]}
+        assert set(by_text) == {"bonito", "trabajador", "español"}
+
+    def test_non_spanish_target_keeps_tokens_unchanged(
+        self, db_session, grammar_rule
+    ):
+        from models.language import Language
+
+        german = Language(code="de", name="German")
+        db_session.add(german)
+        db_session.commit()
+        db_session.refresh(german)
+
+        table = _pair_table(
+            [_pair_row("das *gutes* Buch", "die *guten* Bücher")],
+            ADJ_GENDER_HEADERS,
+            "adj_gender",
+        )
+        state = self._adj_state(db_session, grammar_rule, german, [table])
+
+        result = deduce_base_word_node(state)
+
+        assert [item["text"] for item in result["base_words_to_save"]] == ["gutes"]

@@ -263,3 +263,56 @@ class TestAdjectiveTableKinds:
         )
         assert not is_adjective_pair_table(self._table(["A", "B", "C", "D"], "adj_other"))
         assert not is_adjective_pair_table(self._table(["A", "B", "C"], None))
+
+
+class TestSpanishAdjectiveMasculineSingular:
+    @pytest.mark.parametrize(
+        "token,counterpart,expected",
+        [
+            # Already masculine singular.
+            ("rojo", None, "rojo"),
+            ("grande", None, "grande"),
+            ("francés", None, "francés"),
+            ("joven", None, "joven"),
+            # -os/-as plurals.
+            ("rojos", "rojas", "rojo"),
+            ("nuevos", "nuevas", "nuevo"),
+            ("bonitas", None, "bonito"),
+            # Gender-inflecting -es plurals (counterpart differs).
+            ("alemanes", "alemanas", "alemán"),
+            ("españoles", "españolas", "español"),
+            ("trabajadores", "trabajadoras", "trabajador"),
+            ("franceses", "francesas", "francés"),
+            # Invariant -es plurals (counterpart identical).
+            ("grandes", "grandes", "grande"),
+            ("fuertes", "fuertes", "fuerte"),
+            ("azules", "azules", "azul"),
+            ("comunes", "comunes", "común"),
+            ("mejores", "mejores", "mejor"),
+            ("sensibles", "sensibles", "sensible"),
+            ("inteligentes", "inteligentes", "inteligente"),
+            ("fáciles", "fáciles", "fácil"),
+            ("jóvenes", "jóvenes", "joven"),
+            ("capaces", "capaces", "capaz"),
+            # Feminine singulars.
+            ("bonita", None, "bonito"),
+            ("alta", None, "alto"),
+            ("trabajadora", None, "trabajador"),
+            ("española", None, "español"),
+            ("francesa", None, "francés"),
+            ("llorona", None, "llorón"),
+            ("monótona", None, "monótono"),
+            ("gruesa", None, "grueso"),
+            # Invariant and ambiguous forms stay untouched.
+            ("realista", None, "realista"),
+            ("idiota", None, "idiota"),
+            ("alemana", None, "alemana"),
+            ("gratis", None, "gratis"),
+            ("Este", None, "Este"),
+            ("el libro rojo", None, "el libro rojo"),
+        ],
+    )
+    def test_lemmas(self, token, counterpart, expected):
+        from graphs.table_utils import spanish_adjective_masculine_singular
+
+        assert spanish_adjective_masculine_singular(token, counterpart) == expected

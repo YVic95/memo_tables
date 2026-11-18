@@ -14,6 +14,7 @@ from graphs.table_utils import (
     noun_side_cell,
     require_noun_layout,
     role_to_column,
+    spanish_adjective_masculine_singular,
     strip_adjective_italics,
     tokenize_words,
 )
@@ -183,15 +184,18 @@ def _adjective_base_words_and_translations(
     tables: list[dict],
     language_id,
     word_category_id,
+    target_is_spanish: bool = False,
 ):
     """Build adjective base words directly from the form/translation cells.
 
-    Every pair row contributes exactly one base word: the bare adjective
-    extracted from the left (masculine/singular) form cell's ``*...*``
-    markers. The right side's bare adjective joins the surface forms, and
-    the full stripped carrier phrases from both sides are also recorded as
-    surface forms so the save path (which matches on phrase cells) still
-    links word forms. Bare-adjective translations are left for the
+    Every pair row contributes exactly one base word: the masculine singular
+    lemma of the bare adjective extracted from the left
+    (masculine/singular) form cell's ``*...*`` markers. Plural tokens
+    (nuevos, grandes, alemanes) and unambiguous feminine tokens (bonita,
+    trabajadora) collapse to that lemma; the original tokens and the full
+    stripped carrier phrases from both sides are still recorded as surface
+    forms so the save path (which matches on phrase cells) still links word
+    forms. Bare-adjective translations are left for the
     translate-base-words step, which renders them via LLM. Other-rule
     tables contribute one base word per row.
     """
@@ -220,6 +224,11 @@ def _adjective_base_words_and_translations(
         surface_forms = [strip_adjective_italics(surface) for surface in surface_forms]
         add(form, surface_forms, translation)
 
+    def lemma(token: str, counterpart: str | None = None) -> str:
+        if not target_is_spanish:
+            return token
+        return spanish_adjective_masculine_singular(token, counterpart)
+
     for table in tables:
         kind = _adjective_table_kind(table)
 
@@ -245,14 +254,14 @@ def _adjective_base_words_and_translations(
 
             if left_token:
                 add(
-                    left_token,
+                    lemma(left_token, right_token),
                     [token for token in (left_token, right_token) if token]
                     + [phrase for phrase in (left_phrase, right_phrase) if phrase],
                     "",
                 )
             elif right_token:
                 add(
-                    right_token,
+                    lemma(right_token),
                     [right_token, right_phrase] if right_phrase else [right_token],
                     "",
                 )
@@ -299,10 +308,14 @@ def deduce_base_word_node(state: SaveTableState) -> SaveTableState:
     if is_adjective:
         kinds = {_adjective_table_kind(table) for table in state["tables"]}
         if kinds and kinds <= {"pair", "other"}:
+            target_language_name = get_language_name_by_id(
+                state["db"], state["target_language_id"]
+            )
             base_words, translations = _adjective_base_words_and_translations(
                 state["tables"],
                 state["target_language_id"],
                 rule.word_category_id,
+                target_is_spanish="spanish" in target_language_name.lower(),
             )
             return {
                 **state,

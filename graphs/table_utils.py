@@ -112,6 +112,126 @@ def extract_adjective_token(form: str) -> str:
     return strip_adjective_italics(form)
 
 
+# Spanish adjective lemmatization: pair tables may hold plural or feminine
+# carrier phrases, but adjective base words must be masculine singular
+# dictionary forms. Everything below is Spanish-specific on purpose; other
+# target languages keep their tokens unchanged (see deduce_base_word_node).
+_SPANISH_ACCENTED_TO_PLAIN = str.maketrans("áéíóúü", "aeiouu")
+_SPANISH_PLAIN_TO_ACCENTED = {"a": "á", "e": "é", "i": "í", "o": "ó", "u": "ú"}
+# Single consonants that can close a masculine singular adjective stem.
+_SPANISH_SINGLE_CODAS = frozenset("lrnsz")
+# Feminine endings whose masculine drops the final -a (consonant stems).
+_SPANISH_STRIP_A_SUFFIXES = (
+    "dora",
+    "tora",
+    "sora",
+    "ola",
+    "cesa",
+    "gesa",
+    "lesa",
+    "sesa",
+    "guesa",
+    "nesa",
+)
+# Ambiguous feminine endings kept as-is (masculine could be -o or consonant,
+# e.g. alemana/alemán vs cercana/cercano): never emit a broken masculine.
+_SPANISH_KEEP_FEMININE_SUFFIXES = ("ista", "iota", "ana", "ota")
+
+
+def _remove_spanish_accents(word: str) -> str:
+    return word.translate(_SPANISH_ACCENTED_TO_PLAIN)
+
+
+def _add_accent_on_last_vowel(word: str) -> str:
+    for index in range(len(word) - 1, -1, -1):
+        if word[index] in _SPANISH_PLAIN_TO_ACCENTED:
+            return (
+                word[:index]
+                + _SPANISH_PLAIN_TO_ACCENTED[word[index]]
+                + word[index + 1 :]
+            )
+    return word
+
+
+def _accented_if_ends_n_or_s(word: str) -> str:
+    if word.endswith(("n", "s")):
+        return _add_accent_on_last_vowel(word)
+    return word
+
+
+def _singularize_spanish_adjective(token: str, counterpart: str | None) -> str:
+    """Map a Spanish adjective token to its singular form.
+
+    `counterpart` is the same row's other-side token (feminine for a
+    masculine token): when it differs, the adjective inflects for gender,
+    so an -es plural must be consonant stem + "es".
+    """
+    if len(token) > 3 and token.endswith("ces"):
+        return token[:-3] + "z"
+    if len(token) > 2 and token.endswith(("os", "as")):
+        return token[:-1]
+    if len(token) > 3 and token.endswith("es") and not token.endswith("és"):
+        stem = token[:-2]
+        if counterpart is not None and counterpart != token:
+            return _accented_if_ends_n_or_s(stem)
+        if any(char in "áéíóú" for char in token):
+            singular = stem
+            if singular.endswith(("n", "s")):
+                return _remove_spanish_accents(singular)
+            return singular
+        if (
+            len(stem) >= 2
+            and stem[-1] in _SPANISH_SINGLE_CODAS
+            and stem[-2] in "aeiou"
+        ):
+            return _accented_if_ends_n_or_s(stem)
+        return token[:-1]
+    return token
+
+
+def _masculinize_spanish_adjective(singular: str) -> str:
+    """Map a Spanish singular adjective token to masculine singular."""
+    if not singular.endswith("a") or len(singular) < 3:
+        return singular
+    if singular.endswith(_SPANISH_KEEP_FEMININE_SUFFIXES):
+        return singular
+    if singular.endswith(_SPANISH_STRIP_A_SUFFIXES):
+        return _accented_if_ends_n_or_s(singular[:-1])
+    if singular.endswith("ona") and not any(
+        char in "áéíóú" for char in singular
+    ):
+        return _accented_if_ends_n_or_s(singular[:-1])
+    return singular[:-1] + "o"
+
+
+def spanish_adjective_masculine_singular(
+    token: str, counterpart: str | None = None
+) -> str:
+    """Return the masculine singular dictionary form of a Spanish adjective.
+
+    Plural tokens collapse to singular (grandes -> grande, nuevos -> nuevo,
+    alemanes -> alemán) and unambiguous feminine tokens to masculine
+    (bonita -> bonito, trabajadora -> trabajador, española -> español).
+    Ambiguous feminine forms (alemana vs cercana) and multi-word inputs are
+    returned unchanged rather than guessed.
+    """
+    text = token.strip()
+    if not text or " " in text.strip():
+        return token
+    lowered = text.lower()
+    counterpart_lowered = (
+        counterpart.strip().lower() if counterpart and counterpart.strip() else None
+    )
+    lemma = _masculinize_spanish_adjective(
+        _singularize_spanish_adjective(lowered, counterpart_lowered)
+    )
+    if text.isupper():
+        return lemma.upper()
+    if text[:1].isupper():
+        return lemma[:1].upper() + lemma[1:]
+    return lemma
+
+
 def require_noun_layout(layout: str | NounTableLayout | None) -> NounTableLayout:
     """Validate a noun table layout, accepting raw strings and enum members."""
     try:
