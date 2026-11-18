@@ -6,6 +6,7 @@ from langchain_core.prompts import BasePromptTemplate
 from graphs.models import TableData
 from graphs.prompts import (
     choose_adjective_table_prompt,
+    generate_adjective_gender_table_prompt,
     generate_adjective_gender_or_agreement_table_prompt,
     generate_adjective_number_table_prompt,
     generate_adjective_other_table_prompt,
@@ -65,7 +66,7 @@ def adjective_rule_text(state: GenerateTableState) -> dict[str, str]:
 def adjective_avoid_phrases(entry_table: TableData) -> dict[str, str]:
     """Form-cell phrases of the entry table, to keep the companion fresh.
 
-    The gender / agreement by-gender prompt receives these as {avoid_phrases}
+    The agreement by-gender prompt receives these as {avoid_phrases}
     and must choose different adjectives and carrier nouns.
     """
     phrases: list[str] = []
@@ -94,6 +95,7 @@ CATEGORY_CONFIG: dict[str, CategoryConfig] = {
     "adjective": CategoryConfig(
         prompt_roles={
             "number": generate_adjective_number_table_prompt,
+            "gender": generate_adjective_gender_table_prompt,
             "gender_or_agreement": generate_adjective_gender_or_agreement_table_prompt,
             "other": generate_adjective_other_table_prompt,
         },
@@ -106,7 +108,7 @@ CATEGORY_CONFIG: dict[str, CategoryConfig] = {
                 validator=validate_adjective_pair_table,
             ),
             "adj_gender": LayoutPolicy(
-                prompt_role="gender_or_agreement",
+                prompt_role="gender",
                 validator=validate_adjective_pair_table,
             ),
             "adj_agreement": LayoutPolicy(

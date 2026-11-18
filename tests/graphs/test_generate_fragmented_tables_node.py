@@ -254,6 +254,42 @@ class TestAdjectiveFragmentation:
         with pytest.raises(ValueError, match="8 columns"):
             generate_fragmented_tables_node(state)
 
+    def test_single_number_general_splits_into_two_fragments(self, monkeypatch):
+        monkeypatch.setattr(node_module, "fragmentation_chain", _ExplodingChain())
+        state = {
+            "word_category_slug": "adjective",
+            "general_tables": [ADJ_NUMBER_TABLE.model_dump()],
+        }
+
+        result = generate_fragmented_tables_node(state)
+
+        assert result["should_fragment"] is True
+        assert len(result["fragmented_tables"]) == 2
+        singular, plural = result["fragmented_tables"]
+        assert singular["title"] == f"{ADJ_NUMBER_TABLE.title} — Singular"
+        assert plural["title"] == f"{ADJ_NUMBER_TABLE.title} — Plural"
+        assert [f["adjective_table_layout"] for f in (singular, plural)] == [
+            "adj_number"
+        ] * 2
+
+    def test_single_gender_general_splits_into_two_fragments(self, monkeypatch):
+        monkeypatch.setattr(node_module, "fragmentation_chain", _ExplodingChain())
+        state = {
+            "word_category_slug": "adjective",
+            "general_tables": [ADJ_GENDER_TABLE.model_dump()],
+        }
+
+        result = generate_fragmented_tables_node(state)
+
+        assert result["should_fragment"] is True
+        assert len(result["fragmented_tables"]) == 2
+        masculine, feminine = result["fragmented_tables"]
+        assert masculine["title"] == f"{ADJ_GENDER_TABLE.title} — Masculino"
+        assert feminine["title"] == f"{ADJ_GENDER_TABLE.title} — Femenino"
+        assert [f["adjective_table_layout"] for f in (masculine, feminine)] == [
+            "adj_gender"
+        ] * 2
+
 
 class TestAgreementFragmentation:
     def test_agreement_table_splits_into_masculine_and_feminine(self, monkeypatch):

@@ -81,7 +81,11 @@ class TestAdjectiveTableGeneration:
 
         assert result["word_category_slug"] == "adjective"
         assert "general_table" not in result
-        assert result["general_tables"] == [ADJ_NUMBER_TABLE.model_dump()]
+        assert result["general_tables"] == [
+            ADJ_NUMBER_TABLE.model_copy(
+                update={"title": "Adjective Number and Gender"}
+            ).model_dump()
+        ]
         assert fake_llm.classifier_prompts[0] == (
             choose_adjective_table_prompt.format(
                 rule_name="Adjective Number and Gender",
@@ -101,10 +105,42 @@ class TestAdjectiveTableGeneration:
 
         assert result["should_fragment"] is True
         singular, plural = result["fragmented_tables"]
-        assert singular["title"] == f"{ADJ_NUMBER_TABLE.title} — Singular"
-        assert plural["title"] == f"{ADJ_NUMBER_TABLE.title} — Plural"
+        assert singular["title"] == "Adjective Number and Gender — Singular"
+        assert plural["title"] == "Adjective Number and Gender — Plural"
         assert [f["adjective_table_layout"] for f in (singular, plural)] == [
             "adj_number"
+        ] * 2
+
+    def test_gender_only_rule_yields_one_general_and_two_fragments(
+        self, monkeypatch, db_session, language_es, language_en
+    ):
+        rule = _adjective_grammar_rule(db_session, language_es, language_en)
+        fake_llm = FakeAdjectiveLLM("adj_gender", [ADJ_GENDER_TABLE])
+        monkeypatch.setattr(
+            "graphs.table_generator.llm", fake_llm
+        )
+
+        result = graph.invoke({
+            "db": db_session,
+            "grammar_rule_id": rule.id,
+            "native_language": PROMPT_VARIABLES["native_language"],
+            "target_language": PROMPT_VARIABLES["target_language"],
+        })
+
+        assert result["word_category_slug"] == "adjective"
+        assert result["general_tables"] == [
+            ADJ_GENDER_TABLE.model_copy(
+                update={"title": "Adjective Number and Gender"}
+            ).model_dump()
+        ]
+        assert len(fake_llm.table_prompts) == 1
+
+        assert result["should_fragment"] is True
+        masculine, feminine = result["fragmented_tables"]
+        assert masculine["title"] == "Adjective Number and Gender — Masculino"
+        assert feminine["title"] == "Adjective Number and Gender — Femenino"
+        assert [f["adjective_table_layout"] for f in (masculine, feminine)] == [
+            "adj_gender"
         ] * 2
 
     def test_agreement_rule_yields_two_generals_and_four_fragments(

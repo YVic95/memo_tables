@@ -62,21 +62,25 @@ def _apply_adjective_titles(
     Number-only / gender-only generals use the rule name verbatim;
     agreement generals derive "<rule> by number" / "<rule> by gender".
     Other-rule tables keep the model's title.
+
+    Titles are applied on copies so the passed-in TableData objects are
+    never mutated in place (callers may reuse them, e.g. shared test
+    fixtures).
     """
     if state.get("word_category_slug") != "adjective":
         return
     rule_name = (state.get("rule_name") or "").strip()
     if not rule_name:
         return
-    for table in tables:
+    for index, table in enumerate(tables):
         layout = table.adjective_table_layout
         value = layout.value if hasattr(layout, "value") else str(layout)
         if value == "adj_number" or value == "adj_gender":
-            table.title = rule_name
+            tables[index] = table.model_copy(update={"title": rule_name})
         elif value == "adj_agreement_number":
-            table.title = f"{rule_name} by number"
+            tables[index] = table.model_copy(update={"title": f"{rule_name} by number"})
         elif value == "adj_agreement_gender":
-            table.title = f"{rule_name} by gender"
+            tables[index] = table.model_copy(update={"title": f"{rule_name} by gender"})
 
 
 def _generate_from_classifier(
@@ -100,13 +104,6 @@ def _generate_from_classifier(
     prompt = config.prompt_roles[route.prompt_role]
 
     additional_prompt_variables: dict[str, str] = {}
-    # The shared gender-or-agreement prompt always takes {avoid_phrases}:
-    # the standalone gender-only use passes an empty list.
-    if (
-        route.prompt_role == "gender_or_agreement"
-        and route.companion_prompt_role is None
-    ):
-        additional_prompt_variables = {"avoid_phrases": ""}
     entry_table = _invoke_table_prompt(prompt, state, additional_prompt_variables)
 
     if route.validator is not None:

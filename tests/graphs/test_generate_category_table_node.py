@@ -12,6 +12,7 @@ from graphs.nodes.generate_category_table_node import generate_category_table_no
 from graphs.table_validators import validate_noun_table
 from graphs.prompts import (
     choose_adjective_table_prompt,
+    generate_adjective_gender_table_prompt,
     generate_adjective_gender_or_agreement_table_prompt,
     generate_adjective_number_table_prompt,
     generate_adjective_other_table_prompt,
@@ -244,17 +245,31 @@ class TestAdjectiveTableGeneration:
         )
         assert len(fake_llm.table_prompts) == 1
 
-    def test_gender_choice_runs_shared_prompt_with_no_avoid_list(
+    def test_gender_choice_runs_standalone_gender_prompt(
         self, monkeypatch
     ):
         _, fake_llm = self._run_gender(monkeypatch)
 
         assert fake_llm.table_prompts[0] == (
-            generate_adjective_gender_or_agreement_table_prompt.format(
-                **PROMPT_VARIABLES,
-                avoid_phrases="",
-            )
+            generate_adjective_gender_table_prompt.format(**PROMPT_VARIABLES)
         )
+        assert len(fake_llm.table_prompts) == 1
+
+    def test_gender_prompt_takes_no_avoid_variables(self):
+        assert set(generate_adjective_gender_table_prompt.input_variables) == {
+            "native_language",
+            "target_language",
+            "rule_name",
+            "rule_description",
+        }
+
+    def test_number_prompt_takes_no_avoid_variables(self):
+        assert set(generate_adjective_number_table_prompt.input_variables) == {
+            "native_language",
+            "target_language",
+            "rule_name",
+            "rule_description",
+        }
 
     def test_classifier_input_is_rule_text_only(self, monkeypatch):
         _, fake_llm = self._run_number(monkeypatch)
@@ -269,13 +284,21 @@ class TestAdjectiveTableGeneration:
         result, _ = self._run_number(monkeypatch)
 
         assert "general_table" not in result
-        assert result["general_tables"] == [ADJ_NUMBER_TABLE.model_dump()]
+        assert result["general_tables"] == [
+            ADJ_NUMBER_TABLE.model_copy(
+                update={"title": PROMPT_VARIABLES["rule_name"]}
+            ).model_dump()
+        ]
 
     def test_gender_choice_returns_a_single_general_table(self, monkeypatch):
         result, _ = self._run_gender(monkeypatch)
 
         assert "general_table" not in result
-        assert result["general_tables"] == [ADJ_GENDER_TABLE.model_dump()]
+        assert result["general_tables"] == [
+            ADJ_GENDER_TABLE.model_copy(
+                update={"title": PROMPT_VARIABLES["rule_name"]}
+            ).model_dump()
+        ]
 
     def test_number_and_gender_outputs_mark_only_form_cells(self, monkeypatch):
         for run in (self._run_number, self._run_gender):
@@ -449,6 +472,7 @@ class TestAdjectivePromptContent:
         )
         for prompt in (
             generate_adjective_number_table_prompt,
+            generate_adjective_gender_table_prompt,
             generate_adjective_gender_or_agreement_table_prompt,
             generate_adjective_other_table_prompt,
         ):
@@ -544,29 +568,52 @@ class TestAdjectivePromptContent:
         assert "5. Plural" in template
         assert '"adj_other"' not in template
 
-    def test_shared_prompt_describes_the_masculine_feminine_columns(self):
-        template = generate_adjective_gender_or_agreement_table_prompt.template
+    def test_gender_prompt_describes_the_masculine_feminine_columns(self):
+        template = generate_adjective_gender_table_prompt.template
 
         assert "adjective_table_layout" in template
         assert '"adj_gender"' in template
+        assert '"adj_agreement_gender"' not in template
+        assert "GENDER LAYOUT" in template
+        assert "1. Masculine" in template
+        assert "5. Feminine" in template
+
+    def test_gender_prompt_has_no_avoid_list(self):
+        template = generate_adjective_gender_table_prompt.template
+
+        assert "{avoid_phrases}" not in template
+        assert "avoid" not in template.lower()
+
+    def test_agreement_companion_prompt_describes_the_masculine_feminine_columns(self):
+        template = generate_adjective_gender_or_agreement_table_prompt.template
+
+        assert "adjective_table_layout" in template
         assert '"adj_agreement_gender"' in template
         assert "1. Masculine" in template
         assert "5. Feminine" in template
 
-    def test_shared_prompt_covers_companion_and_standalone_uses(self):
+    def test_gender_prompt_is_standalone_single_general(self):
+        template = generate_adjective_gender_table_prompt.template
+        normalized = " ".join(template.split())
+
+        assert "standalone" in template.lower()
+        assert "single-general" in template.lower()
+        assert "{avoid_phrases}" not in template
+        assert "companion" not in template.lower()
+
+    def test_agreement_companion_prompt_keeps_the_avoid_list(self):
         template = generate_adjective_gender_or_agreement_table_prompt.template
         normalized = " ".join(template.split())
 
-        assert "companion" in template.lower()
-        assert "Standalone GENDER" in template
         assert "AGREEMENT by-gender" in template
         assert "{avoid_phrases}" in template
         assert "Do not reuse these adjectives or carrier nouns" in template
-        assert "same KIND of adjectives" in normalized
+        assert "same kind" in normalized
 
-    def test_both_pair_prompts_require_carrier_phrases_and_mark_only_the_adjective(self):
+    def test_single_general_prompts_require_carrier_phrases_and_mark_only_the_adjective(self):
         for template in (
             generate_adjective_number_table_prompt.template,
+            generate_adjective_gender_table_prompt.template,
             generate_adjective_gender_or_agreement_table_prompt.template,
         ):
             normalized = " ".join(template.split())
@@ -578,6 +625,9 @@ class TestAdjectivePromptContent:
             assert "Do not mark the surrounding noun or any other words" in normalized
 
         assert "*roja*" in (
+            generate_adjective_gender_table_prompt.template
+        )
+        assert "*roja*" in (
             generate_adjective_gender_or_agreement_table_prompt.template
         )
 
@@ -586,29 +636,79 @@ class TestAdjectivePromptContent:
 
         assert "el libro *rojo* / los libros *rojos*" in template
 
-    def test_shared_prompt_shows_marked_masculine_feminine_exemplars(self):
+    def test_gender_prompt_shows_marked_masculine_feminine_exemplars(self):
+        template = generate_adjective_gender_table_prompt.template
+
+        assert "el libro *rojo* / la mesa *roja*" in template
+
+    def test_agreement_companion_shows_marked_masculine_feminine_exemplars(self):
         template = generate_adjective_gender_or_agreement_table_prompt.template
 
         assert "el libro *rojo* / la mesa *roja*" in template
 
-    def test_both_pair_prompts_require_eight_cells_and_pair_counts(self):
+    def test_single_general_prompts_require_eight_cells_and_pair_counts(self):
         for template in (
             generate_adjective_number_table_prompt.template,
+            generate_adjective_gender_table_prompt.template,
             generate_adjective_gender_or_agreement_table_prompt.template,
         ):
             assert "exactly eight cells" in template
             assert "Single-pattern rule: generate 2-3 pairs" in template
             assert "Multi-pattern rule: generate 4-6 pairs" in template
 
-    def test_pair_prompts_enforce_title_rules(self):
+    def test_single_general_prompts_use_the_rule_name_verbatim(self):
         number_template = generate_adjective_number_table_prompt.template
         assert "rule name verbatim" in number_template.lower()
+        gender_template = generate_adjective_gender_table_prompt.template
+        assert "rule name verbatim" in gender_template.lower()
+        assert "by gender" not in gender_template.lower()
+        assert "concordancia" in gender_template.lower()
+
+    def test_agreement_prompts_derive_by_number_and_by_gender_titles(self):
+        number_template = generate_adjective_number_table_prompt.template
         assert "by number" in number_template.lower()
-        gender_template = (
+        companion_template = (
             generate_adjective_gender_or_agreement_table_prompt.template
         )
-        assert "rule name verbatim" in gender_template.lower()
-        assert "by gender" in gender_template.lower()
+        assert "by gender" in companion_template.lower()
+
+    def test_number_prompt_states_frozen_gender_and_varying_number(self):
+        template = " ".join(
+            generate_adjective_number_table_prompt.template.lower().split()
+        )
+
+        assert "gender-invariant" in template
+        assert "only number changes" in template
+        assert "frozen" in template
+        assert "varying dimension is number" in template
+
+    def test_number_prompt_allows_mixed_genders_across_rows(self):
+        template = " ".join(
+            generate_adjective_number_table_prompt.template.lower().split()
+        )
+
+        assert "masculine nouns in some rows" in template
+        assert "feminine nouns in others" in template
+        assert "must name the gender used in that row" in template
+
+    def test_gender_prompt_states_frozen_number_and_varying_gender(self):
+        template = " ".join(
+            generate_adjective_gender_table_prompt.template.lower().split()
+        )
+
+        assert "number-invariant" in template
+        assert "only gender changes" in template
+        assert "frozen" in template
+        assert "varying dimension is gender" in template
+
+    def test_gender_prompt_allows_mixed_numbers_across_rows(self):
+        template = " ".join(
+            generate_adjective_gender_table_prompt.template.lower().split()
+        )
+
+        assert "singular nouns in some rows" in template
+        assert "plural nouns in others" in template
+        assert "must name the number used in that row" in template
 
     def test_other_prompt_marks_the_adjective_column_only(self):
         template = " ".join(generate_adjective_other_table_prompt.template.split())
